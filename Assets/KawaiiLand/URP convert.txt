@@ -1,0 +1,5 @@
+Go to the render pipeline folder, then import the URP package.
+
+In Demo scene change Light Intensity to 1.2 
+
+Activate the Depth Texture in URP Setting. 

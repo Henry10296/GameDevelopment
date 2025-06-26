@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d857319a596fb634ca7346745dd32dbb, type: 3}
+  m_Name: MapConfig
+  m_EditorClassIdentifier: 
+  mapName: 
+  sceneName: 
+  previewImage: {fileID: 0}
+  riskLevel: 1
+  isUnlocked: 1
+  minZombies: 2
+  maxZombies: 5
+  minShooters: 0
+  maxShooters: 2
+  minFood: 2
+  maxFood: 5
+  minWater: 2
+  maxWater: 5
+  minMedicine: 1
+  maxMedicine: 3
+  hasSpecialWeapon: 0
+  hasRadioEquipment: 0
+  hasKeyItem: 0
+  description: 
