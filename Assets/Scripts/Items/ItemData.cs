@@ -1,10 +1,21 @@
 ﻿using UnityEngine;
 
+public enum ItemType
+{
+    Food=1,
+    Water=2,
+    Medicine=3,
+    Weapon=4,
+    Ammo=5,
+    Key=6,
+    Material=7,
+}
 [CreateAssetMenu(fileName = "ItemData", menuName = "Game/Item Data")]
 public class ItemData : ScriptableObject
 {
     [Header("基础信息")]
     public string itemName;
+    public string itemID; 
     public Sprite icon;
     public ItemType itemType;
 

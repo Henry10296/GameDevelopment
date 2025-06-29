@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class MuzzleFlash : MonoBehaviour
+public class MuzzleFlash : MonoBehaviour//枪口闪光
 {
     private Light flashLight;
     private ParticleSystem particles;

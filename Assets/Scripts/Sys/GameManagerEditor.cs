@@ -16,20 +16,20 @@ public class GameManagerEditor : Editor
         
         if (Application.isPlaying)
         {
-            EditorGUILayout.LabelField($"Current State: {gameManager.CurrentState}");
+            EditorGUILayout.LabelField($"Current State: {gameManager.CurrentPhase}");
             EditorGUILayout.LabelField($"Current Day: {gameManager.CurrentDay}");
-            EditorGUILayout.LabelField($"Time of Day: {gameManager.TimeOfDay:0.00}");
+            //EditorGUILayout.LabelField($"Time of Day: {gameManager.TimeOfDay:0.00}");
             
             EditorGUILayout.Space();
             
             if (GUILayout.Button("Trigger Next Day"))
             {
-                gameManager.DebugNextDay();
+                
             }
             
             if (GUILayout.Button("End Game"))
             {
-                gameManager.DebugEndGame();
+                
             }
         }
         else

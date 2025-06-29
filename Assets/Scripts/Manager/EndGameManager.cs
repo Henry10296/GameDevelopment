@@ -43,7 +43,7 @@ public class EndGameManager : Singleton<EndGameManager>
     EndingType CalculateEndingType(bool hasRadio)
     {
         var familyStatus = FamilyManager.Instance?.GetOverallStatus() ?? FamilyStatus.AllDead;
-        var stats = GameData.Instance?.GetStatistics();
+        var stats = GameData.Instance?.Statistics;
         
         if (familyStatus == FamilyStatus.AllDead)
             return EndingType.AllDead;
@@ -94,7 +94,7 @@ public class EndGameManager : Singleton<EndGameManager>
     {
         if (statisticsText == null) return;
         
-        var stats = GameData.Instance?.GetStatistics();
+        var stats = GameData.Instance?.Statistics;
         if (stats == null) return;
         
         string statsText = $"游戏统计:\n";

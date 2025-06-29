@@ -21,7 +21,8 @@ public class MainMenuManager : Singleton<MainMenuManager>
         SetupButtons();
         LoadSettings();
         
-        if (versionText) versionText.text = "v1.0.0";
+        if (versionText)
+            versionText.text = $"v{Application.version}";
         if (settingsPanel) settingsPanel.SetActive(false);
     }
     
@@ -46,28 +47,28 @@ public class MainMenuManager : Singleton<MainMenuManager>
         PlayerPrefs.DeleteKey("SaveGame");
         
         // 开始新游戏
-        GameManager.Instance.ChangeGameState(GameState.Home);
-        GameManager.Instance.LoadScene("1_Home");
+        GameManager.Instance.StartNewGame();
+ 
     }
     
-    void ContinueGame()
+    void ContinueGame()//无法加载
     {
         // 加载存档
         if (PlayerPrefs.HasKey("SaveGame"))
         {
             // 这里可以实现存档加载逻辑
-            GameManager.Instance.ChangeGameState(GameState.Home);
+            GameManager.Instance.ChangePhase(GamePhase.Home);
             GameManager.Instance.LoadScene("1_Home");
         }
     }
     
-    void OpenSettings()
+    void OpenSettings()//打开设置
     {
         if (settingsPanel)
             settingsPanel.SetActive(!settingsPanel.activeSelf);
     }
     
-    void ExitGame()
+    void ExitGame()//退出游戏
     {
         #if UNITY_EDITOR
             UnityEditor.EditorApplication.isPlaying = false;
@@ -76,19 +77,19 @@ public class MainMenuManager : Singleton<MainMenuManager>
         #endif
     }
     
-    void OnVolumeChanged(float value)
+    void OnVolumeChanged(float value)//改音量
     {
         AudioListener.volume = value;
         PlayerPrefs.SetFloat("Volume", value);
     }
     
-    void OnFullscreenChanged(bool isFullscreen)
+    void OnFullscreenChanged(bool isFullscreen)//屏幕
     {
         Screen.fullScreen = isFullscreen;
         PlayerPrefs.SetInt("Fullscreen", isFullscreen ? 1 : 0);
     }
     
-    void LoadSettings()
+    void LoadSettings()//加载
     {
         // 加载音量设置
         float volume = PlayerPrefs.GetFloat("Volume", 1f);

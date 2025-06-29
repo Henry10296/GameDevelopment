@@ -24,7 +24,7 @@ public class StorySegment
 
 public class StoryManager : Singleton<StoryManager>
 {
-    public static StoryManager Instance;
+    /*public static StoryManager Instance;*/
     
     [Header("故事配置")]
     public List<StorySegment> storySegments;
@@ -39,20 +39,6 @@ public class StoryManager : Singleton<StoryManager>
     
     private int currentSegmentIndex = 0;
     private bool storyInProgress = false;
-    
-    void Awake()
-    {
-        if (Instance == null)
-        {
-            Instance = this;
-            InitializeStory();
-        }
-        else
-        {
-            Destroy(gameObject);
-        }
-    }
-    
     void InitializeStory()
     {
         // 初始化故事段落
@@ -209,7 +195,7 @@ public class StoryManager : Singleton<StoryManager>
         // 切换到家庭场景
         if (GameManager.Instance)
         {
-            GameManager.Instance.ChangeGameState(GameState.Home);
+            GameManager.Instance.ChangePhase(GamePhase.Home);
         }
     }
 }

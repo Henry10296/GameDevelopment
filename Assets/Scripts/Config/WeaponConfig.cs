@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.Serialization;
 
 [CreateAssetMenu(fileName = "WeaponConfig", menuName = "Game/Weapon Config")]
 public class WeaponConfig : ScriptableObject
@@ -8,25 +7,40 @@ public class WeaponConfig : ScriptableObject
     public WeaponData pistol;
     public WeaponData rifle;
     
-    [Header("通用设置")]
-    public LayerMask enemyLayer = -1;
-    public float defaultRange = 100f;
-    
-    [Header("音效")]
-    public AudioClip[] gunShotSounds;
-    [FormerlySerializedAs("ReloadSound")] public AudioClip reloadSound;
+    [Header("通用音效")]
+    public AudioClip reloadSound;
     public AudioClip emptyclipSound;
+    public AudioClip[] gunSounds;
+    
+    [Header("UI设置")]
+    public Sprite crosshairDefault;
+    public Sprite crosshairAiming;
+    public Color crosshairColor = Color.white;
+    
+    [Header("射击效果")]
+    public GameObject muzzleFlashPrefab;
+    public GameObject bulletHolePrefab;
+    public GameObject bulletTrailPrefab;
+    
+    [Header("瞄准设置")]
+    public float aimSensitivity = 0.5f;
+    public float aimFOV = 40f;
+    public float normalFOV = 60f;
     
     public AudioClip GetRandomGunSound()
     {
-        if (gunShotSounds.Length > 0)
-            return gunShotSounds[Random.Range(0, gunShotSounds.Length)];
-        return null;
+        if (gunSounds == null || gunSounds.Length == 0) return null;
+        return gunSounds[Random.Range(0, gunSounds.Length)];
     }
     
-    void OnValidate()
+    public WeaponData GetWeaponByType(WeaponType weaponType)
     {
-        if (pistol != null && pistol.range <= 0) pistol.range = defaultRange;
-        if (rifle != null && rifle.range <= 0) rifle.range = defaultRange;
+        return weaponType switch
+        {
+            WeaponType.Pistol => pistol,
+            WeaponType.Rifle => rifle,
+            _ => pistol
+        };
     }
 }
+

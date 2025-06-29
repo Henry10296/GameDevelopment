@@ -53,7 +53,27 @@ public class IntGameEvent : ScriptableObject
     
     public void UnregisterListener(IntGameEventListener listener) => listeners.Remove(listener);
 }
+public abstract class BaseGameEvent<T> : ScriptableObject
+{
+    private readonly List<IGameEventListener<T>> listeners = new();
+    
+    public void Raise(T value)
+    {
+        for (int i = listeners.Count - 1; i >= 0; i--)
+        {
+            if (listeners[i] != null) listeners[i].OnEventRaised(value);
+            else listeners.RemoveAt(i);
+        }
+    }
 
+    public void RegisterListener(IGameEventListener<T> listener) { if (!listeners.Contains(listener)) listeners.Add(listener); }
+    public void UnregisterListener(IGameEventListener<T> listener) => listeners.Remove(listener);
+}
+
+public interface IGameEventListener<T>
+{
+    void OnEventRaised(T value);
+}
 public class GameEventListener : MonoBehaviour
 {
     public GameEvent gameEvent;
@@ -75,4 +95,3 @@ public class IntGameEventListener : MonoBehaviour
     
     public void OnEventRaised(int value) => response?.Invoke(value);
 }
-

@@ -46,9 +46,9 @@ public class GameDebugger : MonoBehaviour
             showDebugInfo = !showDebugInfo;
         }
         
-        if (Input.GetKeyDown(KeyCode.F2) && GameStateManager.Instance)
+        if (Input.GetKeyDown(KeyCode.F2) && GameManager.Instance)
         {
-            GameStateManager.Instance.DebugNextDay();
+            /*GameManager.Instance.DebugNextDay();*/
         }
         
         if (Input.GetKeyDown(KeyCode.F3) && FamilyManager.Instance)
@@ -76,9 +76,9 @@ public class GameDebugger : MonoBehaviour
         }
         
         // 游戏状态信息
-        if (showGameState && GameStateManager.Instance != null)
+        if (showGameState && GameManager.Instance != null)
         {
-            yPos = DrawGameStateInfo(10f, yPos, panelWidth);
+           // yPos = DrawGameStateInfo(10f, yPos, panelWidth);
         }
         
         // 家庭状态信息
@@ -117,9 +117,9 @@ public class GameDebugger : MonoBehaviour
         return y + height + 5f;
     }
     
-    float DrawGameStateInfo(float x, float y, float width)
+    /*float DrawGameStateInfo(float x, float y, float width)
     {
-        var gm = GameStateManager.Instance;
+        var gm = GameManager.Instance;
         string gameText = $"=== 游戏状态 ===\n";
         gameText += $"当前阶段: {gm.CurrentPhase}\n";
         gameText += $"天数: {gm.CurrentDay} / {gm.config.maxDays}\n";
@@ -137,7 +137,7 @@ public class GameDebugger : MonoBehaviour
         GUI.Label(new Rect(x, y, width, height), gameText, guiStyle);
         
         return y + height + 5f;
-    }
+    }*/
     
     float DrawFamilyStatusInfo(float x, float y, float width)
     {
@@ -241,7 +241,7 @@ public class GameDebugger : MonoBehaviour
         // 第一行按钮
         if (GUI.Button(new Rect(x, y, buttonWidth, buttonHeight), "下一天 (F2)"))
         {
-            GameStateManager.Instance?.DebugNextDay();
+            GameManager.Instance?.AdvanceToNextDay();
         }
         
         if (GUI.Button(new Rect(x + buttonWidth + spacing, y, buttonWidth, buttonHeight), "添加资源 (F3)"))
@@ -251,7 +251,7 @@ public class GameDebugger : MonoBehaviour
         
         if (GUI.Button(new Rect(x + (buttonWidth + spacing) * 2, y, buttonWidth, buttonHeight), "结束游戏"))
         {
-            GameStateManager.Instance?.DebugGameEnd();
+            GameManager.Instance?.ChangePhase(GamePhase.GameEnd);
         }
         
         // 第二行按钮
@@ -277,7 +277,7 @@ public class GameDebugger : MonoBehaviour
         
         if (GUI.Button(new Rect(x, y, buttonWidth, buttonHeight), "跳到探索"))
         {
-            GameStateManager.Instance?.DebugSkipToExploration();
+            /*GameManager.Instance?.DebugSkipToExploration();*/
         }
         
         if (GUI.Button(new Rect(x + buttonWidth + spacing, y, buttonWidth, buttonHeight), "显示消息"))

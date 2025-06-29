@@ -159,6 +159,12 @@ public class InventoryManager : Singleton<InventoryManager>
         }
         return false;
     }
+
+    public void ClearInventory()
+    {
+        items.Clear();
+        UpdateUI();
+    }
 }
 
 [System.Serializable]

@@ -30,7 +30,7 @@ public class FamilyMember
     public bool IsInDanger => health < 30f || hunger < 20f || thirst < 20f;
     public bool NeedsAttention => IsInDanger || isSick || isInjured;
     
-    public void ProcessDailyNeeds(GameConfiguration config)
+    public void ProcessDailyNeeds(FamilyConfig config)
     {
         // 每日基础消耗
         hunger -= Random.Range(18f, 25f); // 轻微随机化
@@ -210,9 +210,9 @@ public class FamilyManager : Singleton<FamilyManager>
     
     void SubscribeToEvents()
     {
-        if (GameStateManager.Instance)
+        if (GameManager.Instance)
         {
-            GameStateManager.Instance.onDayChanged.RegisterListener(
+            GameManager.Instance.onDayChanged.RegisterListener(
                 GetComponent<IntGameEventListener>());
         }
     }
@@ -253,11 +253,17 @@ public class FamilyManager : Singleton<FamilyManager>
             };
         }
         
-        // 应用初始资源配置
-        if (GameStateManager.Instance?.config)
+        var familyConfig = GameManager.Instance?.Config?.familyConfig;
+        if (familyConfig != null)
         {
-            var config = GameStateManager.Instance.config;
-            food = 15;  // 固定初始值，可调整
+            food = familyConfig.initialFood;
+            water = familyConfig.initialWater;
+            medicine = familyConfig.initialMedicine;
+        }
+        else
+        {
+            // 使用默认值
+            food = 15;
             water = 15;
             medicine = 2;
         }
@@ -265,7 +271,7 @@ public class FamilyManager : Singleton<FamilyManager>
     
     public void ProcessDailyNeeds()
     {
-        var config = GameStateManager.Instance.config;
+        var config = GameManager.Instance?.Config?.familyConfig;
         
         // 消耗每日资源
         ConsumeResources(config.dailyFoodConsumption, config.dailyWaterConsumption);
@@ -347,7 +353,7 @@ public class FamilyManager : Singleton<FamilyManager>
     
     void RecordDailyStatus()
     {
-        int day = GameStateManager.Instance.CurrentDay;
+        int day = GameManager.Instance.CurrentDay;
         string statusReport = $"第{day}天结束。";
         
         // 资源状况
@@ -539,6 +545,11 @@ public class FamilyManager : Singleton<FamilyManager>
         }
         onMemberStatusChanged?.Raise();
         Debug.Log("[FamilyManager] All family members healed for debugging");
+    }
+
+    public void ResetFamily()
+    {
+        
     }
 }
 

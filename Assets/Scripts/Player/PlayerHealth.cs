@@ -108,9 +108,9 @@ public class PlayerHealth : Singleton<PlayerHealth>, IDamageable
         onPlayerDeath?.Raise();
         
         // 触发游戏结束
-        if (GameStateManager.Instance)
+        if (GameManager.Instance)
         {
-            GameStateManager.Instance.TransitionToPhase(GamePhase.GameEnd);
+            GameManager.Instance.ChangePhase(GamePhase.GameEnd);
         }
     }
 

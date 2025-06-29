@@ -23,13 +23,13 @@ public class GameSaveData
     public int medicine;
     
     [Header("库存数据")]
-    public InventoryItemSaveData[] inventoryItems;
+    public InventoryItemSaveData[] inventoryItems;//道具
     
     [Header("探索数据")]
     public bool[] unlockedMaps;
     public ExplorationStatsSaveData explorationStats;
     
-    [Header("无线电数据")]
+    [Header("无线电数据")]//这里赘余，很多特殊道具都可以保存，需要改
     public bool hasRadio;
     public bool[] broadcastDays;
     public bool goodEndingUnlocked;
@@ -152,9 +152,9 @@ public class SaveManager : Singleton<SaveManager>
     
     void SubscribeToEvents()
     {
-        if (GameStateManager.Instance)
+        if (GameManager.Instance)
         {
-            GameStateManager.Instance.onDayChanged.RegisterListener(
+            GameManager.Instance.onDayChanged.RegisterListener(
                 GetComponent<IntGameEventListener>());
         }
     }
@@ -175,14 +175,14 @@ public class SaveManager : Singleton<SaveManager>
             await System.IO.File.WriteAllTextAsync(filePath, json);
             
             onSaveCompleted?.Raise();
-            DualModeUIManager.Instance?.ShowMessage($"游戏已保存到槽位 {slotIndex + 1}", 2f);
+            UIManager.Instance?.ShowMessage($"游戏已保存到槽位 {slotIndex + 1}", 2f);
             
-            Debug.Log($"[SaveManager] Game saved to slot {slotIndex}: {saveData.saveName}");
+            Debug.Log($"[SaveManager] Game saved to      slot {slotIndex}: {saveData.saveName}");
         }
         catch (System.Exception e)
         {
             onSaveFailed?.Raise();
-            DualModeUIManager.Instance?.ShowMessage("保存失败!", 3f);
+            UIManager.Instance?.ShowMessage("保存失败!", 3f);
             Debug.LogError($"[SaveManager] Save failed: {e.Message}");
         }
     }
@@ -208,7 +208,7 @@ public class SaveManager : Singleton<SaveManager>
             {
                 ApplySaveData(saveData);
                 onLoadCompleted?.Raise();
-                DualModeUIManager.Instance?.ShowMessage($"游戏已从槽位 {slotIndex + 1} 加载", 2f);
+                UIManager.Instance?.ShowMessage($"游戏已从槽位 {slotIndex + 1} 加载", 2f);
                 
                 Debug.Log($"[SaveManager] Game loaded from slot {slotIndex}: {saveData.saveName}");
             }
@@ -216,7 +216,7 @@ public class SaveManager : Singleton<SaveManager>
         catch (System.Exception e)
         {
             onLoadFailed?.Raise();
-            DualModeUIManager.Instance?.ShowMessage("加载失败!", 3f);
+            UIManager.Instance?.ShowMessage("加载失败!", 3f);
             Debug.LogError($"[SaveManager] Load failed: {e.Message}");
         }
     }
@@ -226,10 +226,10 @@ public class SaveManager : Singleton<SaveManager>
         var saveData = new GameSaveData();
         
         // 游戏状态
-        if (GameStateManager.Instance)
+        if (GameManager.Instance)
         {
-            saveData.currentDay = GameStateManager.Instance.CurrentDay;
-            saveData.currentPhase = GameStateManager.Instance.CurrentPhase;
+            saveData.currentDay = GameManager.Instance.CurrentDay;
+            saveData.currentPhase = GameManager.Instance.CurrentPhase;
             saveData.gameProgress = (float)saveData.currentDay / 5f;
         }
         
@@ -276,7 +276,7 @@ public class SaveManager : Singleton<SaveManager>
     void ApplySaveData(GameSaveData saveData)
     {
         // 恢复游戏状态
-        if (GameStateManager.Instance)
+        if (GameManager.Instance)
         {
             // 这里需要小心处理状态恢复
             // 可能需要特殊的加载状态来安全恢复
@@ -302,7 +302,7 @@ public class SaveManager : Singleton<SaveManager>
         if (InventoryManager.Instance && saveData.inventoryItems != null)
         {
             // 清空当前库存
-            // InventoryManager.Instance.ClearInventory();
+            InventoryManager.Instance.ClearInventory();
             
             // 恢复保存的物品
             foreach (var itemSave in saveData.inventoryItems)
@@ -458,7 +458,7 @@ public class SaveManager : Singleton<SaveManager>
 }
 
 [System.Serializable]
-public class SaveSlotInfo
+public class SaveSlotInfo//信息
 {
     public int slotIndex;
     public bool isEmpty;

@@ -33,7 +33,7 @@ public class RandomEvent : ScriptableObject
     
     public bool CanTrigger()
     {
-        int currentDay = GameStateManager.Instance.CurrentDay;
+        int currentDay = GameManager.Instance.CurrentDay;
         
         // 检查日期范围
         if (currentDay < minDay || currentDay > maxDay)
@@ -66,6 +66,15 @@ public class RandomEvent : ScriptableObject
         return Mathf.Clamp01(chance);
     }
 }
+[CreateAssetMenu(fileName = "EventDayGroup", menuName = "Game/Random Event Group")]
+
+
+public class EventGroup : ScriptableObject
+{
+    public int day;
+    public List<RandomEvent> events;
+}
+
 
 public enum EventType
 {
@@ -242,7 +251,9 @@ public class EventEffect
     void ExecuteUnlockEffect()
     {
         if (unlockMap && MapManager.Instance)
+        {
             MapManager.Instance.UnlockMap(mapToUnlock);
+        }
     }
 }
 
@@ -271,7 +282,7 @@ public class EventCondition
             ConditionType.ResourceMinimum => CheckResourceMinimum(),
             ConditionType.FamilyHealthBelow => CheckFamilyHealth(),
             ConditionType.RadioFound => RadioManager.Instance?.hasRadio ?? false,
-            ConditionType.DayExact => GameStateManager.Instance.CurrentDay == intValue,
+            ConditionType.DayExact => GameManager.Instance.CurrentDay == intValue,
             ConditionType.Custom => boolValue,
             _ => true
         };
@@ -312,19 +323,7 @@ public enum ConditionType
     DayExact,          // 确切日期
     Custom             // 自定义条件
 }
-/*
-[System.Serializable]
-public partial class GameEvent
-{
-    public string eventName;
-    public string eventDescription;
-    public int dayToTrigger;
-    public GameEventType eventType;
-    public int resourceChange;
-    public string resourceType;
-    public bool isRandomEvent;
-    public float triggerChance = 0.3f;
-}
+
 
 public enum GameEventType
 {
@@ -337,12 +336,11 @@ public enum GameEventType
     SpecialEncounter   // 特殊遭遇
 }
 
-public class GameEventManager : MonoBehaviour
+public class GameEventManager : Singleton<GameEventManager>
 {
-    public static GameEventManager Instance;
     
     [Header("事件配置")]
-    public List<GameEvent> gameEvents;
+    public List<RandomEvent> configuredEvents;
     
     [Header("UI")]
     public GameObject eventPopupPanel;
@@ -352,91 +350,24 @@ public class GameEventManager : MonoBehaviour
     
     public static event Action<GameEvent> OnEventTriggered;
     
-    void Awake()
-    {
-        if (Instance == null)
-        {
-            Instance = this;
-            InitializeEvents();
-        }
-        else
-        {
-            Destroy(gameObject);
-        }
-    }
-    
     void Start()
     {
-        // 订阅天数变化事件
-        GameEvents.OnDayChanged += OnDayChanged;
-        
-        if (eventConfirmButton)
-            eventConfirmButton.onClick.AddListener(CloseEventPopup);
+        foreach (var evt in configuredEvents)
+        {
+            if (evt.CanTrigger())
+            {
+                float chance = evt.CalculateActualTriggerChance();
+                if (!evt.requiresChoice || UnityEngine.Random.value < chance)
+                {
+                    TriggerEvent(evt);
+                }
+            }
+        }
     }
     
     void InitializeEvents()
     {
-        gameEvents = new List<GameEvent>
-        {
-            // 第1天事件
-            new GameEvent
-            {
-                eventName = "邻居求助",
-                eventDescription = "邻居家的孩子生病了，他们请求你分享一些药品。",
-                dayToTrigger = 1,
-                eventType = GameEventType.ResourceLoss,
-                resourceChange = -1,
-                resourceType = "medicine",
-                isRandomEvent = true,
-                triggerChance = 0.4f
-            },
-            
-            // 第2天事件
-            new GameEvent
-            {
-                eventName = "军用物资投放",
-                eventDescription = "军方在附近投放了救援物资！",
-                dayToTrigger = 2,
-                eventType = GameEventType.ResourceGain,
-                resourceChange = 5,
-                resourceType = "food",
-                isRandomEvent = true,
-                triggerChance = 0.6f
-            },
-            
-            // 第3天固定事件
-            new GameEvent
-            {
-                eventName = "无线电信号",
-                eventDescription = "今天是发送救援信号的关键日子！",
-                dayToTrigger = 3,
-                eventType = GameEventType.RadioBroadcast,
-                isRandomEvent = false
-            },
-            
-            // 第4天事件
-            new GameEvent
-            {
-                eventName = "老鼠偷食",
-                eventDescription = "老鼠闯入了你们的储藏室，偷走了一些食物。",
-                dayToTrigger = 4,
-                eventType = GameEventType.ResourceLoss,
-                resourceChange = -2,
-                resourceType = "food",
-                isRandomEvent = true,
-                triggerChance = 0.3f
-            },
-            
-            // 第5天固定事件
-            new GameEvent
-            {
-                eventName = "最后的信号",
-                eventDescription = "这是发送救援信号的最后机会！",
-                dayToTrigger = 5,
-                eventType = GameEventType.RadioBroadcast,
-                isRandomEvent = false
-            }
-        };
+        Debug.Log($"[GameEventManager] 已加载配置事件数量: {configuredEvents.Count}");
     }
     
     void OnDayChanged(int newDay)
@@ -446,32 +377,49 @@ public class GameEventManager : MonoBehaviour
     
     void CheckDayEvents(int day)
     {
-        foreach (var gameEvent in gameEvents)
+        foreach (var evt in configuredEvents)
         {
-            if (gameEvent.dayToTrigger == day)
+            if (!evt.CanTrigger()) continue;
+            if (day < evt.minDay || day > evt.maxDay) continue;
+
+            float chance = evt.CalculateActualTriggerChance();
+            if (!evt.requiresChoice || UnityEngine.Random.value < chance)
             {
-                if (!gameEvent.isRandomEvent || UnityEngine.Random.Range(0f, 1f) < gameEvent.triggerChance)
-                {
-                    TriggerEvent(gameEvent);
-                }
+                TriggerEvent(evt);  // 用 RandomEvent 替代原 GameEvent
             }
         }
     }
     
-    void TriggerEvent(GameEvent gameEvent)
+    void TriggerEvent(RandomEvent evt)
     {
-        Debug.Log($"触发事件: {gameEvent.eventName}");
-        
-        // 应用事件效果
-        ApplyEventEffects(gameEvent);
-        
-        // 显示事件弹窗
-        ShowEventPopup(gameEvent);
-        
-        OnEventTriggered?.Invoke(gameEvent);
+        Debug.Log($"[事件] 触发：{evt.eventName}");
+
+        if (evt.requiresChoice && evt.choices != null && evt.choices.Length > 0)
+        {
+            ShowEventPopup(evt);  // 弹出 UI，保留函数名
+        }
+        else
+        {
+            foreach (var effect in evt.automaticEffects)
+            {
+                effect.Execute();
+            }
+
+            ShowEventPopup(evt);  // 也可以用于展示无选项的简短描述
+        }
+
+        // 支持后续事件链
+        if (evt.followupEvent != null)
+        {
+            GameManager.Instance.ScheduleEvent(evt.followupEvent, evt.followupDelay);
+        }
     }
-    
-    void ApplyEventEffects(GameEvent gameEvent)
+    public void TriggerEventExternally(RandomEvent evt)
+    {
+        TriggerEvent(evt); // 调用内部方法
+    }
+
+    /*void ApplyEventEffects(GameEvent gameEvent)
     {
         switch (gameEvent.eventType)
         {
@@ -501,16 +449,21 @@ public class GameEventManager : MonoBehaviour
                 }
                 break;
         }
-    }
+    }*/
     
-    void ShowEventPopup(GameEvent gameEvent)
+    void ShowEventPopup(RandomEvent evt)
     {
         if (eventPopupPanel)
         {
             eventPopupPanel.SetActive(true);
-            
-            if (eventTitleText) eventTitleText.text = gameEvent.eventName;
-            if (eventDescriptionText) eventDescriptionText.text = gameEvent.eventDescription;
+            if (eventTitleText) eventTitleText.text = evt.eventName;
+            if (eventDescriptionText) eventDescriptionText.text = evt.eventDescription;
+        }
+
+        if (eventConfirmButton)
+        {
+            eventConfirmButton.onClick.RemoveAllListeners();
+            eventConfirmButton.onClick.AddListener(CloseEventPopup);
         }
     }
     
@@ -520,8 +473,8 @@ public class GameEventManager : MonoBehaviour
             eventPopupPanel.SetActive(false);
     }
     
-    void OnDestroy()
+    protected override void OnDestroy()
     {
-        GameEvents.OnDayChanged -= OnDayChanged;
+        base.OnDestroy(); // 调用 Singleton 的 OnDestroy
     }
-}*/
+}

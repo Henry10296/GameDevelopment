@@ -17,7 +17,7 @@ public class JournalEntry
     {
         title = entryTitle;
         content = entryContent;
-        day = GameStateManager.Instance ? GameStateManager.Instance.CurrentDay : 1;
+        day = GameManager.Instance ? GameManager.Instance.CurrentDay : 1;
         timestamp = System.DateTime.Now.ToString("HH:mm");
         type = entryType;
         entryColor = GetColorForType(entryType);
@@ -84,9 +84,9 @@ public class JournalManager : Singleton<JournalManager>
     
     void SubscribeToEvents()
     {
-        if (GameStateManager.Instance)
+        if (GameManager.Instance)
         {
-            GameStateManager.Instance.onDayChanged.RegisterListener(
+            GameManager.Instance.onDayChanged.RegisterListener(
                 GetComponent<IntGameEventListener>());
         }
     }

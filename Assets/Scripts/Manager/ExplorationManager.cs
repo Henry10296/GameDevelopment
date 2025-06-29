@@ -45,9 +45,9 @@ public class ExplorationManager : Singleton<ExplorationManager>
     
     void SubscribeToEvents()
     {
-        if (GameStateManager.Instance)
+        if (GameManager.Instance)
         {
-            GameStateManager.Instance.onPhaseChanged.RegisterListener(
+            GameManager.Instance.onPhaseChanged.RegisterListener(
                 GetComponent<GameEventListener>());
         }
     }
@@ -279,8 +279,8 @@ public class ExplorationManager : Singleton<ExplorationManager>
         onPlayerReachedExit?.Raise();
         
         // 让GameStateManager处理返回家庭
-        if (GameStateManager.Instance)
-            GameStateManager.Instance.ReturnHomeFromExploration();
+        if (GameManager.Instance)
+            GameManager.Instance.ReturnHomeFromExploration();
         
         Debug.Log("[ExplorationManager] Player reached exit, returning home");
     }
@@ -301,7 +301,7 @@ public class ExplorationManager : Singleton<ExplorationManager>
         {
             mapName = currentMap?.mapName ?? "未知",
             itemsCollected = InventoryManager.Instance?.GetItems().Sum(i => i.quantity) ?? 0,
-            timeRemaining = GameStateManager.Instance?.RemainingTime ?? 0f,
+            //timeRemaining = GameManager.Instance?.RemainingTime ?? 0f,
             enemiesEncountered = GetEnemiesInArea()
         };
     }

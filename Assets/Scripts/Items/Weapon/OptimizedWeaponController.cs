@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Pool;
 
 public class OptimizedWeaponController : MonoBehaviour
 {
@@ -68,10 +69,24 @@ public class OptimizedWeaponController : MonoBehaviour
         muzzleFlashPool = new ObjectPool<MuzzleFlash>(CreateMuzzleFlash, 10);
     }
     
-    BulletTrail CreateBulletTrail()
+    /*BulletTrail CreateBulletTrail()
     {
         // 创建子弹轨迹预制体
         var trail = new GameObject("BulletTrail").AddComponent<BulletTrail>();
+        return trail;
+    }*/
+    BulletTrail CreateBulletTrail()
+    {
+        GameObject trailObj = new GameObject("BulletTrail");
+        BulletTrail trail = trailObj.AddComponent<BulletTrail>();
+    
+        /*LineRenderer lineRenderer = trailObj.AddComponent<LineRenderer>();
+        lineRenderer.material = new Material(Shader.Find("Sprites/Default"));
+        lineRenderer.color = Color.yellow;
+        lineRenderer.startWidth = 0.02f;
+        lineRenderer.endWidth = 0.01f;
+        lineRenderer.positionCount = 2;*/
+    
         return trail;
     }
     
@@ -179,7 +194,7 @@ public class OptimizedWeaponController : MonoBehaviour
         StartCoroutine(ReturnMuzzleFlashAfterDelay(flash, 0.1f));
     }
     
-    void CreateBulletTrail()
+    /*void CreateBulletTrail()
     {
         if (firePoint == null || playerCamera == null) return;
         
@@ -188,7 +203,7 @@ public class OptimizedWeaponController : MonoBehaviour
             firePoint.position + playerCamera.transform.forward * currentWeapon.range);
         
         StartCoroutine(ReturnBulletTrailAfterDelay(trail, 1f));
-    }
+    }*/
     
     void CreateHitEffect(Vector3 position, Vector3 normal)
     {
@@ -272,7 +287,7 @@ public class OptimizedWeaponController : MonoBehaviour
     public void UnlockRifle()
     {
         hasRifle = true;
-        DualModeUIManager.Instance?.ShowMessage("获得自动步枪!", 3f);
+        UIManager.Instance?.ShowMessage("获得自动步枪!", 3f);
     }
     
     void UpdateAmmoDisplay()
@@ -313,6 +328,12 @@ public class OptimizedWeaponController : MonoBehaviour
             hasRifle = hasRifle
         };
     }
+}
+
+internal interface IDamageable
+{ 
+    void TakeDamage(float damage);
+    
 }
 
 [System.Serializable]

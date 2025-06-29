@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Audio;
+using UnityEngine.Pool;
 
 public class AudioManager : Singleton<AudioManager>
 {
@@ -296,7 +297,7 @@ public class AudioManager : Singleton<AudioManager>
         source.pitch = 1f;
         source.spatialBlend = 0f; // 重置为2D
         
-        audioSourcePool.Return(source);
+        //audioSourcePool.Return(source);
     }
     
     // 动态音乐系统
@@ -304,10 +305,10 @@ public class AudioManager : Singleton<AudioManager>
     {
         string musicTrack = phase switch
         {
-            GamePhase.HomeManagement => "HomeBGM",
-            GamePhase.Exploration => "ExplorationBGM",
-            GamePhase.EventProcessing => "EventBGM",
-            GamePhase.GameEnd => "EndingBGM",
+            GamePhase.Home => "HomeBGM",//家庭的BGM
+            GamePhase.Exploration => "ExplorationBGM",//探索
+            GamePhase.EventProcessing => "EventBGM",//事件
+            GamePhase.GameEnd => "EndingBGM",//游戏结束
             _ => "MenuBGM"
         };
         

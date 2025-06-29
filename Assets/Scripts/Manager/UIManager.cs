@@ -27,7 +27,7 @@ public class UIManager : Singleton<UIManager>
     public float messageDuration = 3f;
     
     // 状态管理
-    private GamePhase currentPhase = GamePhase.MainMenu;
+    private GamePhase currentPhase;
     private Dictionary<GamePhase, IUIPanel> uiPanels = new Dictionary<GamePhase, IUIPanel>();
     private bool inventoryOpen = false;
     private bool pauseMenuOpen = false;
@@ -123,7 +123,7 @@ public class UIManager : Singleton<UIManager>
         UpdateCommonUI();
     }
     
-    void UpdateCommonUI()
+    void UpdateCommonUI()//游戏内嵌UI
     {
         // 更新生命值显示
         if (explorationUI && PlayerHealth.Instance && currentPhase == GamePhase.Exploration)

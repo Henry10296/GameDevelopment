@@ -32,9 +32,9 @@ public class HomeEventManager : Singleton<HomeEventManager>
     
     void SubscribeToEvents()
     {
-        if (GameStateManager.Instance)
+        if (GameManager.Instance)
         {
-            GameStateManager.Instance.onDayChanged.RegisterListener(
+            GameManager.Instance.onDayChanged.RegisterListener(
                 GetComponent<IntGameEventListener>());
         }
     }
@@ -87,7 +87,7 @@ public class HomeEventManager : Singleton<HomeEventManager>
     
     public void ProcessDailyEvents()
     {
-        int currentDay = GameStateManager.Instance.CurrentDay;
+        int currentDay = GameManager.Instance.CurrentDay;
         
         // 处理关键事件
         ProcessCriticalEvents(currentDay);
@@ -170,9 +170,9 @@ public class HomeEventManager : Singleton<HomeEventManager>
         if (eventData.requiresChoice && eventData.choices.Length > 0)
         {
             // 显示选择界面
-            if (DualModeUIManager.Instance)
+            if (UIManager.Instance)
             {
-                DualModeUIManager.Instance.ShowEventChoice(eventData);
+                UIManager.Instance.ShowEventChoice(eventData);
             }
         }
         else
@@ -195,7 +195,7 @@ public class HomeEventManager : Singleton<HomeEventManager>
         // 检查选择条件
         if (!choice.CanChoose())
         {
-            DualModeUIManager.Instance?.ShowMessage("无法选择此选项：资源不足");
+            UIManager.Instance?.ShowMessage("无法选择此选项：资源不足");
             return;
         }
         

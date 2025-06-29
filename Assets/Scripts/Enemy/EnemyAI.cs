@@ -1,6 +1,13 @@
 ﻿using UnityEngine;
 using UnityEngine.AI;
 
+public enum EnemyType
+{
+    Zombie = 0,
+    Shooter=1,
+    Snipers = 2,
+    
+}
 public class EnemyAI : MonoBehaviour
 {
     [Header("配置")]

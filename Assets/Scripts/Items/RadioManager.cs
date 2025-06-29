@@ -15,7 +15,7 @@ public class RadioManager : Singleton<RadioManager>
 
     public bool CanBroadcast()
     {
-        int day = GameStateManager.Instance.CurrentDay;
+        int day = GameManager.Instance.CurrentDay;
         return hasRadio && (day == 3 || day == 5) && !broadcastDays[day - 1];
     }
 
@@ -23,7 +23,7 @@ public class RadioManager : Singleton<RadioManager>
     {
         if (CanBroadcast())
         {
-            int day = GameStateManager.Instance.CurrentDay;
+            int day = GameManager.Instance.CurrentDay;
             broadcastDays[day - 1] = true;
 
             // 检查是否在第3和第5天都发送了信号
