@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
 
+// 统一所有GameEvent为ScriptableObject
 [CreateAssetMenu(fileName = "GameEvent", menuName = "Events/Game Event")]
 public class GameEvent : ScriptableObject
 {
@@ -26,7 +27,7 @@ public class GameEvent : ScriptableObject
     
     public void UnregisterListener(GameEventListener listener) => listeners.Remove(listener);
     
-    private void OnEnable() => listeners.Clear(); // 编辑器重置
+    private void OnEnable() => listeners.Clear();
 }
 
 [CreateAssetMenu(fileName = "IntGameEvent", menuName = "Events/Int Game Event")]
@@ -52,28 +53,11 @@ public class IntGameEvent : ScriptableObject
     }
     
     public void UnregisterListener(IntGameEventListener listener) => listeners.Remove(listener);
-}
-public abstract class BaseGameEvent<T> : ScriptableObject
-{
-    private readonly List<IGameEventListener<T>> listeners = new();
     
-    public void Raise(T value)
-    {
-        for (int i = listeners.Count - 1; i >= 0; i--)
-        {
-            if (listeners[i] != null) listeners[i].OnEventRaised(value);
-            else listeners.RemoveAt(i);
-        }
-    }
-
-    public void RegisterListener(IGameEventListener<T> listener) { if (!listeners.Contains(listener)) listeners.Add(listener); }
-    public void UnregisterListener(IGameEventListener<T> listener) => listeners.Remove(listener);
+    private void OnEnable() => listeners.Clear();
 }
 
-public interface IGameEventListener<T>
-{
-    void OnEventRaised(T value);
-}
+// 统一的监听器组件
 public class GameEventListener : MonoBehaviour
 {
     public GameEvent gameEvent;
@@ -94,4 +78,39 @@ public class IntGameEventListener : MonoBehaviour
     private void OnDisable() => gameEvent?.UnregisterListener(this);
     
     public void OnEventRaised(int value) => response?.Invoke(value);
+}
+[CreateAssetMenu(fileName = "StringGameEvent", menuName = "Events/String Game Event")]
+public class StringGameEvent : ScriptableObject
+{
+    private readonly List<StringGameEventListener> listeners = new();
+    
+    public void Raise(string value)
+    {
+        for (int i = listeners.Count - 1; i >= 0; i--)
+        {
+            if (listeners[i] != null)
+                listeners[i].OnEventRaised(value);
+            else
+                listeners.RemoveAt(i);
+        }
+    }
+    
+    public void RegisterListener(StringGameEventListener listener)
+    {
+        if (!listeners.Contains(listener))
+            listeners.Add(listener);
+    }
+    
+    public void UnregisterListener(StringGameEventListener listener) => listeners.Remove(listener);
+}
+
+public class StringGameEventListener : MonoBehaviour
+{
+    public StringGameEvent gameEvent;
+    public UnityEvent<string> response;
+    
+    private void OnEnable() => gameEvent?.RegisterListener(this);
+    private void OnDisable() => gameEvent?.UnregisterListener(this);
+    
+    public void OnEventRaised(string value) => response?.Invoke(value);
 }

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
@@ -16,7 +17,37 @@ public class InventorySlot : MonoBehaviour, IPointerClickHandler
     
     private InventoryItem currentItem;
     private bool hasItem = false;
+    [Header("自动更新")] 
+    public int slotIndex = -1; // 槽位索引
     
+    private void Start()
+    {
+        // 订阅背包变化事件
+        if (InventoryManager.Instance != null)
+        {
+            InventoryManager.OnInventoryChanged += OnInventoryChanged;
+        }
+    }
+    
+    private void OnDestroy()
+    {
+        if (InventoryManager.Instance != null)
+        {
+            InventoryManager.OnInventoryChanged -= OnInventoryChanged;
+        }
+    }
+    
+    private void OnInventoryChanged(List<InventoryItem> items)
+    {
+        if (slotIndex >= 0 && slotIndex < items.Count)
+        {
+            SetItem(items[slotIndex]);
+        }
+        else
+        {
+            ClearSlot();
+        }
+    }
     public void SetItem(InventoryItem item)
     {
         if (item == null || item.itemData == null)

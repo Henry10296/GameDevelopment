@@ -2,7 +2,6 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
-using UnityEngine.Pool;
 
 public class OptimizedWeaponController : MonoBehaviour
 {
@@ -205,7 +204,7 @@ public class OptimizedWeaponController : MonoBehaviour
         StartCoroutine(ReturnBulletTrailAfterDelay(trail, 1f));
     }*/
     
-    void CreateHitEffect(Vector3 position, Vector3 normal)
+    void CreateHitEffect(Vector3 position, Vector3 normal)//TODO:粒子效果
     {
         // 创建命中粒子效果
         // 可以根据命中材质创建不同效果
@@ -333,6 +332,9 @@ public class OptimizedWeaponController : MonoBehaviour
 internal interface IDamageable
 { 
     void TakeDamage(float damage);
+    float GetCurrentHealth(); // 新增
+    float GetMaxHealth();     // 新增
+    bool IsAlive();          // 新增
     
 }
 

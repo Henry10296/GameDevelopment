@@ -7,7 +7,7 @@ using System.Collections.Generic;
 public class UIManager : Singleton<UIManager>
 {
     [Header("UI界面面板")]
-    public MainMenuUI mainMenuUI;
+    //public MainMenuUI mainMenuUI;
     public HomeUI homeUI;
     public ExplorationUI explorationUI;
     public InventoryUI inventoryUI;
@@ -32,6 +32,9 @@ public class UIManager : Singleton<UIManager>
     private bool inventoryOpen = false;
     private bool pauseMenuOpen = false;
     
+    [Header("自动更新设置")] 
+    public bool enableAutoUpdate = true;
+    public float updateInterval = 0.1f;
     protected override void Awake()
     {
         base.Awake();
@@ -46,6 +49,10 @@ public class UIManager : Singleton<UIManager>
         
         // 订阅输入事件
         SubscribeToInputs();
+        if (enableAutoUpdate)
+        {
+            InvokeRepeating(nameof(AutoUpdateUI), 0f, updateInterval);
+        }
     }
     
     void Update()
@@ -53,11 +60,21 @@ public class UIManager : Singleton<UIManager>
         HandleInput();
         UpdateDynamicUI();
     }
-    
+    private void AutoUpdateUI()
+    {
+        if (currentPhase == GamePhase.Home && homeUI != null)
+        {
+            homeUI.RefreshAllData();
+        }
+        else if (currentPhase == GamePhase.Exploration && explorationUI != null)
+        {
+            UpdateCommonUI(); // 调用现有方法
+        }
+    }
     void InitializeUIPanels()
     {
         // 初始化UI面板字典
-        if (mainMenuUI) uiPanels[GamePhase.MainMenu] = mainMenuUI;
+        //if (mainMenuUI) uiPanels[GamePhase.MainMenu] = mainMenuUI;
         if (homeUI) uiPanels[GamePhase.Home] = homeUI;
         if (explorationUI) uiPanels[GamePhase.Exploration] = explorationUI;
         
@@ -67,7 +84,7 @@ public class UIManager : Singleton<UIManager>
     
     void InitializeAllPanels()
     {
-        mainMenuUI?.Initialize();
+        //mainMenuUI?.Initialize();
         homeUI?.Initialize();
         explorationUI?.Initialize();
         inventoryUI?.Initialize();

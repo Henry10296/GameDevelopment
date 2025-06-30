@@ -321,37 +321,6 @@ public class EventEditorWindow : EditorWindow
         Handles.EndGUI();
     }
     
-    /*void HandleGraphInput()
-    {
-        Event e = Event.current;
-        
-        switch (e.type)
-        {
-            case EventType.MouseDown:
-                if (e.button == 0) // 左键
-                {
-                    HandleLeftClick(e.mousePosition);
-                }
-                else if (e.button == 1) // 右键
-                {
-                    HandleRightClick(e.mousePosition);
-                }
-                break;
-                
-            case EventType.MouseDrag:
-                if (isDragging && selectedNode != null)
-                {
-                    selectedNode.rect.position += e.delta;
-                    e.Use();
-                    Repaint();
-                }
-                break;
-                
-            case EventType.MouseUp:
-                isDragging = false;
-                break;
-        }
-    }*/
     
     void HandleLeftClick(Vector2 mousePos)
     {
@@ -495,6 +464,7 @@ Event Types:
 - FamilyHealth: Affects family members
 - StoryProgression: Advances story
 - RadioReminder: Radio signal reminders";
+        
         
         EditorUtility.DisplayDialog("Event Editor Help", helpText, "OK");
     }

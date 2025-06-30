@@ -70,6 +70,10 @@ public class PlayerHealth : Singleton<PlayerHealth>, IDamageable
         }
     }
 
+    public float GetCurrentHealth() => currentHealth;
+
+    public float GetMaxHealth() => maxHealth;
+
     public void Heal(float amount)
     {
         if (currentHealth <= 0) return; // 已经死亡，无法治疗
@@ -119,11 +123,7 @@ public class PlayerHealth : Singleton<PlayerHealth>, IDamageable
         return maxHealth > 0 ? currentHealth / maxHealth : 0f;
     }
 
-    public bool IsAlive()
-    {
-        return currentHealth > 0;
-    }
-
+    public bool IsAlive()=> currentHealth > 0;
     // 调试方法
     [ContextMenu("Take 25 Damage")]
     public void DebugTakeDamage()

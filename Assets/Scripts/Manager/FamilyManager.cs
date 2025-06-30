@@ -175,7 +175,7 @@ public enum CharacterRole
     Child     // 孩子
 }
 
-public class FamilyManager : Singleton<FamilyManager>
+public partial class FamilyManager : Singleton<FamilyManager>
 {
     [Header("家庭成员")]
     [SerializeField] private List<FamilyMember> familyMembers = new();
@@ -190,6 +190,8 @@ public class FamilyManager : Singleton<FamilyManager>
     public GameEvent onMemberStatusChanged;
     public GameEvent onFamilyDeath;
     
+    [Header("数据通知事件")]
+    public StringGameEvent onResourceTypeChanged; // 通知资源类型变化
     // 属性访问器
     public List<FamilyMember> FamilyMembers => familyMembers;
     public int Food => food;
@@ -424,7 +426,7 @@ public class FamilyManager : Singleton<FamilyManager>
                 break;
         }
         onResourceChanged?.Raise();
-        
+        onResourceTypeChanged?.Raise($"{resourceType}:{GetResourceValue(resourceType)}"); // 新增一行
         // 记录资源获得
         if (amount > 0)
         {
@@ -432,7 +434,18 @@ public class FamilyManager : Singleton<FamilyManager>
                 $"获得了{amount}个{GetResourceDisplayName(resourceType)}");
         }
     }
-    
+
+    private int GetResourceValue(string resourceType)
+    {
+        return resourceType.ToLower() switch
+        {
+            "food" => food,
+            "water" => water,
+            "medicine" => medicine,
+            _ => 0
+        };
+    }
+
     string GetResourceDisplayName(string resourceType)
     {
         return resourceType.ToLower() switch

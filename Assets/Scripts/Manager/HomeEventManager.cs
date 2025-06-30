@@ -15,9 +15,15 @@ public class HomeEventManager : Singleton<HomeEventManager>
     public GameEvent onEventTriggered;
     public GameEvent onEventCompleted;
     
+    
     private Queue<RandomEvent> scheduledEvents = new Queue<RandomEvent>();
     private List<RandomEvent> triggeredEvents = new List<RandomEvent>();
     private RandomEvent currentEvent;
+    
+    [Header("队列设置")]
+    public int maxQueueSize = 5;
+    private Queue<RandomEvent> eventQueue = new Queue<RandomEvent>();
+    private bool _isProcessingEvent = false;
     
     protected override void Awake()
     {
@@ -396,9 +402,88 @@ public class HomeEventManager : Singleton<HomeEventManager>
         
         return ratEvent;
     }
-    
-    protected override void OnDestroy()
+    /*public void TriggerEvent(RandomEvent eventData)
     {
-        base.OnDestroy();
+        if (eventData == null) return;
+        
+        // 如果正在处理事件，加入队列
+        if (isProcessingEvent)
+        {
+            QueueEvent(eventData);
+            return;
+        }
+        
+        ProcessEventImmediate(eventData);
     }
+    
+    private void QueueEvent(RandomEvent eventData)
+    {
+        if (eventQueue.Count >= maxQueueSize)
+        {
+            Debug.LogWarning("[HomeEventManager] Event queue full, skipping event: " + eventData.eventName);
+            return;
+        }
+        
+        eventQueue.Enqueue(eventData);
+        Debug.Log($"[HomeEventManager] Queued event: {eventData.eventName}");
+    }
+    
+    private void ProcessEventImmediate(RandomEvent eventData)
+    {
+        currentEvent = eventData;
+        isProcessingEvent = true;
+        triggeredEvents.Add(eventData);
+        
+        onEventTriggered?.Raise();
+        
+        if (eventData.requiresChoice && eventData.choices.Length > 0)
+        {
+            if (UIManager.Instance)
+            {
+                UIManager.Instance.ShowEventChoice(eventData);
+            }
+        }
+        else
+        {
+            ExecuteEventEffects(eventData.automaticEffects);
+            CompleteEvent();
+        }
+        
+        JournalManager.Instance?.AddEntry(eventData.eventName, eventData.eventDescription);
+        Debug.Log($"[HomeEventManager] Processing event: {eventData.eventName}");
+    }
+    
+    void CompleteEvent()
+    {
+        if (currentEvent == null) return;
+        
+        if (currentEvent.followupEvent != null)
+        {
+            QueueEvent(currentEvent.followupEvent);
+        }
+        
+        onEventCompleted?.Raise();
+        currentEvent = null;
+        isProcessingEvent = false;
+        
+        // 处理队列中的下一个事件
+        ProcessNextQueuedEvent();
+        
+        Debug.Log("[HomeEventManager] Event completed");
+    }
+    
+    private void ProcessNextQueuedEvent()
+    {
+        if (eventQueue.Count > 0 && !isProcessingEvent)
+        {
+            var nextEvent = eventQueue.Dequeue();
+            StartCoroutine(ProcessQueuedEventWithDelay(nextEvent, 1f));
+        }
+    }
+    
+    private IEnumerator ProcessQueuedEventWithDelay(RandomEvent eventData, float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        ProcessEventImmediate(eventData);
+    }*/
 }

@@ -22,6 +22,8 @@ public class FamilyMemberUI
     
     private int memberIndex;
     
+    [Header("自动更新")] //
+    public GameEvent familyUpdateEvent; // 绑定到FamilyManager的事件
     public void Initialize(int index)
     {
         memberIndex = index;
@@ -30,6 +32,19 @@ public class FamilyMemberUI
         if (feedButton) feedButton.onClick.AddListener(() => FeedMember());
         if (waterButton) waterButton.onClick.AddListener(() => GiveWater());
         if (healButton) healButton.onClick.AddListener(() => HealMember());
+        if (familyUpdateEvent != null)
+        {
+            // 创建临时的GameEventListener
+            var listener = gameObject.AddComponent<GameEventListener>();
+            listener.gameEvent = familyUpdateEvent;
+            listener.response.AddListener(() => {
+                if (FamilyManager.Instance?.FamilyMembers != null && 
+                    memberIndex < FamilyManager.Instance.FamilyMembers.Count)
+                {
+                    UpdateDisplay(FamilyManager.Instance.FamilyMembers[memberIndex]);
+                }
+            });
+        }
     }
     
     public void UpdateDisplay(FamilyMember member)

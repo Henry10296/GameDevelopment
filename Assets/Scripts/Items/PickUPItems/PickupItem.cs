@@ -1,59 +1,20 @@
 ﻿using UnityEngine;
 
-public class PickupItem : MonoBehaviour
+public class PickupItem : BaseInteractable // 修改现有继承
 {
+    // 现有字段保持不变
     [Header("物品设置")]
     public ItemData itemData;
     public int quantity = 1;
-
-    [Header("拾取设置")]
-    public float pickupRange = 2f;
-    public KeyCode pickupKey = KeyCode.E;
-
-    [Header("UI提示")]
-    public GameObject pickupPrompt;
-
-    private Transform player;
-    private bool playerInRange = false;
-
-    void Start()
+    
+    // 移除现有重复的字段和方法，使用基类
+    
+    protected override void OnInteract() // 重写基类方法
     {
-        player = GameObject.FindGameObjectWithTag("Player")?.transform;
-
-        if (pickupPrompt)
-            pickupPrompt.SetActive(false);
+        TryPickup(); // 调用现有方法
     }
-
-    void Update()
-    {
-        if (player == null) return;
-
-        float distance = Vector3.Distance(transform.position, player.position);
-
-        if (distance <= pickupRange)
-        {
-            if (!playerInRange)
-            {
-                playerInRange = true;
-                if (pickupPrompt) pickupPrompt.SetActive(true);
-            }
-
-            if (Input.GetKeyDown(pickupKey))
-            {
-                TryPickup();
-            }
-        }
-        else
-        {
-            if (playerInRange)
-            {
-                playerInRange = false;
-                if (pickupPrompt) pickupPrompt.SetActive(false);
-            }
-        }
-    }
-
-    void TryPickup()
+    
+    void TryPickup() // 现有方法保持不变
     {
         if (InventoryManager.Instance && itemData)
         {
@@ -67,11 +28,5 @@ public class PickupItem : MonoBehaviour
                 Debug.Log("背包已满!");
             }
         }
-    }
-
-    void OnDrawGizmosSelected()
-    {
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawWireSphere(transform.position, pickupRange);
     }
 }

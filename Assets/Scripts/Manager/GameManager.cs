@@ -41,6 +41,9 @@ public class GameManager : Singleton<GameManager>
     public GameEvent onGameEnd;
     [Header("事件系统")]
     public IntGameEvent onDayChangedSO;
+    
+    private float systemUpdateInterval = 0.5f;
+    private float lastSystemUpdate;
     // 系统管理器引用
     public UIManager UIManager => UIManager.Instance;
     public AudioManager AudioManager => AudioManager.Instance;
@@ -81,9 +84,22 @@ public class GameManager : Singleton<GameManager>
     {
         if (gameEnded) return;
         
-        UpdatePhaseTimer();
-        UpdateSystems();
-        HandleDebugInput();
+        // 只在探索阶段才每帧更新时间
+        if (currentPhase == GamePhase.Exploration)
+        {
+            UpdatePhaseTimer();
+        }
+        
+        // 降低系统检查频率
+        if (Time.time - lastSystemUpdate > systemUpdateInterval)
+        {
+            UpdateSystems();
+            lastSystemUpdate = Time.time;
+        }
+        
+#if UNITY_EDITOR
+        HandleDebugInput(); // 只在编辑器模式下执行
+#endif
     }
     
     void InitializeSystems()
@@ -430,6 +446,14 @@ public class GameManager : Singleton<GameManager>
         }
     }
 
+    private float GetPhaseTimeLimit(GamePhase phase)
+    {
+        return phase switch
+        {
+            GamePhase.Exploration => gameConfig.explorationTimeLimit,
+            _ => float.MaxValue
+        };
+    }
     void HandleDebugInput()//调试的函数，可以放在调试的编辑器
     {
         if (!Debug.isDebugBuild) return;

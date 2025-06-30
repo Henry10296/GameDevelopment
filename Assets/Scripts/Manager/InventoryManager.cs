@@ -1,31 +1,18 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
 using System;
-
 public class InventoryManager : Singleton<InventoryManager>
 {
-    public static InventoryManager Instance;
-
     [Header("背包设置")]
     public int maxSlots = 9;
 
     private List<InventoryItem> items = new List<InventoryItem>();
+    
+    [Header("物品事件")] 
+    public StringGameEvent onItemChanged; // 物品变化事件
 
     public static event Action<List<InventoryItem>> OnInventoryChanged;
-
-    void Awake()
-    {
-        if (Instance == null)
-        {
-            Instance = this;
-            DontDestroyOnLoad(gameObject);
-        }
-        else
-        {
-            Destroy(gameObject);
-        }
-    }
-
+    
     public bool AddItem(ItemData itemData, int quantity = 1)
     {
         if (itemData == null) return false;
@@ -128,6 +115,7 @@ public class InventoryManager : Singleton<InventoryManager>
     void UpdateUI()
     {
         OnInventoryChanged?.Invoke(GetItems());
+        onItemChanged?.Raise($"ItemCount:{GetItems().Count}");
     }
 
     // 使用物品
