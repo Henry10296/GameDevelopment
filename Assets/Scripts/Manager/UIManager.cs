@@ -35,6 +35,10 @@ public class UIManager : Singleton<UIManager>
     [Header("自动更新设置")] 
     public bool enableAutoUpdate = true;
     public float updateInterval = 0.1f;
+    [Header("文本配置")] // 添加到现有字段后
+    public UITextSettings textSettings;
+    public GameValues gameValues;
+    public InputSettings inputSettings;
     protected override void Awake()
     {
         base.Awake();
@@ -103,28 +107,21 @@ public class UIManager : Singleton<UIManager>
     
     void HandleInput()
     {
-        // Tab键切换背包
-        if (Input.GetKeyDown(KeyCode.Tab))
+        if (inputSettings == null) return;
+        
+        if (Input.GetKeyDown(inputSettings.inventoryKey))
         {
             ToggleInventory();
         }
         
-        // ESC键暂停菜单
-        if (Input.GetKeyDown(KeyCode.Escape))
+        if (Input.GetKeyDown(inputSettings.pauseKey))
         {
             TogglePauseMenu();
         }
         
-        // J键日志
-        if (Input.GetKeyDown(KeyCode.J))
+        if (Input.GetKeyDown(inputSettings.journalKey))
         {
             ToggleJournal();
-        }
-        
-        // I键背包
-        if (Input.GetKeyDown(KeyCode.I))
-        {
-            ToggleInventory();
         }
     }
     
@@ -316,7 +313,9 @@ public class UIManager : Singleton<UIManager>
     
     public void ShowTimeWarning()
     {
-        ShowMessage("时间不多了！赶紧回家！", 5f);
+        string warningText = textSettings?.GetText("TIME_WARNING") ?? "时间不多了！赶紧回家！";
+        float duration = gameValues?.defaultMessageDuration ?? 5f;
+        ShowMessage(warningText, duration);
         
         if (explorationUI)
         {
@@ -370,11 +369,18 @@ public class UIManager : Singleton<UIManager>
     }
     
     // 交互提示
-    public void ShowInteractionPrompt(string text)
+    public void ShowInteractionPrompt(string customText = null)
     {
         if (explorationUI)
         {
-            explorationUI.ShowInteractionPrompt(text);
+            string promptText = customText;
+            if (string.IsNullOrEmpty(promptText) && textSettings != null && inputSettings != null)
+            {
+                promptText = textSettings.GetText("INTERACT_PROMPT", inputSettings.interactionKey);
+            }
+            promptText ??= "按 E 交互";
+            
+            explorationUI.ShowInteractionPrompt(promptText);
         }
     }
     
@@ -418,9 +424,8 @@ public class UIManager : Singleton<UIManager>
             inventoryUI.RefreshInventory();
         }
     }
-    
-    protected override void OnDestroy()
+    public string GetText(string key, params object[] args)
     {
-        base.OnDestroy();
+        return textSettings?.GetText(key, args) ?? key;
     }
 }

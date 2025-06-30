@@ -1,153 +1,538 @@
 ﻿using UnityEngine;
 
-[RequireComponent(typeof(Rigidbody))]
-[RequireComponent(typeof(CapsuleCollider))]
-public class FirstPersonController : MonoBehaviour
+[CreateAssetMenu(fileName = "PlayerConfig", menuName = "Game/Player Config")]
+public class PlayerConfig : ScriptableObject
 {
-    [Header("移动设置")]
+    [Header("身高设置")]
+    public float standingHeight = 2f;
+    public float crouchingHeight = 1f;
+    public float cameraHeightOffset = 0.1f; // 相对于角色高度的偏移
+    
+    [Header("移动速度")]
     public float walkSpeed = 6f;
     public float runSpeed = 12f;
-    public float jumpForce = 8f;
-    public float mouseSensitivity = 2f;
-
-    [Header("潜行设置")]
     public float crouchSpeed = 3f;
-    public float crouchHeight = 1f;
-    public float standHeight = 2f;
+    public float airSpeed = 8f; // 空中移动速度
+    
+    [Header("跳跃设置")]
+    public float jumpForce = 8f;
+    public float jumpCooldown = 0.1f;
+    public bool allowAirJump = false;
+    public int maxAirJumps = 1;
+    
+    [Header("鼠标设置")]
+    public float mouseSensitivity = 2f;
+    public float maxLookAngle = 90f;
+    public bool invertMouseY = false;
+    
+    [Header("物理设置")]
+    public float gravity = 20f;
+    public float friction = 8f;
+    public float acceleration = 10f;
+    public float airAcceleration = 2f;
+    
+    [Header("高级设置")]
+    public bool enableBunnyHopping = true;
+    public float bunnyHopThreshold = 0.1f;
+    public bool enableStrafing = true;
+    public float maxStrafeSpeed = 15f;
+    
+    [Header("音效")]
+    public AudioClip[] footstepSounds;
+    public AudioClip jumpSound;
+    public AudioClip landSound;
+}
 
-    [Header("地面检测")]
-    public LayerMask groundLayer = 1;
-    public float groundCheckDistance = 1.1f;
-
+[RequireComponent(typeof(CharacterController))]
+public class FirstPersonController : MonoBehaviour
+{
+    [Header("配置")]
+    public PlayerConfig config;
+    
+    [Header("调试")]
+    public bool showDebugInfo = false;
+    public bool enableCheats = false;
+    
     // 组件引用
-    private Rigidbody rb;
-    private CapsuleCollider capsuleCollider;
+    private CharacterController controller;
     private Camera playerCamera;
-
+    private AudioSource audioSource;
+    
+    // 移动相关
+    private Vector3 moveDirection = Vector3.zero;
+    private Vector3 velocity = Vector3.zero;
+    private float verticalVelocity = 0f;
+    
     // 状态变量
-    private bool isGrounded;
-    private bool isCrouching;
-    private float currentSpeed;
-    private float mouseX, mouseY;
-    private Vector3 moveDirection;
-
+    private bool isGrounded = false;
+    private bool isCrouching = false;
+    private bool isRunning = false;
+    private bool wasGrounded = false;
+    private int currentAirJumps = 0;
+    private float lastJumpTime = 0f;
+    
+    // 鼠标控制
+    private float mouseX = 0f;
+    private float mouseY = 0f;
+    
+    // 音效相关
+    private float lastFootstepTime = 0f;
+    private float footstepInterval = 0.5f;
+    
+    // Doom风格移动
+    private Vector3 wishDirection = Vector3.zero;
+    private float currentSpeed = 0f;
+    
+    public PlayerStats Stats { get; private set; }
+    
     void Start()
     {
-        rb = GetComponent<Rigidbody>();
-        capsuleCollider = GetComponent<CapsuleCollider>();
+        InitializeComponents();
+        InitializeSettings();
+        InitializeStats();
+    }
+    
+    void InitializeComponents()
+    {
+        controller = GetComponent<CharacterController>();
         playerCamera = GetComponentInChildren<Camera>();
-
-        // 锁定鼠标
+        audioSource = GetComponent<AudioSource>();
+        
+        if (playerCamera == null)
+        {
+            GameObject cameraObj = new GameObject("PlayerCamera");
+            cameraObj.transform.SetParent(transform);
+            playerCamera = cameraObj.AddComponent<Camera>();
+        }
+        
+        if (audioSource == null)
+            audioSource = gameObject.AddComponent<AudioSource>();
+    }
+    
+    void InitializeSettings()
+    {
+        if (config == null)
+        {
+            Debug.LogWarning("PlayerConfig not assigned, using default values");
+            return;
+        }
+        
+        // 设置控制器高度
+        controller.height = config.standingHeight;
+        controller.center = new Vector3(0, config.standingHeight / 2, 0);
+        
+        // 设置摄像机位置
+        UpdateCameraPosition();
+        
+        // 锁定光标
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
-
-        // 设置初始值
-        currentSpeed = walkSpeed;
-
-        // 冻结旋转，防止物理系统影响
-        rb.freezeRotation = true;
     }
-
+    
+    void InitializeStats()
+    {
+        Stats = new PlayerStats();
+    }
+    
     void Update()
     {
+        if (config == null) return;
+        
+        HandleInput();
         HandleMouseLook();
-        HandleMovementInput();
-        HandleCrouch();
-        HandleJump();
-        CheckGrounded();
-    }
-
-    void FixedUpdate()
-    {
         HandleMovement();
+        HandleJump();
+        HandleCrouch();
+        HandleAudio();
+        
+        UpdateStats();
+        
+        if (showDebugInfo)
+            DisplayDebugInfo();
     }
-
+    
+    void HandleInput()
+    {
+        // 基础移动输入
+        float horizontal = Input.GetAxisRaw("Horizontal");
+        float vertical = Input.GetAxisRaw("Vertical");
+        
+        // Doom风格：使用原始输入，支持45度角移动
+        wishDirection = (transform.right * horizontal + transform.forward * vertical);
+        
+        // 奔跑输入
+        isRunning = Input.GetKey(KeyCode.LeftShift) && !isCrouching && isGrounded;
+        
+        // 调试功能
+        if (enableCheats)
+        {
+            HandleCheatInput();
+        }
+    }
+    
+    void HandleCheatInput()
+    {
+        if (Input.GetKeyDown(KeyCode.F))
+        {
+            // 飞行模式切换
+            Physics.gravity = Physics.gravity.y == 0 ? new Vector3(0, -9.81f, 0) : Vector3.zero;
+        }
+        
+        if (Input.GetKeyDown(KeyCode.G))
+        {
+            // 无敌模式
+            var health = GetComponent<PlayerHealth>();
+            if (health) health.Heal(health.GetMaxHealth());
+        }
+    }
+    
     void HandleMouseLook()
     {
-        mouseX += Input.GetAxis("Mouse X") * mouseSensitivity;
-        mouseY -= Input.GetAxis("Mouse Y") * mouseSensitivity;
-        mouseY = Mathf.Clamp(mouseY, -90f, 90f);
-
-        // 水平旋转身体
+        float mouseMultiplier = config.invertMouseY ? -1f : 1f;
+        
+        mouseX += Input.GetAxis("Mouse X") * config.mouseSensitivity;
+        mouseY -= Input.GetAxis("Mouse Y") * config.mouseSensitivity * mouseMultiplier;
+        
+        mouseY = Mathf.Clamp(mouseY, -config.maxLookAngle, config.maxLookAngle);
+        
+        // 应用旋转
         transform.rotation = Quaternion.Euler(0, mouseX, 0);
-        // 垂直旋转摄像机
         playerCamera.transform.localRotation = Quaternion.Euler(mouseY, 0, 0);
     }
-
-    void HandleMovementInput()
+    
+    void HandleMovement()
     {
-        float horizontal = Input.GetAxis("Horizontal");
-        float vertical = Input.GetAxis("Vertical");
-
-        moveDirection = (transform.right * horizontal + transform.forward * vertical).normalized;
-
-        // 选择移动速度
-        if (Input.GetKey(KeyCode.LeftShift) && !isCrouching && isGrounded)
+        // 检查地面状态
+        wasGrounded = isGrounded;
+        isGrounded = controller.isGrounded;
+        
+        if (isGrounded && !wasGrounded)
         {
-            currentSpeed = runSpeed;
+            OnLanded();
         }
-        else if (isCrouching)
+        
+        // Doom风格移动计算
+        if (isGrounded)
         {
-            currentSpeed = crouchSpeed;
+            GroundMovement();
         }
         else
         {
-            currentSpeed = walkSpeed;
+            AirMovement();
         }
-    }
-
-    void HandleMovement()
-    {
-        Vector3 movement = moveDirection * currentSpeed;
-        movement.y = rb.velocity.y; // 保持Y轴速度(重力)
-        rb.velocity = movement;
-    }
-
-    void HandleCrouch()
-    {
-        if (Input.GetKeyDown(KeyCode.C))
+        
+        // 应用重力
+        if (!isGrounded)
         {
-            isCrouching = !isCrouching;
-
-            if (isCrouching)
-            {
-                capsuleCollider.height = crouchHeight;
-                playerCamera.transform.localPosition = new Vector3(0, crouchHeight - 0.5f, 0);
-            }
-            else
-            {
-                // 检查头顶是否有障碍物
-                if (!Physics.Raycast(transform.position, Vector3.up, standHeight))
-                {
-                    capsuleCollider.height = standHeight;
-                    playerCamera.transform.localPosition = new Vector3(0, standHeight - 0.5f, 0);
-                }
-                else
-                {
-                    isCrouching = true; // 无法站起来
-                }
-            }
+            verticalVelocity -= config.gravity * Time.deltaTime;
+        }
+        else if (verticalVelocity < 0)
+        {
+            verticalVelocity = -2f; // 轻微向下的力保持贴地
+        }
+        
+        // 最终移动
+        Vector3 finalMovement = moveDirection + Vector3.up * verticalVelocity;
+        controller.Move(finalMovement * Time.deltaTime);
+        
+        // 更新统计
+        Stats.distanceTraveled += moveDirection.magnitude * Time.deltaTime;
+    }
+    
+    void GroundMovement()
+    {
+        float targetSpeed = GetTargetSpeed();
+        
+        if (config.enableStrafing && wishDirection.magnitude > 0)
+        {
+            // Doom风格加速
+            DoomAccelerate(wishDirection.normalized, targetSpeed, config.acceleration);
+        }
+        else
+        {
+            // 摩擦力
+            ApplyFriction();
+        }
+        
+        // 限制最大速度
+        if (moveDirection.magnitude > targetSpeed)
+        {
+            moveDirection = moveDirection.normalized * targetSpeed;
         }
     }
-
+    
+    void AirMovement()
+    {
+        if (wishDirection.magnitude > 0)
+        {
+            float targetSpeed = config.airSpeed;
+            DoomAccelerate(wishDirection.normalized, targetSpeed, config.airAcceleration);
+        }
+    }
+    
+    void DoomAccelerate(Vector3 wishdir, float wishspeed, float accel)
+    {
+        float currentspeed = Vector3.Dot(moveDirection, wishdir);
+        float addspeed = wishspeed - currentspeed;
+        
+        if (addspeed <= 0) return;
+        
+        float accelspeed = accel * wishspeed * Time.deltaTime;
+        
+        if (accelspeed > addspeed)
+            accelspeed = addspeed;
+        
+        moveDirection += wishdir * accelspeed;
+    }
+    
+    void ApplyFriction()
+    {
+        float speed = moveDirection.magnitude;
+        if (speed < 0.1f)
+        {
+            moveDirection = Vector3.zero;
+            return;
+        }
+        
+        float friction = config.friction * Time.deltaTime;
+        float newSpeed = Mathf.Max(0, speed - friction);
+        
+        moveDirection = moveDirection.normalized * newSpeed;
+    }
+    
+    float GetTargetSpeed()
+    {
+        if (isCrouching) return config.crouchSpeed;
+        if (isRunning) return config.runSpeed;
+        return config.walkSpeed;
+    }
+    
     void HandleJump()
     {
-        if (Input.GetKeyDown(KeyCode.Space) && isGrounded && !isCrouching)
+        if (Input.GetKeyDown(KeyCode.Space))
         {
-            rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
+            if (isGrounded && Time.time - lastJumpTime > config.jumpCooldown)
+            {
+                Jump();
+            }
+            else if (config.allowAirJump && currentAirJumps < config.maxAirJumps && 
+                     Time.time - lastJumpTime > config.jumpCooldown)
+            {
+                AirJump();
+            }
         }
     }
-
-    void CheckGrounded()
+    
+    void Jump()
     {
-        RaycastHit hit;
-        isGrounded = Physics.Raycast(transform.position, Vector3.down, out hit, groundCheckDistance, groundLayer);
+        verticalVelocity = config.jumpForce;
+        lastJumpTime = Time.time;
+        currentAirJumps = 0;
+        
+        PlaySound(config.jumpSound);
+        Stats.jumpCount++;
+        
+        // Bunny Hop支持
+        if (config.enableBunnyHopping)
+        {
+            float currentHorizontalSpeed = new Vector3(moveDirection.x, 0, moveDirection.z).magnitude;
+            if (currentHorizontalSpeed > config.walkSpeed)
+            {
+                // 保持水平速度用于连跳
+                Stats.bunnyHopCount++;
+            }
+        }
     }
-
-    // 用于调试
-    void OnDrawGizmosSelected()
+    
+    void AirJump()
     {
-        Gizmos.color = isGrounded ? Color.green : Color.red;
-        Gizmos.DrawRay(transform.position, Vector3.down * groundCheckDistance);
+        verticalVelocity = config.jumpForce * 0.8f; // 空中跳跃力度较小
+        lastJumpTime = Time.time;
+        currentAirJumps++;
+        
+        PlaySound(config.jumpSound);
+        Stats.airJumpCount++;
+    }
+    
+    void HandleCrouch()
+    {
+        bool wantsToCrouch = Input.GetKey(KeyCode.C);
+        
+        if (wantsToCrouch && !isCrouching)
+        {
+            StartCrouch();
+        }
+        else if (!wantsToCrouch && isCrouching)
+        {
+            if (CanStandUp())
+            {
+                StopCrouch();
+            }
+        }
+    }
+    
+    void StartCrouch()
+    {
+        isCrouching = true;
+        controller.height = config.crouchingHeight;
+        controller.center = new Vector3(0, config.crouchingHeight / 2, 0);
+        UpdateCameraPosition();
+        
+        Stats.crouchTime += Time.deltaTime;
+    }
+    
+    void StopCrouch()
+    {
+        isCrouching = false;
+        controller.height = config.standingHeight;
+        controller.center = new Vector3(0, config.standingHeight / 2, 0);
+        UpdateCameraPosition();
+    }
+    
+    bool CanStandUp()
+    {
+        // 检查头顶是否有障碍
+        float checkHeight = config.standingHeight - config.crouchingHeight + 0.1f;
+        Vector3 checkStart = transform.position + Vector3.up * config.crouchingHeight;
+        
+        return !Physics.SphereCast(checkStart, controller.radius, Vector3.up, out _, checkHeight);
+    }
+    
+    void UpdateCameraPosition()
+    {
+        float targetHeight = (isCrouching ? config.crouchingHeight : config.standingHeight);
+        playerCamera.transform.localPosition = new Vector3(0, targetHeight - config.cameraHeightOffset, 0);
+    }
+    
+    void HandleAudio()
+    {
+        if (isGrounded && moveDirection.magnitude > 0.1f)
+        {
+            float currentInterval = GetFootstepInterval();
+            
+            if (Time.time - lastFootstepTime > currentInterval)
+            {
+                PlayFootstepSound();
+                lastFootstepTime = Time.time;
+            }
+        }
+    }
+    
+    float GetFootstepInterval()
+    {
+        float baseInterval = 0.5f;
+        float speedMultiplier = moveDirection.magnitude / config.walkSpeed;
+        return baseInterval / speedMultiplier;
+    }
+    
+    void PlayFootstepSound()
+    {
+        if (config.footstepSounds != null && config.footstepSounds.Length > 0)
+        {
+            AudioClip clip = config.footstepSounds[Random.Range(0, config.footstepSounds.Length)];
+            PlaySound(clip);
+        }
+    }
+    
+    void PlaySound(AudioClip clip)
+    {
+        if (audioSource && clip)
+        {
+            audioSource.PlayOneShot(clip);
+        }
+    }
+    
+    void OnLanded()
+    {
+        PlaySound(config.landSound);
+        currentAirJumps = 0;
+        Stats.landingCount++;
+    }
+    
+    void UpdateStats()
+    {
+        Stats.playTime += Time.deltaTime;
+        
+        if (isRunning)
+            Stats.runTime += Time.deltaTime;
+        
+        if (isCrouching)
+            Stats.crouchTime += Time.deltaTime;
+        
+        if (!isGrounded)
+            Stats.airTime += Time.deltaTime;
+        
+        Stats.currentSpeed = moveDirection.magnitude;
+        Stats.maxSpeedReached = Mathf.Max(Stats.maxSpeedReached, Stats.currentSpeed);
+    }
+    
+    void DisplayDebugInfo()
+    {
+        string info = $"Speed: {moveDirection.magnitude:F2}\n";
+        info += $"Grounded: {isGrounded}\n";
+        info += $"Crouching: {isCrouching}\n";
+        info += $"Running: {isRunning}\n";
+        info += $"Vertical Velocity: {verticalVelocity:F2}\n";
+        info += $"Air Jumps: {currentAirJumps}/{config.maxAirJumps}";
+        
+        // 可以在这里添加UI显示或使用Debug.Log
+    }
+    
+    // 公共接口
+    public void SetConfig(PlayerConfig newConfig)
+    {
+        config = newConfig;
+        InitializeSettings();
+    }
+    
+    public void SetMouseSensitivity(float sensitivity)
+    {
+        if (config) config.mouseSensitivity = sensitivity;
+    }
+    
+    public void ResetPosition(Vector3 position)
+    {
+        controller.enabled = false;
+        transform.position = position;
+        controller.enabled = true;
+        moveDirection = Vector3.zero;
+        verticalVelocity = 0f;
+    }
+    
+    // 事件
+    public System.Action OnJump;
+    public System.Action OnLand;
+    public System.Action OnStartCrouch;
+    public System.Action OnStopCrouch;
+}
+
+[System.Serializable]
+public class PlayerStats
+{
+    public float playTime;
+    public float distanceTraveled;
+    public float runTime;
+    public float crouchTime;
+    public float airTime;
+    public int jumpCount;
+    public int airJumpCount;
+    public int bunnyHopCount;
+    public int landingCount;
+    public float currentSpeed;
+    public float maxSpeedReached;
+    
+    public void Reset()
+    {
+        playTime = 0;
+        distanceTraveled = 0;
+        runTime = 0;
+        crouchTime = 0;
+        airTime = 0;
+        jumpCount = 0;
+        airJumpCount = 0;
+        bunnyHopCount = 0;
+        landingCount = 0;
+        currentSpeed = 0;
+        maxSpeedReached = 0;
     }
 }

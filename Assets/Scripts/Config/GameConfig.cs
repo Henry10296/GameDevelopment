@@ -405,3 +405,235 @@ public class UISystemConfig
     public float timeWarningRatio = 0.3f; // 剩余30%时警告
     public float timeCriticalRatio = 0.1f; // 剩余10%时危险
 }
+// 1. 场景配置SO - 替代GameManager中的硬编码数组
+[CreateAssetMenu(fileName = "SceneSettings", menuName = "Game/Scene Settings")]
+public class SceneSettings : ScriptableObject
+{
+    [System.Serializable]
+    public class SceneData
+    {
+        public GamePhase gamePhase;
+        public string sceneName;
+        public string displayName;
+        public Sprite scenePreview;
+    }
+    
+    [Header("游戏场景配置")]
+    public SceneData[] gameScenes = new SceneData[]
+    {
+        new() { gamePhase = GamePhase.MainMenu, sceneName = "0_MainMenu", displayName = "主菜单" },
+        new() { gamePhase = GamePhase.Home, sceneName = "1_Home", displayName = "家庭" },
+        new() { gamePhase = GamePhase.MapSelection, sceneName = "1_Home", displayName = "地图选择" }
+    };
+    
+    [Header("探索场景配置")]
+    public string[] explorationScenes = new string[]
+    {
+        "2_Hospital",
+        "3_School", 
+        "4_Supermarket",
+        "5_Park"
+    };
+    
+    public string GetSceneName(GamePhase phase)
+    {
+        var scene = System.Array.Find(gameScenes, s => s.gamePhase == phase);
+        return scene?.sceneName ?? "";
+    }
+    
+    public string GetExplorationScene(int index)
+    {
+        return index >= 0 && index < explorationScenes.Length ? explorationScenes[index] : "";
+    }
+}
+
+// 2. 输入配置SO - 替代代码中的硬编码按键
+[CreateAssetMenu(fileName = "InputSettings", menuName = "Game/Input Settings")]
+public class InputSettings : ScriptableObject
+{
+    [Header("交互按键")]
+    public KeyCode interactionKey = KeyCode.E;
+    public KeyCode pickupKey = KeyCode.E;
+    public KeyCode useItemKey = KeyCode.E;
+    
+    [Header("UI按键")]
+    public KeyCode inventoryKey = KeyCode.Tab;
+    public KeyCode journalKey = KeyCode.J;
+    public KeyCode pauseKey = KeyCode.Escape;
+    
+    [Header("武器按键")]
+    public KeyCode reloadKey = KeyCode.R;
+    public KeyCode weapon1Key = KeyCode.Alpha1;
+    public KeyCode weapon2Key = KeyCode.Alpha2;
+    public KeyCode fireKey = KeyCode.Mouse0;
+    public KeyCode aimKey = KeyCode.Mouse1;
+    
+    [Header("移动按键")]
+    public KeyCode runKey = KeyCode.LeftShift;
+    public KeyCode crouchKey = KeyCode.C;
+    public KeyCode jumpKey = KeyCode.Space;
+    
+    [Header("调试按键")]
+    public KeyCode debugNextDay = KeyCode.F1;
+    public KeyCode debugEndGame = KeyCode.F2;
+    public KeyCode debugAddResources = KeyCode.F3;
+    public KeyCode debugFindRadio = KeyCode.F4;
+}
+
+// 3. UI文本配置SO - 替代代码中的硬编码字符串
+[CreateAssetMenu(fileName = "UITextSettings", menuName = "Game/UI Text Settings")]
+public class UITextSettings : ScriptableObject
+{
+    [System.Serializable]
+    public class TextEntry
+    {
+        public string key;
+        [TextArea(1, 3)]
+        public string text;
+    }
+    
+    [Header("交互提示文本")]
+    public TextEntry[] interactionTexts = new TextEntry[]
+    {
+        new() { key = "PICKUP_PROMPT", text = "按 {0} 拾取" },
+        new() { key = "INTERACT_PROMPT", text = "按 {0} 交互" },
+        new() { key = "USE_PROMPT", text = "按 {0} 使用" }
+    };
+    
+    [Header("系统消息文本")]
+    public TextEntry[] systemMessages = new TextEntry[]
+    {
+        new() { key = "INVENTORY_FULL", text = "背包已满!" },
+        new() { key = "TIME_WARNING", text = "时间不多了！赶紧回家！" },
+        new() { key = "RADIO_FOUND", text = "找到了无线电设备!" },
+        new() { key = "GAME_SAVED", text = "游戏已保存" },
+        new() { key = "GAME_LOADED", text = "游戏已加载" },
+        new() { key = "NO_AMMO", text = "没有弹药了!" }
+    };
+    
+    [Header("成就文本")]
+    public TextEntry[] achievementTexts = new TextEntry[]
+    {
+        new() { key = "RADIO_FINDER", text = "无线电专家" },
+        new() { key = "COLLECTOR", text = "收集者" },
+        new() { key = "SURVIVOR_3_DAYS", text = "三日生存者" }
+    };
+    
+    private Dictionary<string, string> textDict;
+    
+    void OnEnable()
+    {
+        BuildTextDictionary();
+    }
+    
+    void BuildTextDictionary()
+    {
+        textDict = new Dictionary<string, string>();
+        
+        AddTextsToDict(interactionTexts);
+        AddTextsToDict(systemMessages);
+        AddTextsToDict(achievementTexts);
+    }
+    
+    void AddTextsToDict(TextEntry[] entries)
+    {
+        foreach (var entry in entries)
+        {
+            if (!string.IsNullOrEmpty(entry.key))
+                textDict[entry.key] = entry.text;
+        }
+    }
+    
+    public string GetText(string key, params object[] args)
+    {
+        if (textDict == null) BuildTextDictionary();
+        
+        if (textDict.TryGetValue(key, out string text))
+        {
+            return args.Length > 0 ? string.Format(text, args) : text;
+        }
+        
+        return $"[Missing: {key}]";
+    }
+}
+
+// 4. 数值配置SO - 替代代码中的魔术数字
+[CreateAssetMenu(fileName = "GameValues", menuName = "Game/Game Values")]
+public class GameValues : ScriptableObject
+{
+    [Header("时间配置")]
+    public float explorationTimeLimit = 900f; // 15分钟
+    public float timeWarningThreshold = 300f;  // 5分钟警告
+    public float autoSaveInterval = 60f;       // 自动保存间隔
+    
+    [Header("家庭配置数值")]
+    public int dailyFoodConsumption = 3;
+    public int dailyWaterConsumption = 3;
+    public float hungerDamageRate = 30f;
+    public float thirstDamageRate = 30f;
+    public float sicknessProbability = 0.1f;
+    public int maxSicknessDays = 3;
+    
+    [Header("背包配置")]
+    public int maxInventorySlots = 9;
+    public int maxStackSize = 99;
+    public float pickupRange = 2f;
+    
+    [Header("UI配置")]
+    public float defaultMessageDuration = 3f;
+    public float fadeSpeed = 2f;
+    public float transitionDuration = 0.5f;
+    
+    [Header("音频配置")]
+    public float musicVolume = 0.7f;
+    public float sfxVolume = 1f;
+    public float musicFadeTime = 2f;
+}
+
+// 5. 资源路径配置SO - 替代代码中的硬编码路径
+[CreateAssetMenu(fileName = "ResourcePaths", menuName = "Game/Resource Paths")]
+public class ResourcePaths : ScriptableObject
+{
+    [Header("音频资源路径")]
+    public string audioBasePath = "Audio/";
+    public string musicPath = "Audio/Music/";
+    public string sfxPath = "Audio/SFX/";
+    public string voicePath = "Audio/Voice/";
+    
+    [Header("预制体路径")]
+    public string uiPrefabsPath = "Prefabs/UI/";
+    public string enemyPrefabsPath = "Prefabs/Enemies/";
+    public string itemPrefabsPath = "Prefabs/Items/";
+    public string effectsPath = "Prefabs/Effects/";
+    
+    [Header("材质资源路径")]
+    public string materialsPath = "Materials/";
+    public string texturesPath = "Textures/";
+    public string spritesPath = "Sprites/";
+    
+    [Header("特殊资源名称")]
+    public string bulletTrailMaterial = "BulletTrailMaterial";
+    public string muzzleFlashPrefab = "MuzzleFlashPrefab";
+    public string hitEffectPrefab = "HitEffectPrefab";
+    
+    public string GetFullPath(string category, string fileName)
+    {
+        string basePath = category.ToLower() switch
+        {
+            "audio" => audioBasePath,
+            "music" => musicPath,
+            "sfx" => sfxPath,
+            "voice" => voicePath,
+            "ui" => uiPrefabsPath,
+            "enemy" => enemyPrefabsPath,
+            "item" => itemPrefabsPath,
+            "effects" => effectsPath,
+            "materials" => materialsPath,
+            "textures" => texturesPath,
+            "sprites" => spritesPath,
+            _ => ""
+        };
+        
+        return basePath + fileName;
+    }
+}
