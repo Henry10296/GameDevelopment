@@ -3,7 +3,7 @@ using UnityEngine.UI;
 using TMPro;
 
 [System.Serializable]
-public class FamilyMemberUI
+public class FixedFamilyMemberUI : MonoBehaviour
 {
     [Header("UI组件")]
     public TextMeshProUGUI nameText;
@@ -21,107 +21,121 @@ public class FamilyMemberUI
     public Color dangerColor = Color.red;
     
     private int memberIndex;
+    private FamilyMember cachedMember;
     
-    [Header("自动更新")] //
-    public GameEvent familyUpdateEvent; // 绑定到FamilyManager的事件
+    void Start()
+    {
+        // 订阅家庭管理器事件
+        if (FamilyManager.Instance != null)
+        {
+            FamilyManager.Instance.onMemberStatusChanged?.RegisterListener(
+                GetComponent<GameEventListener>() ?? gameObject.AddComponent<GameEventListener>());
+        }
+        
+        // 设置按钮事件
+        SetupButtons();
+    }
+    
     public void Initialize(int index)
     {
         memberIndex = index;
-        
-        // 设置按钮事件
-        if (feedButton) feedButton.onClick.AddListener(() => FeedMember());
-        if (waterButton) waterButton.onClick.AddListener(() => GiveWater());
-        if (healButton) healButton.onClick.AddListener(() => HealMember());
-        if (familyUpdateEvent != null)
-        {
-            // 创建临时的GameEventListener
-            var listener = gameObject.AddComponent<GameEventListener>();
-            listener.gameEvent = familyUpdateEvent;
-            listener.response.AddListener(() => {
-                if (FamilyManager.Instance?.FamilyMembers != null && 
-                    memberIndex < FamilyManager.Instance.FamilyMembers.Count)
-                {
-                    UpdateDisplay(FamilyManager.Instance.FamilyMembers[memberIndex]);
-                }
-            });
-        }
+        RefreshDisplay();
     }
     
-    public void UpdateDisplay(FamilyMember member)
+    void SetupButtons()
     {
+        feedButton?.onClick.AddListener(() => FeedMember());
+        waterButton?.onClick.AddListener(() => GiveWater());
+        healButton?.onClick.AddListener(() => HealMember());
+    }
+    
+    // 响应事件的公共方法
+    public void OnFamilyStatusChanged()
+    {
+        RefreshDisplay();
+    }
+    
+    void RefreshDisplay()
+    {
+        if (FamilyManager.Instance?.FamilyMembers == null || 
+            memberIndex >= FamilyManager.Instance.FamilyMembers.Count)
+        {
+            return;
+        }
+        
+        cachedMember = FamilyManager.Instance.FamilyMembers[memberIndex];
+        UpdateDisplay(cachedMember);
+    }
+    
+    void UpdateDisplay(FamilyMember member)
+    {
+        if (member == null) return;
+        
+        // 更新文本
         if (nameText) nameText.text = member.name;
         
-        // 更新血量
-        if (healthSlider)
-        {
-            healthSlider.value = member.health / 100f;
-            UpdateSliderColor(healthSlider, member.health / 100f);
-        }
+        // 更新滑条
+        UpdateSlider(healthSlider, member.health / 100f);
+        UpdateSlider(hungerSlider, member.hunger / 100f);
+        UpdateSlider(thirstSlider, member.thirst / 100f);
         
-        // 更新饥饿
-        if (hungerSlider)
-        {
-            hungerSlider.value = member.hunger / 100f;
-            UpdateSliderColor(hungerSlider, member.hunger / 100f);
-        }
-        
-        // 更新口渴
-        if (thirstSlider)
-        {
-            thirstSlider.value = member.thirst / 100f;
-            UpdateSliderColor(thirstSlider, member.thirst / 100f);
-        }
-        
-        // 更新生病状态
+        // 更新状态图标
         if (sickIcon) sickIcon.SetActive(member.isSick);
         
-        // 更新按钮可用性
+        // 更新按钮状态
         UpdateButtonStates();
     }
     
-    void UpdateSliderColor(Slider slider, float value)
+    void UpdateSlider(Slider slider, float value)
     {
-        if (slider.fillRect == null) return;
+        if (slider == null) return;
         
-        Image fillImage = slider.fillRect.GetComponent<Image>();
-        if (fillImage == null) return;
+        slider.value = value;
         
-        if (value > 0.6f)
-            fillImage.color = healthyColor;
-        else if (value > 0.3f)
-            fillImage.color = warningColor;
-        else
-            fillImage.color = dangerColor;
+        // 更新颜色
+        if (slider.fillRect != null)
+        {
+            var fillImage = slider.fillRect.GetComponent<Image>();
+            if (fillImage != null)
+            {
+                fillImage.color = GetHealthColor(value);
+            }
+        }
+    }
+    
+    Color GetHealthColor(float value)
+    {
+        if (value > 0.6f) return healthyColor;
+        if (value > 0.3f) return warningColor;
+        return dangerColor;
     }
     
     void UpdateButtonStates()
     {
         if (FamilyManager.Instance == null) return;
         
-        // 修复：使用公共属性访问器而不是私有字段
-        if (feedButton) 
-            feedButton.interactable = FamilyManager.Instance.Food > 0;
-        if (waterButton) 
-            waterButton.interactable = FamilyManager.Instance.Water > 0;
-        if (healButton) 
-            healButton.interactable = FamilyManager.Instance.Medicine > 0;
+        // 使用公共属性访问器
+        bool canFeed = FamilyManager.Instance.Food > 0;
+        bool canGiveWater = FamilyManager.Instance.Water > 0;
+        bool canHeal = FamilyManager.Instance.Medicine > 0;
+        
+        if (feedButton) feedButton.interactable = canFeed;
+        if (waterButton) waterButton.interactable = canGiveWater;
+        if (healButton) healButton.interactable = canHeal;
     }
     
     void FeedMember()
     {
-        if (FamilyManager.Instance)
-            FamilyManager.Instance.FeedMember(memberIndex);
+        FamilyManager.Instance?.FeedMember(memberIndex);
     }
     
     void GiveWater()
     {
-        if (FamilyManager.Instance)
-            FamilyManager.Instance.GiveWaterToMember(memberIndex);
+        FamilyManager.Instance?.GiveWaterToMember(memberIndex);
     }
     
     void HealMember()
     {
-        if (FamilyManager.Instance)
-            FamilyManager.Instance.HealMember(memberIndex);
+        FamilyManager.Instance?.HealMember(memberIndex);
     }
 }

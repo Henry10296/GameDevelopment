@@ -10,20 +10,26 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 0}
-  m_Name: NewEvent_638868359367808613
+  m_Name: NewEvent_638869693941607345
   m_EditorClassIdentifier: Assembly-CSharp::RandomEvent
-  eventName: 1
-  eventDescription: 2
+  eventName: "\u6D4B\u8BD52"
+  eventDescription: "\u6D4B\u8BD52"
   eventIcon: {fileID: 0}
   priority: 2
   minDay: 1
   maxDay: 5
-  baseTriggerChance: 0.33
+  baseTriggerChance: 0.3
   triggerConditions: []
   eventType: 0
   requiresChoice: 1
-  canRepeat: 1
-  choices: []
+  canRepeat: 0
+  choices:
+  - choiceText: "\u6D4B\u8BD52"
+    resultDescription: 2
+    requirements: []
+    effects: []
+    buttonColor: {r: 1, g: 1, b: 1, a: 1}
+    isRecommended: 0
   automaticEffects: []
   followupEvent: {fileID: 0}
   followupDelay: 1

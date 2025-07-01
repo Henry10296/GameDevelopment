@@ -1,8 +1,7 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
+using System.Collections;
 
-public class MuzzleFlash : MonoBehaviour//枪口闪光
+public class MuzzleFlash : MonoBehaviour
 {
     private Light flashLight;
     private ParticleSystem particles;
@@ -27,11 +26,13 @@ public class MuzzleFlash : MonoBehaviour//枪口闪光
         if (flashLight)
         {
             flashLight.enabled = true;
+            StopAllCoroutines(); // 修复：停止之前的协程
             StartCoroutine(DisableLightAfterDelay(0.05f));
         }
         
         if (particles)
         {
+            particles.Stop(); // 修复：先停止再播放
             particles.Play();
         }
     }
@@ -39,6 +40,19 @@ public class MuzzleFlash : MonoBehaviour//枪口闪光
     IEnumerator DisableLightAfterDelay(float delay)
     {
         yield return new WaitForSeconds(delay);
-        flashLight.enabled = false;
+        
+        // 修复：检查对象是否仍然有效
+        if (flashLight != null)
+            flashLight.enabled = false;
+    }
+    
+    // 修复：添加重置方法供对象池使用
+    public void ResetEffect()
+    {
+        StopAllCoroutines();
+        if (flashLight != null)
+            flashLight.enabled = false;
+        if (particles != null)
+            particles.Stop();
     }
 }

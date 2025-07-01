@@ -3,16 +3,19 @@ using UnityEngine;
 public abstract class Singleton<T> : MonoBehaviour where T : MonoBehaviour
 {
     private static T _instance;
-    private static object _lock = new object();
+    private static readonly object _lock = new object();
     private static bool _applicationIsQuitting = false;
-
+    
+    // 添加初始化状态
+    public static bool IsInitialized { get; private set; }
+    
     public static T Instance
     {
         get
         {
             if (_applicationIsQuitting)
             {
-                Debug.LogWarning($"[Singleton] Instance '{typeof(T)}' already destroyed on application quit.");
+                Debug.LogWarning($"[SafeSingleton] Instance '{typeof(T)}' already destroyed.");
                 return null;
             }
 
@@ -20,22 +23,14 @@ public abstract class Singleton<T> : MonoBehaviour where T : MonoBehaviour
             {
                 if (_instance == null)
                 {
-                    _instance = (T)FindObjectOfType(typeof(T));
-
-                    if (FindObjectsOfType(typeof(T)).Length > 1)
-                    {
-                        Debug.LogError($"[Singleton] Something went wrong - there should never be more than 1 singleton! Reopening the scene might fix it.");
-                        return _instance;
-                    }
-
+                    _instance = FindObjectOfType<T>();
+                    
                     if (_instance == null)
                     {
                         GameObject singleton = new GameObject();
                         _instance = singleton.AddComponent<T>();
                         singleton.name = $"(singleton) {typeof(T)}";
-
                         DontDestroyOnLoad(singleton);
-                        Debug.Log($"[Singleton] An instance of {typeof(T)} is needed in the scene, so '{singleton}' was created with DontDestroyOnLoad.");
                     }
                 }
 
@@ -50,15 +45,33 @@ public abstract class Singleton<T> : MonoBehaviour where T : MonoBehaviour
         {
             _instance = this as T;
             DontDestroyOnLoad(gameObject);
+            OnSingletonAwake();
         }
         else if (_instance != this)
         {
             Destroy(gameObject);
         }
     }
-
+    
+    protected virtual void Start()
+    {
+        if (_instance == this)
+        {
+            OnSingletonStart();
+            IsInitialized = true;
+        }
+    }
+    
+    // 子类重写这些方法而不是Awake/Start
+    protected virtual void OnSingletonAwake() { }
+    protected virtual void OnSingletonStart() { }
+    
     protected virtual void OnDestroy()
     {
-        _applicationIsQuitting = true;
+        if (_instance == this)
+        {
+            IsInitialized = false;
+            _applicationIsQuitting = true;
+        }
     }
 }

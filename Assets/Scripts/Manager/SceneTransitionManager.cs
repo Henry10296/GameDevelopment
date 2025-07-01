@@ -5,25 +5,12 @@ using System.Collections;
 
 public class SceneTransitionManager : Singleton<SceneTransitionManager>
 {
-    public static SceneTransitionManager Instance;
-    
     [Header("转换效果")]
     public Image fadeImage;
     public float fadeSpeed = 1f;
     public bool fadeOnStart = true;
     
-    void Awake()
-    {
-        if (Instance == null)
-        {
-            Instance = this;
-            DontDestroyOnLoad(gameObject);
-        }
-        else
-        {
-            Destroy(gameObject);
-        }
-    }
+    private Coroutine currentTransition; // 修复：跟踪当前转换
     
     void Start()
     {
@@ -35,29 +22,40 @@ public class SceneTransitionManager : Singleton<SceneTransitionManager>
     
     public void LoadSceneWithFade(string sceneName)
     {
-        StartCoroutine(LoadSceneCoroutine(sceneName));
+        // 修复：停止之前的转换
+        if (currentTransition != null)
+        {
+            StopCoroutine(currentTransition);
+        }
+        
+        currentTransition = StartCoroutine(LoadSceneCoroutine(sceneName));
     }
     
     IEnumerator LoadSceneCoroutine(string sceneName)
     {
-        // 淡出
         yield return StartCoroutine(FadeOutCoroutine());
         
-        // 加载场景
-        SceneManager.LoadScene(sceneName);
+        // 修复：检查是否仍然有效
+        if (this != null && gameObject != null)
+        {
+            SceneManager.LoadScene(sceneName);
+        }
         
-        // 淡入
-        yield return StartCoroutine(FadeInCoroutine());
+        currentTransition = null; // 清理引用
     }
     
     public void FadeIn()
     {
-        StartCoroutine(FadeInCoroutine());
+        if (currentTransition != null)
+            StopCoroutine(currentTransition);
+        currentTransition = StartCoroutine(FadeInCoroutine());
     }
     
     public void FadeOut()
     {
-        StartCoroutine(FadeOutCoroutine());
+        if (currentTransition != null)
+            StopCoroutine(currentTransition);
+        currentTransition = StartCoroutine(FadeOutCoroutine());
     }
     
     IEnumerator FadeInCoroutine()
@@ -65,13 +63,14 @@ public class SceneTransitionManager : Singleton<SceneTransitionManager>
         if (fadeImage == null) yield break;
         
         float alpha = 1f;
-        while (alpha > 0f)
+        while (alpha > 0f && this != null)
         {
             alpha -= fadeSpeed * Time.deltaTime;
             SetFadeAlpha(alpha);
             yield return null;
         }
         SetFadeAlpha(0f);
+        currentTransition = null;
     }
     
     IEnumerator FadeOutCoroutine()
@@ -79,13 +78,14 @@ public class SceneTransitionManager : Singleton<SceneTransitionManager>
         if (fadeImage == null) yield break;
         
         float alpha = 0f;
-        while (alpha < 1f)
+        while (alpha < 1f && this != null)
         {
             alpha += fadeSpeed * Time.deltaTime;
             SetFadeAlpha(alpha);
             yield return null;
         }
         SetFadeAlpha(1f);
+        currentTransition = null;
     }
     
     void SetFadeAlpha(float alpha)

@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEditor;
 using UnityEngine;
 
 [System.Serializable]
@@ -503,7 +504,19 @@ public partial class SaveManager
             saveData.familyMembers = FamilyManager.Instance.FamilyMembers
                 .Select(ConvertFamilyMemberToSaveData).ToArray();
         }
+        if (enableDynamicDataSave)
+        {
+            saveData.dynamicData = CollectDynamicData();
+            saveData.sceneDynamicData = CollectSceneDynamicData();
+            saveData.configState = CollectConfigState();
+        }
         
+        // 添加元数据
+        saveData.metadata = SaveMetadata.CreateCurrent();
+        if (captureScreenshot)
+        {
+            saveData.metadata.screenshotData = CaptureScreenshot();
+        }
         // 现有库存、无线电、日志数据代码保持不变...
         
         // 新增：自动收集场景中的可保存组件
@@ -514,7 +527,34 @@ public partial class SaveManager
         
         return saveData;
     }
-    
+    /*GameSaveData CollectSaveData()
+    {
+        var saveData = new GameSaveData();
+        
+        // 现有的静态数据收集保持不变...
+        if (GameManager.Instance)
+        {
+            saveData.currentDay = GameManager.Instance.CurrentDay;
+            saveData.currentPhase = GameManager.Instance.CurrentPhase;
+            saveData.gameProgress = (float)saveData.currentDay / 5f;
+        }
+        
+        if (FamilyManager.Instance)
+        {
+            saveData.food = FamilyManager.Instance.Food;
+            saveData.water = FamilyManager.Instance.Water;
+            saveData.medicine = FamilyManager.Instance.Medicine;
+            saveData.familyMembers = FamilyManager.Instance.FamilyMembers
+                .Select(ConvertFamilyMemberToSaveData).ToArray();
+        }
+        
+        // 现有的其他数据收集...
+        
+        // 新增：动态数据收集
+       
+        
+        return saveData;
+    }*/
     // 新增场景数据收集方法
     private void CollectSceneData(GameSaveData saveData)
     {
@@ -544,7 +584,20 @@ public partial class SaveManager
     void ApplySaveData(GameSaveData saveData)
     {
         // 现有的数据应用逻辑完全保持不变...
+        if (enableDynamicDataSave && saveData.dynamicData != null)
+        {
+            ApplyDynamicData(saveData.dynamicData);
+        }
         
+        if (saveData.sceneDynamicData != null)
+        {
+            ApplySceneDynamicData(saveData.sceneDynamicData);
+        }
+        
+        if (saveData.configState != null)
+        {
+            ApplyConfigState(saveData.configState);
+        }
         // 新增：应用场景数据
         if (enableAutoCollection && !string.IsNullOrEmpty(saveData.sceneDataJson))
         {
@@ -819,46 +872,7 @@ public partial class SaveManager
     private DynamicGameData currentDynamicData = new();
     
     // 扩展现有CollectSaveData方法
-    GameSaveData CollectSaveData()
-    {
-        var saveData = new GameSaveData();
-        
-        // 现有的静态数据收集保持不变...
-        if (GameManager.Instance)
-        {
-            saveData.currentDay = GameManager.Instance.CurrentDay;
-            saveData.currentPhase = GameManager.Instance.CurrentPhase;
-            saveData.gameProgress = (float)saveData.currentDay / 5f;
-        }
-        
-        if (FamilyManager.Instance)
-        {
-            saveData.food = FamilyManager.Instance.Food;
-            saveData.water = FamilyManager.Instance.Water;
-            saveData.medicine = FamilyManager.Instance.Medicine;
-            saveData.familyMembers = FamilyManager.Instance.FamilyMembers
-                .Select(ConvertFamilyMemberToSaveData).ToArray();
-        }
-        
-        // 现有的其他数据收集...
-        
-        // 新增：动态数据收集
-        if (enableDynamicDataSave)
-        {
-            saveData.dynamicData = CollectDynamicData();
-            saveData.sceneDynamicData = CollectSceneDynamicData();
-            saveData.configState = CollectConfigState();
-        }
-        
-        // 添加元数据
-        saveData.metadata = SaveMetadata.CreateCurrent();
-        if (captureScreenshot)
-        {
-            saveData.metadata.screenshotData = CaptureScreenshot();
-        }
-        
-        return saveData;
-    }
+    
     
     // 收集动态游戏数据
     private DynamicGameData CollectDynamicData()
@@ -972,26 +986,13 @@ public partial class SaveManager
     }
     
     // 扩展现有ApplySaveData方法
-    void ApplySaveData(GameSaveData saveData)
+    /*void ApplySaveData(GameSaveData saveData)
     {
         // 现有的静态数据应用保持不变...
         
         // 新增：应用动态数据
-        if (enableDynamicDataSave && saveData.dynamicData != null)
-        {
-            ApplyDynamicData(saveData.dynamicData);
-        }
-        
-        if (saveData.sceneDynamicData != null)
-        {
-            ApplySceneDynamicData(saveData.sceneDynamicData);
-        }
-        
-        if (saveData.configState != null)
-        {
-            ApplyConfigState(saveData.configState);
-        }
-    }
+       
+    }*/
     
     // 应用动态数据
     private void ApplyDynamicData(DynamicGameData dynamicData)
@@ -1138,14 +1139,14 @@ public class DynamicPickupItem : PickupItem, IDynamicSaveable
         return 100; // 低优先级
     }
     
-    protected override void TryPickup()
+    /*protected override void TryPickup()
     {
         if (saveWhenPickedUp)
         {
             wasPickedUp = true;
         }
         base.TryPickup();
-    }
+    }*/
     
     [System.Serializable]
     private class PickupItemDynamicData

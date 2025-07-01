@@ -1,10 +1,8 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public abstract class BaseInteractable : MonoBehaviour
 {
-    [Header("交互设置")] // 基于PickupItem的现有模式
+    [Header("交互设置")]
     public float interactionRange = 2f;
     public KeyCode interactionKey = KeyCode.E;
     public GameObject interactionPrompt;
@@ -15,12 +13,18 @@ public abstract class BaseInteractable : MonoBehaviour
     protected virtual void Start()
     {
         player = GameObject.FindGameObjectWithTag("Player")?.transform;
-        if (interactionPrompt) interactionPrompt.SetActive(false);
+        if (player == null)
+        {
+            Debug.LogWarning($"[BaseInteractable] {gameObject.name} - Player not found!");
+        }
+        
+        if (interactionPrompt) 
+            interactionPrompt.SetActive(false);
     }
     
     protected virtual void Update()
     {
-        if (player == null) return;
+        if (player == null) return; // 修复：添加空检查
         
         float distance = Vector3.Distance(transform.position, player.position);
         bool inRange = distance <= interactionRange;
@@ -28,7 +32,8 @@ public abstract class BaseInteractable : MonoBehaviour
         if (inRange != playerInRange)
         {
             playerInRange = inRange;
-            if (interactionPrompt) interactionPrompt.SetActive(inRange);
+            if (interactionPrompt) 
+                interactionPrompt.SetActive(inRange);
         }
         
         if (playerInRange && Input.GetKeyDown(interactionKey))
