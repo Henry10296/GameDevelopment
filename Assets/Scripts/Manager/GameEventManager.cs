@@ -1,6 +1,9 @@
 using UnityEngine;
 using System.Collections.Generic;
 using System;
+using System.Linq;
+using Unity.UI;
+using TMPro;
 [CreateAssetMenu(fileName = "RandomEvent", menuName = "Game/Random Event")]
 public class RandomEvent : ScriptableObject
 {
@@ -31,6 +34,18 @@ public class RandomEvent : ScriptableObject
     public RandomEvent followupEvent;
     public float followupDelay = 1f; // 天数延迟
     
+    [Header("任务扩展")]
+    public bool isQuest = false;
+    public QuestObjective[] questObjectives;
+    public string[] prerequisiteQuestIds;
+    public string[] unlockQuestIds;
+    
+    // 任务状态（如果是任务）
+    [System.NonSerialized]
+    public QuestStatus questStatus = QuestStatus.NotStarted;
+    [System.NonSerialized]
+    public Dictionary<string, int> objectiveProgress = new();
+    
     public bool CanTrigger()
     {
         int currentDay = GameManager.Instance.CurrentDay;
@@ -47,6 +62,90 @@ public class RandomEvent : ScriptableObject
         }
         
         return true;
+    }
+    public bool CanTriggerAsQuest()
+    {
+        if (!isQuest) return CanTrigger();
+        
+        // 检查前置任务
+        if (prerequisiteQuestIds != null)
+        {
+            foreach (string prereqId in prerequisiteQuestIds)
+            {
+                var prereq = QuestExtensionManager.Instance?.GetQuest(prereqId);
+                if (prereq == null || prereq.questStatus != QuestStatus.Completed)
+                    return false;
+            }
+        }
+        
+        return questStatus == QuestStatus.NotStarted && CanTrigger();
+    }
+    
+    public void StartQuest()
+    {
+        if (!isQuest || !CanTriggerAsQuest()) return;
+        
+        questStatus = QuestStatus.InProgress;
+        
+        // 初始化目标进度
+        if (questObjectives != null)
+        {
+            foreach (var objective in questObjectives)
+            {
+                objectiveProgress[objective.objectiveId] = 0;
+            }
+        }
+        
+        QuestExtensionManager.Instance?.OnQuestStarted(this);
+    }
+    
+    // 更新任务进度
+    public void UpdateQuestProgress(string objectiveId, int progress = 1)
+    {
+        if (!isQuest || questStatus != QuestStatus.InProgress) return;
+        
+        if (objectiveProgress.ContainsKey(objectiveId))
+        {
+            objectiveProgress[objectiveId] += progress;
+            
+            // 检查目标是否完成
+            var objective = System.Array.Find(questObjectives, o => o.objectiveId == objectiveId);
+            if (objective != null && objectiveProgress[objectiveId] >= objective.targetAmount)
+            {
+                objective.isCompleted = true;
+                CheckQuestCompletion();
+            }
+        }
+    }
+    
+    // 检查任务完成
+    private void CheckQuestCompletion()
+    {
+        if (questObjectives.All(o => o.isCompleted))
+        {
+            CompleteQuest();
+        }
+    }
+    
+    // 完成任务
+    public void CompleteQuest()
+    {
+        questStatus = QuestStatus.Completed;
+        
+        // 解锁新任务
+        if (unlockQuestIds != null)
+        {
+            foreach (string unlockId in unlockQuestIds)
+            {
+                var unlockQuest = QuestExtensionManager.Instance?.GetQuest(unlockId);
+                if (unlockQuest != null)
+                {
+                    unlockQuest.questStatus = QuestStatus.Available;
+                }
+            }
+        }
+        
+        QuestExtensionManager.Instance?.OnQuestCompleted(this);
     }
     
     public float CalculateActualTriggerChance()
@@ -348,8 +447,16 @@ public class GameEventManager : Singleton<GameEventManager>
     public TMPro.TextMeshProUGUI eventDescriptionText;
     public UnityEngine.UI.Button eventConfirmButton;
     
+    
+    [Header("任务扩展")]
+    public List<RandomEvent> allQuests = new(); // 任务列表
     public static event Action<GameEvent> OnEventTriggered;
     
+    protected override void Awake()
+    {
+        base.Awake();
+        LoadQuests();
+    }
     void Start()
     {
         foreach (var evt in configuredEvents)
@@ -472,9 +579,105 @@ public class GameEventManager : Singleton<GameEventManager>
         if (eventPopupPanel)
             eventPopupPanel.SetActive(false);
     }
+     void LoadQuests()
+    {
+        // 从现有的configuredEvents中筛选出任务
+        allQuests = configuredEvents.Where(e => e.isQuest).ToList();
+    }
     
+    public RandomEvent GetQuest(string questId)
+    {
+        return allQuests.FirstOrDefault(q => q.eventName == questId || q.name == questId);
+    }
+    
+    public void OnQuestStarted(RandomEvent quest)
+    {
+        Debug.Log($"[Quest] Started: {quest.eventName}");
+        
+        // 添加到日志
+        JournalManager.Instance?.AddEntry($"任务开始: {quest.eventName}", 
+            quest.eventDescription, JournalEntryType.Important);
+    }
+    
+    public void OnQuestCompleted(RandomEvent quest)
+    {
+        Debug.Log($"[Quest] Completed: {quest.eventName}");
+        
+        // 给予奖励（复用现有的EventEffect系统）
+        if (quest.automaticEffects != null)
+        {
+            foreach (var effect in quest.automaticEffects)
+            {
+                effect.Execute();
+            }
+        }
+        
+        // 添加到日志
+        JournalManager.Instance?.AddEntry($"任务完成: {quest.eventName}", 
+            "任务奖励已发放", JournalEntryType.Success);
+    }
+    
+    // 更新任务进度的全局方法
+    public static void UpdateQuestProgress(string objectiveType, string targetId, int amount = 1)
+    {
+        if (Instance == null) return;
+        
+        foreach (var quest in Instance.allQuests)
+        {
+            if (quest.questStatus == QuestStatus.InProgress && quest.questObjectives != null)
+            {
+                foreach (var objective in quest.questObjectives)
+                {
+                    if (ShouldUpdateObjective(objective, objectiveType, targetId))
+                    {
+                        quest.UpdateQuestProgress(objective.objectiveId, amount);
+                    }
+                }
+            }
+        }
+    }
+    
+    static bool ShouldUpdateObjective(QuestObjective objective, string type, string targetId)
+    {
+        return type.ToLower() switch
+        {
+            "collect" => objective.type == QuestObjectiveType.CollectItem && objective.targetId == targetId,
+            "kill" => objective.type == QuestObjectiveType.KillEnemies && objective.targetId == targetId,
+            "explore" => objective.type == QuestObjectiveType.ExploreArea && objective.targetId == targetId,
+            _ => false
+        };
+    }
     protected override void OnDestroy()
     {
         base.OnDestroy(); // 调用 Singleton 的 OnDestroy
     }
+}
+// 任务目标数据结构（复用现有EventEffect结构）
+[System.Serializable]
+public class QuestObjective
+{
+    public string objectiveId;
+    public string description;
+    public QuestObjectiveType type;
+    public int targetAmount = 1;
+    public string targetId; // 物品名、敌人类型等
+    public bool isCompleted = false;
+}
+
+public enum QuestObjectiveType
+{
+    CollectItem,    // 收集物品
+    KillEnemies,    // 击杀敌人  
+    ExploreArea,    // 探索区域
+    SurviveDays,    // 生存天数
+    Custom          // 自定义
+}
+
+public enum QuestStatus
+{
+    NotStarted,
+    Available, 
+    InProgress,
+    Completed,
+    Failed
 }

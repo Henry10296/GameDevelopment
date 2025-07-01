@@ -92,7 +92,11 @@ public class EnemyHealth : MonoBehaviour
         if (TryGetComponent<EnemyAI>(out var ai)) ai.enabled = false;
         if (TryGetComponent<Collider>(out var col)) col.enabled = false;
         if (TryGetComponent<Rigidbody>(out var rb)) rb.isKinematic = true;
-        
+        var enemyAI = GetComponent<EnemyAI>();
+        if (enemyAI != null)
+        {
+            GameEventManager.UpdateQuestProgress("kill", enemyAI.enemyType.ToString(), 1);
+        }
         // 延迟销毁
         Destroy(gameObject, 3f);
         

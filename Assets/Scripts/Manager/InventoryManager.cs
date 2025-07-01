@@ -16,6 +16,43 @@ public class InventoryManager : Singleton<InventoryManager>
     public bool AddItem(ItemData itemData, int quantity = 1)
     {
         if (itemData == null) return false;
+        bool result = AddItemInternal(itemData, quantity); 
+        // 检查是否可以堆叠到现有物品
+        foreach (var item in items)
+        {
+            if (item.itemData == itemData && item.quantity < itemData.maxStackSize)
+            {
+                int addAmount = Mathf.Min(quantity, itemData.maxStackSize - item.quantity);
+                item.quantity += addAmount;
+                quantity -= addAmount;
+
+                if (quantity <= 0)
+                {
+                    UpdateUI();
+                    return true;
+                }
+            }
+        }
+
+        // 添加新物品槽
+        while (quantity > 0 && items.Count < maxSlots)
+        {
+            int addAmount = Mathf.Min(quantity, itemData.maxStackSize);
+            items.Add(new InventoryItem(itemData, addAmount));
+            quantity -= addAmount;
+        }
+
+        UpdateUI();
+        if (result)
+        {
+            GameEventManager.UpdateQuestProgress("collect", itemData.itemName, quantity);
+        }
+        return quantity <= 0;
+    }
+    private bool AddItemInternal(ItemData itemData, int quantity)
+    {
+        // 现有的AddItem逻辑
+        if (itemData == null) return false;
 
         // 检查是否可以堆叠到现有物品
         foreach (var item in items)
@@ -45,7 +82,6 @@ public class InventoryManager : Singleton<InventoryManager>
         UpdateUI();
         return quantity <= 0;
     }
-
     public bool RemoveItem(string itemName, int quantity = 1)
     {
         int remainingToRemove = quantity;

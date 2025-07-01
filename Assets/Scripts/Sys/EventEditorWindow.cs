@@ -32,6 +32,13 @@ public class EventEditorWindow : EditorWindow
     private EventType eventTypeFilter = (EventType)(-1);
     private EventPriority eventPriorityFilter = (EventPriority)(-1);
     
+    
+    private bool showQuestFields = false;
+    
+    private bool isRenamingEvent = false;
+    private string renamingText = "";
+    private RandomEvent renamingEvent = null;
+
     [MenuItem("Game Tools/Event Editor")]
     public static void OpenWindow()
     {
@@ -193,6 +200,7 @@ public class EventEditorWindow : EditorWindow
     void DrawEventDetails()
     {
         GUILayout.Space(10);
+        
         GUILayout.Label("Event Details", EditorStyles.boldLabel);
         
         EditorGUI.BeginChangeCheck();
@@ -222,7 +230,82 @@ public class EventEditorWindow : EditorWindow
         {
             EventChoiceEditor.OpenWindow(selectedEvent);
         }
+        selectedEvent.isQuest = EditorGUILayout.Toggle("Is Quest", selectedEvent.isQuest);
+        
+        if (selectedEvent.isQuest)
+        {
+            showQuestFields = EditorGUILayout.Foldout(showQuestFields, "Quest Settings");
+            if (showQuestFields)
+            {
+                DrawQuestFields();
+            }
+        }
     }
+    
+    #region 任务
+      void DrawQuestFields()
+    {
+        EditorGUILayout.BeginVertical("box");
+        
+        GUILayout.Label("Prerequisites:", EditorStyles.boldLabel);
+        DrawStringArray(ref selectedEvent.prerequisiteQuestIds, "Prerequisite Quest IDs");
+        
+        GUILayout.Label("Unlocks:", EditorStyles.boldLabel);
+        DrawStringArray(ref selectedEvent.unlockQuestIds, "Unlock Quest IDs");
+        
+        GUILayout.Label("Objectives:", EditorStyles.boldLabel);
+        DrawQuestObjectives();
+        
+        EditorGUILayout.EndVertical();
+    }
+    
+    void DrawStringArray(ref string[] array, string label)
+    {
+        if (array == null) array = new string[0];
+        
+        int newSize = EditorGUILayout.IntField("Size", array.Length);
+        if (newSize != array.Length)
+        {
+            System.Array.Resize(ref array, newSize);
+        }
+        
+        for (int i = 0; i < array.Length; i++)
+        {
+            array[i] = EditorGUILayout.TextField($"Element {i}", array[i] ?? "");
+        }
+    }
+    
+    void DrawQuestObjectives()
+    {
+        if (selectedEvent.questObjectives == null) selectedEvent.questObjectives = new QuestObjective[0];
+        
+        int newSize = EditorGUILayout.IntField("Objectives Count", selectedEvent.questObjectives.Length);
+        if (newSize != selectedEvent.questObjectives.Length)
+        {
+            System.Array.Resize(ref selectedEvent.questObjectives, newSize);
+            for (int i = 0; i < selectedEvent.questObjectives.Length; i++)
+            {
+                if (selectedEvent.questObjectives[i] == null)
+                    selectedEvent.questObjectives[i] = new QuestObjective();
+            }
+        }
+        
+        for (int i = 0; i < selectedEvent.questObjectives.Length; i++)
+        {
+            var obj = selectedEvent.questObjectives[i];
+            EditorGUILayout.BeginVertical("box");
+            
+            obj.objectiveId = EditorGUILayout.TextField("Objective ID", obj.objectiveId ?? "");
+            obj.description = EditorGUILayout.TextField("Description", obj.description ?? "");
+            obj.type = (QuestObjectiveType)EditorGUILayout.EnumPopup("Type", obj.type);
+            obj.targetAmount = EditorGUILayout.IntField("Target Amount", obj.targetAmount);
+            obj.targetId = EditorGUILayout.TextField("Target ID", obj.targetId ?? "");
+            
+            EditorGUILayout.EndVertical();
+        }
+    }
+    #endregion
+    
     
     void DrawRightPanel(Rect panel)
     {
@@ -964,3 +1047,471 @@ public class EventBatchEditWindow : EditorWindow
     }
 }
 #endif
+
+// ============= 增强现有的EventEditorWindow =============
+
+public partial class EventEditorWindow
+{
+    // 添加到现有字段
+
+    // 在现有的DrawToolbar方法中最小化添加搜索功能
+    void DrawToolbar()
+    {
+        EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
+        
+        // 现有按钮保持不变...
+        if (GUILayout.Button("New Event", EditorStyles.toolbarButton))
+        {
+            CreateNewEvent();
+        }
+        
+        if (GUILayout.Button("Refresh", EditorStyles.toolbarButton))
+        {
+            LoadAllEvents();
+        }
+        
+        // 最小化添加：搜索框
+        GUILayout.Space(10);
+        GUILayout.Label("Search:", EditorStyles.miniLabel);
+        string newFilter = EditorGUILayout.TextField(eventSearchFilter, EditorStyles.toolbarTextField, GUILayout.Width(150));
+        if (newFilter != eventSearchFilter)
+        {
+            eventSearchFilter = newFilter;
+            GUI.FocusControl(null); // 清除焦点以立即更新
+        }
+        
+        // 最小化添加：类型过滤
+        if ((int)eventTypeFilter >= 0)
+        {
+            if (GUILayout.Button("Clear Filter", EditorStyles.toolbarButton))
+            {
+                eventTypeFilter = (EventType)(-1);
+                eventPriorityFilter = (EventPriority)(-1);
+                eventSearchFilter = "";
+            }
+        }
+        
+        // 现有的其他按钮...
+        GUILayout.FlexibleSpace();
+        
+        if (GUILayout.Button("Help", EditorStyles.toolbarButton))
+        {
+            ShowHelp();
+        }
+        
+        EditorGUILayout.EndHorizontal();
+    }
+    
+    // 增强现有的DrawEventListItem方法，添加重命名功能
+    void DrawEventListItem(RandomEvent eventData)
+    {
+        bool isSelected = selectedEvent == eventData;
+        
+        EditorGUILayout.BeginVertical(isSelected ? "selectionRect" : "box");
+        
+        EditorGUILayout.BeginHorizontal();
+        
+        // 重命名功能
+        if (isRenamingEvent && renamingEvent == eventData)
+        {
+            // 重命名模式
+            renamingText = EditorGUILayout.TextField(renamingText);
+            
+            if (GUILayout.Button("✓", GUILayout.Width(20)) || Event.current.keyCode == KeyCode.Return)
+            {
+                if (!string.IsNullOrEmpty(renamingText))
+                {
+                    RenameEvent(eventData, renamingText);
+                }
+                ExitRenameMode();
+            }
+            
+            if (GUILayout.Button("✗", GUILayout.Width(20)) || Event.current.keyCode == KeyCode.Escape)
+            {
+                ExitRenameMode();
+            }
+        }
+        else
+        {
+            // 正常显示模式
+            if (isSelected)
+                GUI.backgroundColor = Color.cyan;
+            
+            if (GUILayout.Button($"{eventData.eventName}", EditorStyles.label))
+            {
+                selectedEvent = eventData;
+                selectedNode = eventNodes.FirstOrDefault(n => n.eventData == eventData);
+            }
+            
+            GUI.backgroundColor = Color.white;
+            
+            // 右键菜单
+            if (Event.current.type == EventType.ContextClick && 
+                GUILayoutUtility.GetLastRect().Contains(Event.current.mousePosition))
+            {
+                ShowEventContextMenu(eventData);
+                Event.current.Use();
+            }
+        }
+        
+        DrawEventStatusIndicators(eventData);
+        
+        EditorGUILayout.EndHorizontal();
+        
+        // 显示详细信息（现有逻辑保持不变）
+        if (isSelected)
+        {
+            EditorGUILayout.LabelField($"Type: {eventData.eventType}", EditorStyles.miniLabel);
+            EditorGUILayout.LabelField($"Priority: {eventData.priority}", EditorStyles.miniLabel);
+            EditorGUILayout.LabelField($"Days: {eventData.minDay}-{eventData.maxDay}", EditorStyles.miniLabel);
+        }
+        
+        EditorGUILayout.EndVertical();
+    }
+    
+    // 新增：事件右键菜单
+    void ShowEventContextMenu(RandomEvent eventData)
+    {
+        GenericMenu menu = new GenericMenu();
+        
+        menu.AddItem(new GUIContent("Rename"), false, () => {
+            EnterRenameMode(eventData);
+        });
+        
+        menu.AddItem(new GUIContent("Duplicate"), false, () => {
+            DuplicateEvent(eventData);
+        });
+        
+        menu.AddSeparator("");
+        
+        menu.AddItem(new GUIContent("Delete"), false, () => {
+            if (EditorUtility.DisplayDialog("Delete Event", 
+                $"Are you sure you want to delete '{eventData.eventName}'?", "Delete", "Cancel"))
+            {
+                DeleteEvent(eventData);
+            }
+        });
+        
+        menu.AddSeparator("");
+        
+        menu.AddItem(new GUIContent("Show in Project"), false, () => {
+            EditorGUIUtility.PingObject(eventData);
+        });
+        
+        menu.ShowAsContext();
+    }
+    
+    // 新增：重命名相关方法
+    void EnterRenameMode(RandomEvent eventData)
+    {
+        isRenamingEvent = true;
+        renamingEvent = eventData;
+        renamingText = eventData.eventName;
+        GUI.FocusControl("RenameField");
+    }
+    
+    void ExitRenameMode()
+    {
+        isRenamingEvent = false;
+        renamingEvent = null;
+        renamingText = "";
+    }
+    
+    void RenameEvent(RandomEvent eventData, string newName)
+    {
+        string oldPath = AssetDatabase.GetAssetPath(eventData);
+        eventData.eventName = newName;
+        EditorUtility.SetDirty(eventData);
+        
+        // 重命名文件（可选）
+        string directory = System.IO.Path.GetDirectoryName(oldPath);
+        string extension = System.IO.Path.GetExtension(oldPath);
+        string newPath = System.IO.Path.Combine(directory, newName + extension);
+        
+        if (!System.IO.File.Exists(newPath))
+        {
+            AssetDatabase.RenameAsset(oldPath, newName);
+        }
+        
+        AssetDatabase.SaveAssets();
+    }
+    
+    // 新增：复制事件
+    void DuplicateEvent(RandomEvent original)
+    {
+        string originalPath = AssetDatabase.GetAssetPath(original);
+        string directory = System.IO.Path.GetDirectoryName(originalPath);
+        string newPath = AssetDatabase.GenerateUniqueAssetPath(originalPath);
+        
+        if (AssetDatabase.CopyAsset(originalPath, newPath))
+        {
+            AssetDatabase.SaveAssets();
+            
+            RandomEvent duplicate = AssetDatabase.LoadAssetAtPath<RandomEvent>(newPath);
+            if (duplicate != null)
+            {
+                duplicate.eventName += " (Copy)";
+                EditorUtility.SetDirty(duplicate);
+                
+                allEvents.Add(duplicate);
+                selectedEvent = duplicate;
+                
+                // 创建对应的节点
+                var newNode = new EventNode
+                {
+                    eventData = duplicate,
+                    rect = new Rect(100, 100, 180, 120)
+                };
+                eventNodes.Add(newNode);
+                selectedNode = newNode;
+            }
+        }
+    }
+    
+    // 新增：删除事件
+    void DeleteEvent(RandomEvent eventData)
+    {
+        string path = AssetDatabase.GetAssetPath(eventData);
+        AssetDatabase.DeleteAsset(path);
+        
+        allEvents.Remove(eventData);
+        eventNodes.RemoveAll(n => n.eventData == eventData);
+        
+        if (selectedEvent == eventData)
+        {
+            selectedEvent = null;
+            selectedNode = null;
+        }
+        
+        AssetDatabase.SaveAssets();
+    }
+    
+    // 增强现有的GetFilteredEvents方法
+    List<RandomEvent> GetFilteredEvents()
+    {
+        var filtered = allEvents.AsEnumerable();
+        
+        // 搜索过滤
+        if (!string.IsNullOrEmpty(eventSearchFilter))
+        {
+            string lowerFilter = eventSearchFilter.ToLower();
+            filtered = filtered.Where(e => 
+                e.eventName.ToLower().Contains(lowerFilter) ||
+                e.eventDescription.ToLower().Contains(lowerFilter) ||
+                e.eventType.ToString().ToLower().Contains(lowerFilter));
+        }
+        
+        // 类型过滤
+        if ((int)eventTypeFilter >= 0)
+        {
+            filtered = filtered.Where(e => e.eventType == eventTypeFilter);
+        }
+        
+        // 优先级过滤
+        if ((int)eventPriorityFilter >= 0)
+        {
+            filtered = filtered.Where(e => e.priority == eventPriorityFilter);
+        }
+        
+        return filtered.ToList();
+    }
+    
+    // 新增：批量操作工具
+    void DrawBatchOperations()
+    {
+        EditorGUILayout.BeginVertical("box");
+        GUILayout.Label("Batch Operations", EditorStyles.boldLabel);
+        
+        EditorGUILayout.BeginHorizontal();
+        if (GUILayout.Button("Select All Filtered"))
+        {
+            SelectAllFiltered();
+        }
+        
+        if (GUILayout.Button("Deselect All"))
+        {
+            selectedEvents.Clear();
+        }
+        EditorGUILayout.EndHorizontal();
+        
+        if (selectedEvents.Count > 0)
+        {
+            EditorGUILayout.LabelField($"Selected: {selectedEvents.Count} events");
+            
+            EditorGUILayout.BeginHorizontal();
+            if (GUILayout.Button("Batch Edit"))
+            {
+                ShowBatchEditWindow();
+            }
+            
+            if (GUILayout.Button("Export Selected"))
+            {
+                ExportSelectedEvents();
+            }
+            EditorGUILayout.EndHorizontal();
+        }
+        
+        EditorGUILayout.EndVertical();
+    }
+    
+    // 新增：多选功能
+    private HashSet<RandomEvent> selectedEvents = new HashSet<RandomEvent>();
+    
+    void SelectAllFiltered()
+    {
+        selectedEvents.Clear();
+        selectedEvents.UnionWith(GetFilteredEvents());
+    }
+    
+    // 新增：导出功能
+    void ExportSelectedEvents()
+    {
+        string path = EditorUtility.SaveFilePanel("Export Events", "", "events", "json");
+        if (!string.IsNullOrEmpty(path))
+        {
+            var exportData = selectedEvents.Select(e => new {
+                name = e.eventName,
+                type = e.eventType.ToString(),
+                description = e.eventDescription,
+                minDay = e.minDay,
+                maxDay = e.maxDay,
+                triggerChance = e.baseTriggerChance
+            }).ToArray();
+            
+            string json = JsonUtility.ToJson(new { events = exportData }, true);
+            System.IO.File.WriteAllText(path, json);
+            
+            EditorUtility.DisplayDialog("Export Complete", $"Exported {selectedEvents.Count} events to {path}", "OK");
+        }
+    }
+    
+    // 增强现有的键盘处理
+    void HandleKeyboardInput()
+    {
+        Event e = Event.current;
+        
+        if (e.type == EventType.KeyDown)
+        {
+            switch (e.keyCode)
+            {
+                case KeyCode.Delete:
+                    if (selectedEvent != null)
+                    {
+                        if (EditorUtility.DisplayDialog("Delete Event", 
+                            $"Delete '{selectedEvent.eventName}'?", "Delete", "Cancel"))
+                        {
+                            DeleteEvent(selectedEvent);
+                        }
+                    }
+                    e.Use();
+                    break;
+                    
+                case KeyCode.F2:
+                    if (selectedEvent != null)
+                    {
+                        EnterRenameMode(selectedEvent);
+                    }
+                    e.Use();
+                    break;
+                    
+                case KeyCode.Escape:
+                    if (isRenamingEvent)
+                    {
+                        ExitRenameMode();
+                        e.Use();
+                    }
+                    break;
+                    
+                case KeyCode.D:
+                    if (e.control && selectedEvent != null)
+                    {
+                        DuplicateEvent(selectedEvent);
+                        e.Use();
+                    }
+                    break;
+            }
+        }
+    }
+    
+    // 在OnGUI末尾添加键盘处理
+    void OnGUI()
+    {
+        DrawToolbar();
+        
+        // 分割界面
+        Rect leftPanel = new Rect(0, 30, 300, position.height - 30);
+        Rect rightPanel = new Rect(300, 30, position.width - 300, position.height - 30);
+        
+        DrawLeftPanel(leftPanel);
+        DrawRightPanel(rightPanel);
+        
+        // 新增：处理键盘输入
+        HandleKeyboardInput();
+    }
+    
+    // 新增：快捷键帮助
+    void ShowHelp()
+    {
+        string helpText = @"Event Editor Help:
+
+快捷键:
+- F2: 重命名选中的事件
+- Delete: 删除选中的事件  
+- Ctrl+D: 复制选中的事件
+- Esc: 取消重命名
+
+搜索:
+- 支持按名称、描述、类型搜索
+- 使用类型和优先级过滤器
+
+右键菜单:
+- 重命名、复制、删除事件
+- 在项目中显示文件
+
+批量操作:
+- 选择多个事件进行批量编辑
+- 导出事件数据为JSON";
+        
+        EditorUtility.DisplayDialog("Event Editor Help", helpText, "OK");
+    }
+}
+
+// ============= 搜索和过滤增强 =============
+
+public static class EventSearchUtility
+{
+    public static List<RandomEvent> SearchEvents(IEnumerable<RandomEvent> events, string searchTerm)
+    {
+        if (string.IsNullOrEmpty(searchTerm))
+            return events.ToList();
+        
+        string lowerTerm = searchTerm.ToLower();
+        
+        return events.Where(e => 
+            e.eventName.ToLower().Contains(lowerTerm) ||
+            e.eventDescription.ToLower().Contains(lowerTerm) ||
+            e.eventType.ToString().ToLower().Contains(lowerTerm) ||
+            SearchInChoices(e, lowerTerm) ||
+            SearchInEffects(e, lowerTerm)
+        ).ToList();
+    }
+    
+    static bool SearchInChoices(RandomEvent eventData, string searchTerm)
+    {
+        if (eventData.choices == null) return false;
+        
+        return eventData.choices.Any(choice => 
+            choice.choiceText.ToLower().Contains(searchTerm) ||
+            choice.resultDescription.ToLower().Contains(searchTerm));
+    }
+    
+    static bool SearchInEffects(RandomEvent eventData, string searchTerm)
+    {
+        if (eventData.automaticEffects == null) return false;
+        
+        return eventData.automaticEffects.Any(effect => 
+            effect.resourceType.ToLower().Contains(searchTerm) ||
+            effect.customMessage.ToLower().Contains(searchTerm));
+    }
+}
+

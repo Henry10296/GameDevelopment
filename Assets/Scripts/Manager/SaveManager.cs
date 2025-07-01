@@ -1,9 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using UnityEditor;
 using UnityEngine;
-
+using UnityEditor;
 [System.Serializable]
 public partial class GameSaveData
 {
@@ -978,8 +977,8 @@ public partial class SaveManager
         {
             // 记录当前使用的配置文件GUID
             if (GameManager.Instance.sceneSettings != null)
-                configState.activeSceneSettingsGUID = AssetDatabase.AssetPathToGUID(
-                    AssetDatabase.GetAssetPath(GameManager.Instance.sceneSettings));
+                configState.activeSceneSettingsGUID = AssetPathToGUID(
+                    GetAssetPath(GameManager.Instance.sceneSettings));
         }
         
         return configState;
