@@ -1,0 +1,48 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f96e19a1e26c5e049a607d9748212524, type: 3}
+  m_Name: NewEvent
+  m_EditorClassIdentifier: 
+  eventName: NewEvent
+  eventDescription: "\u8BF7\u8F93\u5165\u4E8B\u4EF6\u63CF\u8FF0"
+  eventIcon: {fileID: 0}
+  priority: 2
+  minDay: 1
+  maxDay: -19
+  baseTriggerChance: 0.3
+  triggerConditions: []
+  eventType: 0
+  requiresChoice: 1
+  canRepeat: 0
+  choices: []
+  automaticEffects: []
+  followupEvent: {fileID: 0}
+  followupDelay: 1
+  isQuest: 0
+  questObjectives: []
+  prerequisiteQuestIds: []
+  unlockQuestIds: []
+  nodePosition:
+    position: {x: 47, y: 149}
+    size: {x: 180, y: 120}
+    isExpanded: 1
+    isSelected: 0
+    isDragging: 0
+  prerequisites: []
+  unlockEvents: []
+  connections: []
+  isMainQuest: 0
+  isSideQuest: 0
+  questChain: 
+  questOrder: 0
+  tags: []
+  editorColor: {r: 1, g: 1, b: 1, a: 1}

@@ -1,0 +1,122 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 10f8504aed91df74eb81fafed9351309, type: 3}
+  m_Name: GameConfig
+  m_EditorClassIdentifier: 
+  maxDays: 5
+  explorationTimeLimit: 900
+  timeWarningThreshold: 150
+  currentDifficulty: 1
+  difficultyConfigs: []
+  familyConfig:
+    dailyFoodConsumption: 3
+    dailyWaterConsumption: 3
+    hungerDamageRate: 30
+    thirstDamageRate: 30
+    sicknessProbability: 0.1
+    maxSicknessDays: 3
+    initialFood: 15
+    initialWater: 15
+    initialMedicine: 2
+  enemyConfigs: []
+  weaponConfig:
+    pistol: {fileID: 0}
+    rifle: {fileID: 0}
+    reloadTime: 2
+    weaponSwitchTime: 1
+    reloadSound: {fileID: 0}
+    emptyclipSound: {fileID: 0}
+    weaponSwitchSound: {fileID: 0}
+    gunSounds: []
+    muzzleFlashPrefab: {fileID: 0}
+    bulletTrailPrefab: {fileID: 0}
+    hitEffectPrefab: {fileID: 0}
+    crosshairDefault: {fileID: 0}
+    crosshairAiming: {fileID: 0}
+    crosshairColor: {r: 1, g: 1, b: 1, a: 1}
+  itemConfig:
+    allItems: []
+    maxInventorySlots: 9
+    maxStackSize: 99
+    pickupRange: 2
+    pickupKey: 101
+    pickupSound: {fileID: 0}
+    useDelay: 0.5
+    useSound: {fileID: 0}
+    radioItem: {fileID: 0}
+    keyItems: []
+  mapConfig:
+    availableMaps: []
+    minLootSpawns: 30
+    maxLootSpawns: 200
+    minEnemySpawns: 1
+    maxEnemySpawns: 5
+    useMapUnlockSystem: 1
+    unlockRules: []
+    tutorialMap: {fileID: 0}
+    finalMap: {fileID: 0}
+  eventConfig:
+    allEvents: []
+    baseEventChance: 0.3
+    maxEventsPerDay: 2
+    allowEventChaining: 1
+    eventTypeWeights: []
+    eventDisplayDuration: 0.5
+    eventSound: {fileID: 0}
+    priorityColors: []
+  audioConfig:
+    menuMusic: {fileID: 0}
+    homeMusic: {fileID: 0}
+    explorationMusic: {fileID: 0}
+    tensionMusic: {fileID: 0}
+    endingMusic: {fileID: 0}
+    ambientSounds: []
+    weatherSounds: []
+    buttonClickSound: {fileID: 0}
+    buttonHoverSound: {fileID: 0}
+    errorSound: {fileID: 0}
+    successSound: {fileID: 0}
+    footstepSounds: []
+    doorSounds: []
+    pickupSounds: []
+    musicVolume: 0.7
+    sfxVolume: 1
+    voiceVolume: 1
+    masterVolume: 1
+    musicFadeTime: 2
+    enableDynamicMusic: 1
+  uiConfig:
+    fadeSpeed: 2
+    transitionDuration: 0.5
+    defaultMessageDuration: 3
+    messageColor: {r: 1, g: 1, b: 1, a: 1}
+    warningColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+    errorColor: {r: 1, g: 0, b: 0, a: 1}
+    interactionColor: {r: 0, g: 1, b: 1, a: 1}
+    interactionDistance: 3
+    interactionPromptFormat: "\u6309 {0} \u4EA4\u4E92"
+    healthyColor: {r: 0, g: 1, b: 0, a: 1}
+    warningHealthColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+    criticalHealthColor: {r: 1, g: 0, b: 0, a: 1}
+    healthWarningThreshold: 0.3
+    healthCriticalThreshold: 0.15
+    abundantResourceColor: {r: 0, g: 1, b: 0, a: 1}
+    normalResourceColor: {r: 1, g: 1, b: 1, a: 1}
+    lowResourceColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+    criticalResourceColor: {r: 1, g: 0, b: 0, a: 1}
+    resourceWarningThreshold: 5
+    resourceCriticalThreshold: 2
+    normalTimeColor: {r: 1, g: 1, b: 1, a: 1}
+    warningTimeColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+    criticalTimeColor: {r: 1, g: 0, b: 0, a: 1}
+    timeWarningRatio: 0.3
+    timeCriticalRatio: 0.1

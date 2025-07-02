@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 0}
+  m_Name: GameValues
+  m_EditorClassIdentifier: Assembly-CSharp::GameValues
+  explorationTimeLimit: 900
+  timeWarningThreshold: 300
+  autoSaveInterval: 60
+  dailyFoodConsumption: 3
+  dailyWaterConsumption: 3
+  hungerDamageRate: 30
+  thirstDamageRate: 30
+  sicknessProbability: 0.1
+  maxSicknessDays: 3
+  maxInventorySlots: 9
+  maxStackSize: 99
+  pickupRange: 2
+  defaultMessageDuration: 3
+  fadeSpeed: 2
+  transitionDuration: 0.5
+  musicVolume: 0.7
+  sfxVolume: 1
+  musicFadeTime: 2

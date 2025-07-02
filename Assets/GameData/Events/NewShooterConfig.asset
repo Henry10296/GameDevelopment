@@ -1,0 +1,40 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 16fe64ed86edac344bf8c2133a168ea4, type: 3}
+  m_Name: NewShooterConfig
+  m_EditorClassIdentifier: 
+  enemyName: "\u65B0\u5C04\u624B"
+  enemyType: 1
+  health: 75
+  patrolSpeed: 3
+  chaseSpeed: 5
+  rotationSpeed: 3
+  visionRange: 20
+  visionAngle: 90
+  hearingRange: 10
+  attackDamage: 20
+  attackRange: 15
+  attackCooldown: 1.5
+  shootRange: 20
+  shootInterval: 1
+  shootAccuracy: 0.7
+  dropItems:
+  - {fileID: 0}
+  dropChance: 0.3
+  attackSounds: []
+  hurtSounds: []
+  deathSound: {fileID: 0}
+  idleSounds: []
+  alertDuration: 10
+  investigationTime: 5
+  canOpenDoors: 0
+  canClimbStairs: 1

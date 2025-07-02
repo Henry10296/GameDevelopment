@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 0}
+  m_Name: UITextSettings
+  m_EditorClassIdentifier: Assembly-CSharp::UITextSettings
+  interactionTexts:
+  - key: PICKUP_PROMPT
+    text: "\u6309 {0} \u62FE\u53D6"
+  - key: INTERACT_PROMPT
+    text: "\u6309 {0} \u4EA4\u4E92"
+  - key: USE_PROMPT
+    text: "\u6309 {0} \u4F7F\u7528"
+  systemMessages:
+  - key: INVENTORY_FULL
+    text: "\u80CC\u5305\u5DF2\u6EE1!"
+  - key: TIME_WARNING
+    text: "\u65F6\u95F4\u4E0D\u591A\u4E86\uFF01\u8D76\u7D27\u56DE\u5BB6\uFF01"
+  - key: RADIO_FOUND
+    text: "\u627E\u5230\u4E86\u65E0\u7EBF\u7535\u8BBE\u5907!"
+  - key: GAME_SAVED
+    text: "\u6E38\u620F\u5DF2\u4FDD\u5B58"
+  - key: GAME_LOADED
+    text: "\u6E38\u620F\u5DF2\u52A0\u8F7D"
+  - key: NO_AMMO
+    text: "\u6CA1\u6709\u5F39\u836F\u4E86!"
+  achievementTexts:
+  - key: RADIO_FINDER
+    text: "\u65E0\u7EBF\u7535\u4E13\u5BB6"
+  - key: COLLECTOR
+    text: "\u6536\u96C6\u8005"
+  - key: SURVIVOR_3_DAYS
+    text: "\u4E09\u65E5\u751F\u5B58\u8005"
