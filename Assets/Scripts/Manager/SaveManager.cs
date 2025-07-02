@@ -1,8 +1,12 @@
+
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using UnityEditor;
+
 [System.Serializable]
 public partial class GameSaveData
 {
@@ -973,13 +977,16 @@ public partial class SaveManager
     {
         var configState = new ConfigStateData();
         
-        if (GameManager.Instance)
+#if UNITY_EDITOR
+    if (GameManager.Instance)
+    {
+        if (GameManager.Instance.sceneSettings != null)
         {
-            // 记录当前使用的配置文件GUID
-            if (GameManager.Instance.sceneSettings != null)
-                configState.activeSceneSettingsGUID = AssetPathToGUID(
-                    GetAssetPath(GameManager.Instance.sceneSettings));
+            string path = AssetDatabase.GetAssetPath(GameManager.Instance.sceneSettings);
+            configState.activeSceneSettingsGUID = AssetDatabase.AssetPathToGUID(path);
         }
+    }
+#endif
         
         return configState;
     }

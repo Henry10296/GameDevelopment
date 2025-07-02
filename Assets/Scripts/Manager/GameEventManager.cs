@@ -2,7 +2,7 @@ using UnityEngine;
 using System.Collections.Generic;
 using System;
 using System.Linq;
-using Unity.UI;
+using UnityEngine.UI;
 using TMPro;
 [CreateAssetMenu(fileName = "RandomEvent", menuName = "Game/Random Event")]
 public class RandomEvent : ScriptableObject
@@ -45,6 +45,22 @@ public class RandomEvent : ScriptableObject
     public QuestStatus questStatus = QuestStatus.NotStarted;
     [System.NonSerialized]
     public Dictionary<string, int> objectiveProgress = new();
+    
+    [Header("事件网络扩展")]
+    public EventNode nodePosition = new EventNode(); // 编辑器中的位置
+    public RandomEvent[] prerequisites; // 前置事件
+    public RandomEvent[] unlockEvents; // 解锁的事件
+    public EventConnection[] connections; // 连接关系
+    
+    [Header("任务扩展")]
+    public bool isMainQuest = false;
+    public bool isSideQuest = false;
+    public string questChain = ""; // 任务链ID
+    public int questOrder = 0; // 任务顺序
+    
+    [Header("事件标签")]
+    public string[] tags = new string[0]; // 用于搜索和分类
+    public Color editorColor = Color.white; // 编辑器中的颜色
     
     public bool CanTrigger()
     {
@@ -651,6 +667,37 @@ public class GameEventManager : Singleton<GameEventManager>
     {
         base.OnDestroy(); // 调用 Singleton 的 OnDestroy
     }
+}
+
+
+[System.Serializable]
+public class EventNode
+{
+    public Vector2 position = Vector2.zero;
+    public Vector2 size = new Vector2(180, 120);
+    public bool isExpanded = true;
+    
+    // 编辑器专用
+    public bool isSelected = false;
+    public bool isDragging = false;
+}
+
+[System.Serializable]
+public class EventConnection
+{
+    public RandomEvent targetEvent;
+    public ConnectionType connectionType;
+    public float weight = 1.0f; // 连接权重
+    public string condition = ""; // 连接条件
+}
+
+public enum ConnectionType
+{
+    Sequence,      // 顺序执行
+    Alternative,   // 二选一
+    Parallel,      // 并行
+    Conditional,   // 条件触发
+    Random         // 随机选择
 }
 // 任务目标数据结构（复用现有EventEffect结构）
 [System.Serializable]
