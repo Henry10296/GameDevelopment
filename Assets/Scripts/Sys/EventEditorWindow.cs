@@ -725,9 +725,50 @@ public class EventEditorWindow : EditorWindow
     
     void CreateNewEventAt(Vector2 position)
     {
+        // 弹出文件名输入对话框
+        string fileName = EditorUtility.SaveFilePanel(
+            "创建新事件", 
+            "Assets/GameData/Events", 
+            "NewEvent", 
+            "asset");
+            
+        if (string.IsNullOrEmpty(fileName))
+        {
+            return; // 用户取消了
+        }
+        
+        // 转换为相对路径
+        if (fileName.StartsWith(Application.dataPath))
+        {
+            fileName = "Assets" + fileName.Substring(Application.dataPath.Length);
+        }
+        
+        // 检查文件是否已存在
+        if (System.IO.File.Exists(fileName))
+        {
+            if (!EditorUtility.DisplayDialog("文件已存在", 
+                $"文件 {System.IO.Path.GetFileName(fileName)} 已存在，是否覆盖？", 
+                "覆盖", "取消"))
+            {
+                return;
+            }
+        }
+        
+        // 确保目录存在
+        string directory = System.IO.Path.GetDirectoryName(fileName);
+        if (!System.IO.Directory.Exists(directory))
+        {
+            System.IO.Directory.CreateDirectory(directory);
+        }
+        
+        // 创建事件
         RandomEvent newEvent = CreateInstance<RandomEvent>();
-        newEvent.eventName = "New Event";
-        newEvent.eventDescription = "Enter event description here";
+        
+        // 从文件名推导事件名（移除扩展名和路径）
+        string eventName = System.IO.Path.GetFileNameWithoutExtension(fileName);
+        newEvent.eventName = eventName;
+        
+        newEvent.eventDescription = "请输入事件描述";
         newEvent.eventType = EventType.ResourceGain;
         newEvent.priority = EventPriority.Normal;
         newEvent.minDay = 1;
@@ -752,16 +793,8 @@ public class EventEditorWindow : EditorWindow
             newEvent.nodePosition = new EventNode();
         newEvent.nodePosition.position = position;
         
-        string path = $"Assets/GameData/Events/NewEvent_{DateTime.Now.Ticks}.asset";
-        
-        // 确保目录存在
-        string directory = System.IO.Path.GetDirectoryName(path);
-        if (!System.IO.Directory.Exists(directory))
-        {
-            System.IO.Directory.CreateDirectory(directory);
-        }
-        
-        AssetDatabase.CreateAsset(newEvent, path);
+        // 创建资源文件
+        AssetDatabase.CreateAsset(newEvent, fileName);
         AssetDatabase.SaveAssets();
         
         allEvents.Add(newEvent);
@@ -778,7 +811,14 @@ public class EventEditorWindow : EditorWindow
         selectedNode = newNode;
         UpdateNodeSelection();
         
+        // 自动进入重命名模式，让用户可以立即修改事件名
+        EditorApplication.delayCall += () => {
+            EnterRenameMode(newEvent);
+        };
+        
         Repaint();
+        
+        Debug.Log($"[EventEditor] 创建新事件: {fileName}");
     }
     
     void SaveAllEvents()
