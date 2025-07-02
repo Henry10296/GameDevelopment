@@ -26,16 +26,6 @@ public class GameManager : Singleton<GameManager>
     [SerializeField] private int currentDay = 1;
     [SerializeField] private float phaseTimer = 0f;
     [SerializeField] private bool gameEnded = false;
-    
-    /*[Header("场景配置")]
-    public string[] sceneNames = {
-        "0_MainMenu",    // 0
-        "1_Home",        // 1
-        "2_Hospital",    // 2
-        "3_School",      // 3
-        "4_Supermarket", // 4
-        "5_Park"         // 5
-    };*/
     [Header("ScriptableObject配置")] // 添加到现有字段后
     public SceneSettings sceneSettings;
     public InputSettings inputSettings;

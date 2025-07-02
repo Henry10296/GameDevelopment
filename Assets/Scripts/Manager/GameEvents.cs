@@ -2,6 +2,13 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
 
+
+public interface IGameEvent<T>
+{
+    void Raise(T value);
+    void RegisterListener(System.Action<T> listener);
+    void UnregisterListener(System.Action<T> listener);
+}
 // 统一所有GameEvent为ScriptableObject
 [CreateAssetMenu(fileName = "GameEvent", menuName = "Events/Game Event")]
 public class GameEvent : ScriptableObject

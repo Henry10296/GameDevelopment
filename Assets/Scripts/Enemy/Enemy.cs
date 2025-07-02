@@ -1,7 +1,7 @@
 using UnityEngine;
 using System.Collections.Generic;
 
-[CreateAssetMenu(fileName = "DoomEnemyData", menuName = "Game/Doom Enemy Data")]
+[CreateAssetMenu(fileName = "Doo mEnemyData", menuName = "Game/Doom Enemy Data")]
 public class EnemyData : ScriptableObject
 {
     [Header("基础信息")]
@@ -677,26 +677,5 @@ public class DoomProjectile : MonoBehaviour
             // 创建撞击效果
             Destroy(gameObject);
         }
-    }
-}
-
-// 僵尸特化类
-[CreateAssetMenu(fileName = "ZombieData", menuName = "Game/Zombie Data")]
-public class ZombieData : EnemyData
-{
-    [Header("僵尸特殊设置")]
-    public float infectionChance = 0.1f;
-    public bool canBreakDoors = false;
-    public float groanInterval = 5f;
-    
-    void OnEnable()
-    {
-        // 设置僵尸的默认值
-        enemyType = EnemyType.Zombie;
-        moveSpeed = 2f;
-        chaseSpeed = 4f;
-        health = 50f;
-        attackDamage = 15f;
-        attackRange = 1.5f;
     }
 }

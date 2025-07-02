@@ -480,7 +480,7 @@ public interface ISimpleSaveable
 }
 public partial class SaveManager
 {
-    [Header("自动收集设置")] // 添加到现有字段后
+    [Header("自动收集设置")] 
     public bool enableAutoCollection = true;
     
     // 扩展现有CollectSaveData方法
@@ -631,7 +631,6 @@ public partial class SaveManager
     }
 }
 
-// 3. 扩展现有GameSaveData - 添加场景数据字段
 public partial class GameSaveData
 {
     [Header("场景数据")] // 添加到现有字段后
@@ -649,7 +648,7 @@ public class SceneDataWrapper
     public Dictionary<string, string> data = new();
 }
 
-// 5. 简单可保存组件示例 - 基于现有组件模式
+// 5. 简单可保存组件
 public class SaveableTransform : MonoBehaviour, ISimpleSaveable
 {
     public string SaveKey => $"Transform_{gameObject.name}_{GetInstanceID()}";
@@ -991,14 +990,7 @@ public partial class SaveManager
         return configState;
     }
     
-    // 扩展现有ApplySaveData方法
-    /*void ApplySaveData(GameSaveData saveData)
-    {
-        // 现有的静态数据应用保持不变...
-        
-        // 新增：应用动态数据
-       
-    }*/
+
     
     // 应用动态数据
     private void ApplyDynamicData(DynamicGameData dynamicData)
@@ -1144,15 +1136,6 @@ public class DynamicPickupItem : PickupItem, IDynamicSaveable
     {
         return 100; // 低优先级
     }
-    
-    /*protected override void TryPickup()
-    {
-        if (saveWhenPickedUp)
-        {
-            wasPickedUp = true;
-        }
-        base.TryPickup();
-    }*/
     
     [System.Serializable]
     private class PickupItemDynamicData
