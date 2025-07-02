@@ -5,7 +5,7 @@ using System;
 using UnityEngine;
 using UnityEditor;
 
-public class EventEditorWindow : EditorWindow
+public class ModernEventEditorWindow : EditorWindow
 {
     [System.Serializable]
     public class EditorEventNode
@@ -33,11 +33,6 @@ public class EventEditorWindow : EditorWindow
     private EditorEventNode selectedNode;
     private EditorEventNode draggingNode;
     
-    // UI样式
-    private GUIStyle nodeStyle;
-    private GUIStyle selectedNodeStyle;
-    private GUIStyle connectionStyle;
-    
     // 过滤和搜索
     private string eventSearchFilter = "";
     private EventType eventTypeFilter = EventType.ResourceGain;
@@ -52,50 +47,186 @@ public class EventEditorWindow : EditorWindow
     private bool isRenamingEvent = false;
     private string renamingText = "";
     private RandomEvent renamingEvent = null;
+    
+    // 现代UI样式
+    private GUIStyle modernCardStyle;
+    private GUIStyle modernHeaderStyle;
+    private GUIStyle modernButtonStyle;
+    private GUIStyle modernToolbarStyle;
+    private GUIStyle modernSelectedStyle;
+    private GUIStyle modernSectionStyle;
+    private GUIStyle modernIconButtonStyle;
+    private GUIStyle modernNodeStyle;
+    private GUIStyle modernSelectedNodeStyle;
+    private GUIStyle modernSearchStyle;
+    private GUIStyle modernTabStyle;
+    private GUIStyle modernActiveTabStyle;
+    
+    // 颜色主题
+    private static readonly Color PrimaryColor = new Color(0.3f, 0.7f, 1f);
+    private static readonly Color SecondaryColor = new Color(0.15f, 0.15f, 0.15f);
+    private static readonly Color AccentColor = new Color(0.4f, 0.9f, 0.5f);
+    private static readonly Color BackgroundColor = new Color(0.08f, 0.08f, 0.08f);
+    private static readonly Color PanelColor = new Color(0.12f, 0.12f, 0.12f);
+    private static readonly Color CardColor = new Color(0.18f, 0.18f, 0.18f);
+    private static readonly Color TextColor = new Color(0.9f, 0.9f, 0.9f);
+    private static readonly Color DangerColor = new Color(0.9f, 0.3f, 0.3f);
+    private static readonly Color WarningColor = new Color(1f, 0.7f, 0.2f);
+    private static readonly Color SuccessColor = new Color(0.3f, 0.8f, 0.4f);
+    
+    // 图标和符号
+    private const string IconEvent = "📅";
+    private const string IconAdd = "＋";
+    private const string IconDelete = "🗑";
+    private const string IconCopy = "📋";
+    private const string IconSettings = "⚙";
+    private const string IconSearch = "🔍";
+    private const string IconFilter = "🔽";
+    private const string IconSave = "💾";
+    private const string IconRefresh = "🔄";
+    private const string IconPlay = "▶";
+    private const string IconStats = "📊";
+    private const string IconHelp = "❓";
+    private const string IconRename = "✏";
+    private const string IconLink = "🔗";
+    private const string IconNode = "◯";
+    private const string IconQuest = "🎯";
+    private const string IconChoice = "🔀";
 
-    [MenuItem("Game Tools/Event Editor")]
+    [MenuItem("Game Tools/Modern Event Editor")]
     public static void OpenWindow()
     {
-        EventEditorWindow window = GetWindow<EventEditorWindow>("Event Editor");
-        window.minSize = new Vector2(800, 600);
+        ModernEventEditorWindow window = GetWindow<ModernEventEditorWindow>("事件编辑器");
+        window.minSize = new Vector2(1200, 800);
         window.Show();
     }
     
     void OnEnable()
     {
         LoadAllEvents();
-        InitializeStyles();
+        InitializeModernStyles();
     }
     
-    void InitializeStyles()
+    void InitializeModernStyles()
     {
-        if (nodeStyle == null)
-        {
-            nodeStyle = new GUIStyle();
-            nodeStyle.normal.background = CreateColorTexture(new Color(0.3f, 0.3f, 0.3f, 1f));
-            nodeStyle.border = new RectOffset(12, 12, 12, 12);
-            nodeStyle.padding = new RectOffset(10, 10, 10, 10);
-            nodeStyle.normal.textColor = Color.white;
-            nodeStyle.alignment = TextAnchor.UpperLeft;
-        }
+        // 现代卡片样式
+        modernCardStyle = new GUIStyle();
+        modernCardStyle.normal.background = CreateRoundedTexture(CardColor, 8);
+        modernCardStyle.border = new RectOffset(8, 8, 8, 8);
+        modernCardStyle.padding = new RectOffset(16, 16, 12, 12);
+        modernCardStyle.margin = new RectOffset(4, 4, 4, 4);
         
-        if (selectedNodeStyle == null)
-        {
-            selectedNodeStyle = new GUIStyle(nodeStyle);
-            selectedNodeStyle.normal.background = CreateColorTexture(new Color(0.2f, 0.5f, 0.8f, 1f));
-        }
+        // 现代标题样式
+        modernHeaderStyle = new GUIStyle(EditorStyles.boldLabel);
+        modernHeaderStyle.fontSize = 16;
+        modernHeaderStyle.normal.textColor = TextColor;
+        modernHeaderStyle.padding = new RectOffset(0, 0, 8, 8);
         
-        if (connectionStyle == null)
-        {
-            connectionStyle = new GUIStyle();
-            connectionStyle.normal.background = EditorGUIUtility.whiteTexture;
-        }
+        // 现代按钮样式
+        modernButtonStyle = new GUIStyle();
+        modernButtonStyle.normal.background = CreateRoundedTexture(PrimaryColor, 6);
+        modernButtonStyle.hover.background = CreateRoundedTexture(new Color(PrimaryColor.r * 1.2f, PrimaryColor.g * 1.2f, PrimaryColor.b * 1.2f), 6);
+        modernButtonStyle.active.background = CreateRoundedTexture(new Color(PrimaryColor.r * 0.8f, PrimaryColor.g * 0.8f, PrimaryColor.b * 0.8f), 6);
+        modernButtonStyle.normal.textColor = Color.white;
+        modernButtonStyle.hover.textColor = Color.white;
+        modernButtonStyle.active.textColor = Color.white;
+        modernButtonStyle.border = new RectOffset(6, 6, 6, 6);
+        modernButtonStyle.padding = new RectOffset(16, 16, 8, 8);
+        modernButtonStyle.margin = new RectOffset(2, 2, 2, 2);
+        modernButtonStyle.alignment = TextAnchor.MiddleCenter;
+        modernButtonStyle.fontStyle = FontStyle.Bold;
+        
+        // 图标按钮样式
+        modernIconButtonStyle = new GUIStyle(modernButtonStyle);
+        modernIconButtonStyle.padding = new RectOffset(8, 8, 6, 6);
+        modernIconButtonStyle.fontSize = 14;
+        
+        // 工具栏样式
+        modernToolbarStyle = new GUIStyle();
+        modernToolbarStyle.normal.background = CreateGradientTexture(SecondaryColor, new Color(0.2f, 0.2f, 0.2f));
+        modernToolbarStyle.padding = new RectOffset(12, 12, 10, 10);
+        
+        // 选中样式
+        modernSelectedStyle = new GUIStyle();
+        modernSelectedStyle.normal.background = CreateRoundedTexture(new Color(PrimaryColor.r, PrimaryColor.g, PrimaryColor.b, 0.3f), 6);
+        modernSelectedStyle.border = new RectOffset(6, 6, 6, 6);
+        modernSelectedStyle.padding = new RectOffset(12, 12, 8, 8);
+        modernSelectedStyle.margin = new RectOffset(2, 2, 2, 2);
+        
+        // 区域样式
+        modernSectionStyle = new GUIStyle();
+        modernSectionStyle.normal.background = CreateRoundedTexture(PanelColor, 8);
+        modernSectionStyle.border = new RectOffset(8, 8, 8, 8);
+        modernSectionStyle.padding = new RectOffset(16, 16, 16, 16);
+        modernSectionStyle.margin = new RectOffset(4, 4, 4, 4);
+        
+        // 节点样式
+        modernNodeStyle = new GUIStyle();
+        modernNodeStyle.normal.background = CreateRoundedTexture(CardColor, 8);
+        modernNodeStyle.border = new RectOffset(8, 8, 8, 8);
+        modernNodeStyle.padding = new RectOffset(12, 12, 12, 12);
+        modernNodeStyle.normal.textColor = TextColor;
+        modernNodeStyle.alignment = TextAnchor.UpperLeft;
+        modernNodeStyle.fontSize = 11;
+        
+        modernSelectedNodeStyle = new GUIStyle(modernNodeStyle);
+        modernSelectedNodeStyle.normal.background = CreateRoundedTexture(new Color(PrimaryColor.r, PrimaryColor.g, PrimaryColor.b, 0.8f), 8);
+        
+        // 搜索样式
+        modernSearchStyle = new GUIStyle(EditorStyles.textField);
+        modernSearchStyle.normal.background = CreateRoundedTexture(new Color(0.2f, 0.2f, 0.2f), 4);
+        modernSearchStyle.border = new RectOffset(4, 4, 4, 4);
+        modernSearchStyle.padding = new RectOffset(8, 8, 6, 6);
+        
+        // 标签页样式
+        modernTabStyle = new GUIStyle();
+        modernTabStyle.normal.background = CreateRoundedTexture(new Color(0.15f, 0.15f, 0.15f), 4);
+        modernTabStyle.normal.textColor = new Color(0.7f, 0.7f, 0.7f);
+        modernTabStyle.padding = new RectOffset(12, 12, 8, 8);
+        modernTabStyle.margin = new RectOffset(2, 2, 2, 2);
+        modernTabStyle.alignment = TextAnchor.MiddleCenter;
+        
+        modernActiveTabStyle = new GUIStyle(modernTabStyle);
+        modernActiveTabStyle.normal.background = CreateRoundedTexture(PrimaryColor, 4);
+        modernActiveTabStyle.normal.textColor = Color.white;
+        modernActiveTabStyle.fontStyle = FontStyle.Bold;
     }
     
     Texture2D CreateColorTexture(Color color)
     {
         Texture2D texture = new Texture2D(1, 1);
         texture.SetPixel(0, 0, color);
+        texture.Apply();
+        return texture;
+    }
+    
+    Texture2D CreateRoundedTexture(Color color, int radius)
+    {
+        int size = radius * 4;
+        Texture2D texture = new Texture2D(size, size);
+        
+        for (int x = 0; x < size; x++)
+        {
+            for (int y = 0; y < size; y++)
+            {
+                float distance = Vector2.Distance(new Vector2(x, y), new Vector2(size/2f, size/2f));
+                float alpha = distance < radius ? 1f : 0f;
+                texture.SetPixel(x, y, new Color(color.r, color.g, color.b, alpha * color.a));
+            }
+        }
+        texture.Apply();
+        return texture;
+    }
+    
+    Texture2D CreateGradientTexture(Color startColor, Color endColor)
+    {
+        Texture2D texture = new Texture2D(1, 32);
+        for (int y = 0; y < 32; y++)
+        {
+            float t = y / 31f;
+            Color color = Color.Lerp(startColor, endColor, t);
+            texture.SetPixel(0, y, color);
+        }
         texture.Apply();
         return texture;
     }
@@ -125,7 +256,6 @@ public class EventEditorWindow : EditorWindow
         {
             var eventData = allEvents[i];
             
-            // 使用保存的位置信息，如果没有则使用默认布局
             Vector2 nodePos = Vector2.zero;
             if (eventData.nodePosition != null && eventData.nodePosition.position != Vector2.zero)
             {
@@ -133,13 +263,13 @@ public class EventEditorWindow : EditorWindow
             }
             else
             {
-                nodePos = new Vector2(100 + (i % 5) * 200, 100 + (i / 5) * 150);
+                nodePos = new Vector2(100 + (i % 5) * 220, 100 + (i / 5) * 160);
             }
             
             var node = new EditorEventNode
             {
                 eventData = eventData,
-                rect = new Rect(nodePos.x, nodePos.y, 180, 120),
+                rect = new Rect(nodePos.x, nodePos.y, 200, 140),
                 isSelected = false
             };
             eventNodes.Add(node);
@@ -148,137 +278,256 @@ public class EventEditorWindow : EditorWindow
     
     void OnGUI()
     {
-        if (nodeStyle == null) InitializeStyles();
+        if (modernCardStyle == null) InitializeModernStyles();
         
-        DrawToolbar();
+        // 设置背景色
+        EditorGUI.DrawRect(new Rect(0, 0, position.width, position.height), BackgroundColor);
         
-        // 分割界面
-        Rect leftPanel = new Rect(0, 30, 300, position.height - 30);
-        Rect rightPanel = new Rect(300, 30, position.width - 300, position.height - 30);
+        DrawModernToolbar();
         
-        DrawLeftPanel(leftPanel);
-        DrawRightPanel(rightPanel);
+        // 主要分割布局
+        Rect leftPanel = new Rect(8, 60, 400, position.height - 68);
+        Rect rightPanel = new Rect(416, 60, position.width - 424, position.height - 68);
+        
+        DrawModernLeftPanel(leftPanel);
+        DrawModernRightPanel(rightPanel);
         
         HandleKeyboardInput();
         ProcessNodeEvents();
     }
     
-    void DrawToolbar()
+    void DrawModernToolbar()
     {
-        GUILayout.BeginHorizontal(EditorStyles.toolbar);
+        EditorGUILayout.BeginHorizontal(modernToolbarStyle, GUILayout.Height(55));
         
-        if (GUILayout.Button("New Event", EditorStyles.toolbarButton))
+        // 主要操作按钮组
+        EditorGUILayout.BeginHorizontal();
+        
+        if (GUILayout.Button($"{IconAdd} 新建事件", modernButtonStyle, GUILayout.Height(35)))
         {
             CreateNewEvent();
         }
         
-        if (GUILayout.Button("Refresh", EditorStyles.toolbarButton))
+        GUILayout.Space(8);
+        
+        if (GUILayout.Button(IconRefresh, modernIconButtonStyle, GUILayout.Width(40), GUILayout.Height(35)))
         {
             LoadAllEvents();
         }
         
-        if (GUILayout.Button("Save All", EditorStyles.toolbarButton))
+        if (GUILayout.Button(IconSave, modernIconButtonStyle, GUILayout.Width(40), GUILayout.Height(35)))
         {
             SaveAllEvents();
         }
         
-        if (GUILayout.Button("Validate All", EditorStyles.toolbarButton))
+        if (GUILayout.Button("✓", modernIconButtonStyle, GUILayout.Width(40), GUILayout.Height(35)))
         {
             ValidateAllEvents();
         }
         
-        GUILayout.Space(10);
-        GUILayout.Label("Search:", EditorStyles.miniLabel);
-        string newFilter = EditorGUILayout.TextField(eventSearchFilter, EditorStyles.toolbarTextField, GUILayout.Width(150));
-        if (newFilter != eventSearchFilter)
-        {
-            eventSearchFilter = newFilter;
-        }
-        
-        if (!string.IsNullOrEmpty(eventSearchFilter) || useEventTypeFilter || useEventPriorityFilter)
-        {
-            if (GUILayout.Button("Clear", EditorStyles.toolbarButton))
-            {
-                useEventTypeFilter = false;
-                useEventPriorityFilter = false;
-                eventSearchFilter = "";
-            }
-        }
+        EditorGUILayout.EndHorizontal();
         
         GUILayout.FlexibleSpace();
         
-        showEventTesting = GUILayout.Toggle(showEventTesting, "Testing", EditorStyles.toolbarButton);
-        showEventStatistics = GUILayout.Toggle(showEventStatistics, "Statistics", EditorStyles.toolbarButton);
+        // 搜索和过滤区域
+        DrawModernSearchAndFilter();
         
-        if (GUILayout.Button("Help", EditorStyles.toolbarButton))
+        GUILayout.FlexibleSpace();
+        
+        // 工具切换区域
+        EditorGUILayout.BeginHorizontal();
+        
+        var testingStyle = showEventTesting ? modernActiveTabStyle : modernTabStyle;
+        if (GUILayout.Button($"{IconPlay} 测试", testingStyle, GUILayout.Height(35)))
+        {
+            showEventTesting = !showEventTesting;
+        }
+        
+        var statsStyle = showEventStatistics ? modernActiveTabStyle : modernTabStyle;
+        if (GUILayout.Button($"{IconStats} 统计", statsStyle, GUILayout.Height(35)))
+        {
+            showEventStatistics = !showEventStatistics;
+        }
+        
+        if (GUILayout.Button(IconHelp, modernIconButtonStyle, GUILayout.Width(40), GUILayout.Height(35)))
         {
             ShowHelp();
         }
         
-        GUILayout.EndHorizontal();
+        EditorGUILayout.EndHorizontal();
+        
+        EditorGUILayout.EndHorizontal();
+        
+        // 绘制工具栏分隔线
+        EditorGUI.DrawRect(new Rect(0, 55, position.width, 2), new Color(0.3f, 0.3f, 0.3f));
     }
     
-    void DrawLeftPanel(Rect panel)
+    void DrawModernSearchAndFilter()
+    {
+        EditorGUILayout.BeginVertical();
+        
+        // 搜索栏
+        EditorGUILayout.BeginHorizontal();
+        GUILayout.Label(IconSearch, GUILayout.Width(20));
+        
+        var newSearchText = EditorGUILayout.TextField(eventSearchFilter, modernSearchStyle, GUILayout.Width(200));
+        if (newSearchText != eventSearchFilter)
+        {
+            eventSearchFilter = newSearchText;
+        }
+        
+        if (!string.IsNullOrEmpty(eventSearchFilter))
+        {
+            if (GUILayout.Button("✗", EditorStyles.miniButton, GUILayout.Width(20)))
+            {
+                eventSearchFilter = "";
+            }
+        }
+        
+        EditorGUILayout.EndHorizontal();
+        
+        // 过滤器
+        if (useEventTypeFilter || useEventPriorityFilter)
+        {
+            EditorGUILayout.BeginHorizontal();
+            
+            if (useEventTypeFilter)
+            {
+                var typeColor = GetEventTypeColor(eventTypeFilter);
+                GUI.color = typeColor;
+                GUILayout.Label($"类型: {eventTypeFilter}", EditorStyles.miniLabel);
+                GUI.color = Color.white;
+            }
+            
+            if (useEventPriorityFilter)
+            {
+                var priorityColor = GetPriorityColor(eventPriorityFilter);
+                GUI.color = priorityColor;
+                GUILayout.Label($"优先级: {eventPriorityFilter}", EditorStyles.miniLabel);
+                GUI.color = Color.white;
+            }
+            
+            if (GUILayout.Button("清除", EditorStyles.miniButton))
+            {
+                useEventTypeFilter = false;
+                useEventPriorityFilter = false;
+            }
+            
+            EditorGUILayout.EndHorizontal();
+        }
+        
+        EditorGUILayout.EndVertical();
+    }
+    
+    void DrawModernLeftPanel(Rect panel)
     {
         GUILayout.BeginArea(panel);
         
-        GUILayout.Label("Event List", EditorStyles.boldLabel);
+        EditorGUILayout.BeginVertical(modernSectionStyle, GUILayout.ExpandHeight(true));
         
-        DrawEventFilters();
+        // 标题栏
+        EditorGUILayout.BeginHorizontal();
+        EditorGUILayout.LabelField($"{IconEvent} 事件列表", modernHeaderStyle);
         
-        scrollPos = GUILayout.BeginScrollView(scrollPos);
+        GUILayout.FlexibleSpace();
+        
+        var eventCount = GetFilteredEvents().Count();
+        var countStyle = new GUIStyle(EditorStyles.miniLabel);
+        countStyle.normal.textColor = PrimaryColor;
+        GUILayout.Label($"{eventCount}/{allEvents.Count}", countStyle);
+        
+        EditorGUILayout.EndHorizontal();
+        
+        GUILayout.Space(8);
+        
+        DrawModernEventFilters();
+        
+        GUILayout.Space(8);
+        
+        // 事件列表
+        scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
         
         var filteredEvents = GetFilteredEvents();
         foreach (var eventData in filteredEvents)
         {
-            DrawEventListItem(eventData);
+            DrawModernEventListItem(eventData);
         }
         
-        GUILayout.EndScrollView();
+        if (filteredEvents.Count() == 0)
+        {
+            EditorGUILayout.BeginVertical(modernCardStyle);
+            var emptyStyle = new GUIStyle(EditorStyles.centeredGreyMiniLabel);
+            emptyStyle.normal.textColor = new Color(0.6f, 0.6f, 0.6f);
+            GUILayout.Label("没有找到匹配的事件", emptyStyle);
+            EditorGUILayout.EndVertical();
+        }
         
+        EditorGUILayout.EndScrollView();
+        
+        // 详细信息面板
         if (selectedEvent != null)
         {
-            DrawEventDetails();
+            GUILayout.Space(8);
+            DrawModernEventDetails();
         }
         
+        // 测试和统计面板
         if (showEventTesting)
         {
-            DrawEventTestingPanel();
+            GUILayout.Space(8);
+            DrawModernEventTestingPanel();
         }
         
         if (showEventStatistics)
         {
-            DrawEventStatisticsPanel();
+            GUILayout.Space(8);
+            DrawModernEventStatisticsPanel();
         }
+        
+        EditorGUILayout.EndVertical();
         
         GUILayout.EndArea();
     }
     
-    void DrawEventFilters()
+    void DrawModernEventFilters()
     {
-        EditorGUILayout.BeginVertical("box");
-        GUILayout.Label("Filters", EditorStyles.boldLabel);
+        EditorGUILayout.BeginVertical(modernCardStyle);
         
         EditorGUILayout.BeginHorizontal();
-        useEventTypeFilter = EditorGUILayout.Toggle("Type:", useEventTypeFilter, GUILayout.Width(60));
+        GUILayout.Label($"{IconFilter} 过滤器", EditorStyles.boldLabel);
+        
+        GUILayout.FlexibleSpace();
+        
+        if (useEventTypeFilter || useEventPriorityFilter)
+        {
+            if (GUILayout.Button("重置", EditorStyles.miniButton))
+            {
+                useEventTypeFilter = false;
+                useEventPriorityFilter = false;
+            }
+        }
+        
+        EditorGUILayout.EndHorizontal();
+        
+        GUILayout.Space(4);
+        
+        // 类型过滤器
+        EditorGUILayout.BeginHorizontal();
+        useEventTypeFilter = EditorGUILayout.Toggle(useEventTypeFilter, GUILayout.Width(20));
         GUI.enabled = useEventTypeFilter;
+        GUILayout.Label("类型:", GUILayout.Width(40));
         eventTypeFilter = (EventType)EditorGUILayout.EnumPopup(eventTypeFilter);
         GUI.enabled = true;
         EditorGUILayout.EndHorizontal();
         
+        // 优先级过滤器
         EditorGUILayout.BeginHorizontal();
-        useEventPriorityFilter = EditorGUILayout.Toggle("Priority:", useEventPriorityFilter, GUILayout.Width(60));
+        useEventPriorityFilter = EditorGUILayout.Toggle(useEventPriorityFilter, GUILayout.Width(20));
         GUI.enabled = useEventPriorityFilter;
+        GUILayout.Label("优先级:", GUILayout.Width(40));
         eventPriorityFilter = (EventPriority)EditorGUILayout.EnumPopup(eventPriorityFilter);
         GUI.enabled = true;
         EditorGUILayout.EndHorizontal();
-        
-        if (GUILayout.Button("Clear Filters"))
-        {
-            eventSearchFilter = "";
-            useEventTypeFilter = false;
-            useEventPriorityFilter = false;
-        }
         
         EditorGUILayout.EndVertical();
     }
@@ -309,20 +558,31 @@ public class EventEditorWindow : EditorWindow
         return filtered.ToList();
     }
     
-    void DrawEventListItem(RandomEvent eventData)
+    void DrawModernEventListItem(RandomEvent eventData)
     {
         bool isSelected = selectedEvent == eventData;
         
-        EditorGUILayout.BeginVertical(isSelected ? "selectionRect" : "box");
+        var itemStyle = isSelected ? modernSelectedStyle : modernCardStyle;
+        var itemStyleCopy = new GUIStyle(itemStyle);
+        itemStyleCopy.margin = new RectOffset(0, 0, 2, 2);
+        
+        EditorGUILayout.BeginVertical(itemStyleCopy);
         
         EditorGUILayout.BeginHorizontal();
         
+        // 事件图标和优先级指示器
+        var priorityColor = GetPriorityColor(eventData.priority);
+        GUI.color = priorityColor;
+        GUILayout.Label("●", GUILayout.Width(15));
+        GUI.color = Color.white;
+        
+        // 重命名处理
         if (isRenamingEvent && renamingEvent == eventData)
         {
             GUI.SetNextControlName("RenameField");
             renamingText = EditorGUILayout.TextField(renamingText);
             
-            if (GUILayout.Button("✓", GUILayout.Width(20)))
+            if (GUILayout.Button("✓", EditorStyles.miniButton, GUILayout.Width(20)))
             {
                 if (!string.IsNullOrEmpty(renamingText))
                 {
@@ -331,259 +591,214 @@ public class EventEditorWindow : EditorWindow
                 ExitRenameMode();
             }
             
-            if (GUILayout.Button("✗", GUILayout.Width(20)))
+            if (GUILayout.Button("✗", EditorStyles.miniButton, GUILayout.Width(20)))
             {
                 ExitRenameMode();
-            }
-            
-            // 处理键盘输入
-            if (Event.current.type == UnityEngine.EventType.KeyDown)
-            {
-                if (Event.current.keyCode == KeyCode.Return)
-                {
-                    if (!string.IsNullOrEmpty(renamingText))
-                    {
-                        RenameEvent(eventData, renamingText);
-                    }
-                    ExitRenameMode();
-                    Event.current.Use();
-                }
-                else if (Event.current.keyCode == KeyCode.Escape)
-                {
-                    ExitRenameMode();
-                    Event.current.Use();
-                }
             }
         }
         else
         {
-            if (isSelected)
-                GUI.backgroundColor = Color.cyan;
-            
-            if (GUILayout.Button($"{eventData.eventName}", EditorStyles.label))
+            // 主按钮
+            if (GUILayout.Button(eventData.eventName, EditorStyles.label))
             {
                 selectedEvent = eventData;
                 selectedNode = eventNodes.FirstOrDefault(n => n.eventData == eventData);
                 UpdateNodeSelection();
             }
             
-            GUI.backgroundColor = Color.white;
+            GUILayout.FlexibleSpace();
             
-            // 右键菜单处理
-            Event currentEvent = Event.current;
-            if (currentEvent.type == UnityEngine.EventType.ContextClick && 
-                GUILayoutUtility.GetLastRect().Contains(currentEvent.mousePosition))
+            // 快速信息指示器
+            DrawEventIndicators(eventData);
+            
+            // 操作按钮
+            if (GUILayout.Button("⋯", EditorStyles.miniButton, GUILayout.Width(20)))
             {
                 ShowEventContextMenu(eventData);
-                currentEvent.Use();
             }
         }
         
-        DrawEventStatusIndicators(eventData);
-        
         EditorGUILayout.EndHorizontal();
         
+        // 选中时显示详细信息
         if (isSelected)
         {
-            EditorGUILayout.LabelField($"Type: {eventData.eventType}", EditorStyles.miniLabel);
-            EditorGUILayout.LabelField($"Priority: {eventData.priority}", EditorStyles.miniLabel);
-            EditorGUILayout.LabelField($"Days: {eventData.minDay}-{eventData.maxDay}", EditorStyles.miniLabel);
+            GUILayout.Space(4);
+            DrawEventQuickInfo(eventData);
         }
         
         EditorGUILayout.EndVertical();
-    }
-    
-    void DrawEventStatusIndicators(RandomEvent eventData)
-    {
-        GUILayout.FlexibleSpace();
         
-        Color priorityColor = eventData.priority switch
+        // 处理右键菜单
+        Event currentEvent = Event.current;
+        if (currentEvent.type == UnityEngine.EventType.ContextClick && 
+            GUILayoutUtility.GetLastRect().Contains(currentEvent.mousePosition))
         {
-            EventPriority.Critical => Color.red,
-            EventPriority.High => Color.yellow,
-            EventPriority.Normal => Color.green,
-            EventPriority.Low => Color.gray,
-            _ => Color.white
-        };
-        
-        GUI.color = priorityColor;
-        GUILayout.Label("●", GUILayout.Width(15));
-        GUI.color = Color.white;
-        
-        if (eventData.choices != null && eventData.choices.Length > 0)
-        {
-            GUILayout.Label($"[{eventData.choices.Length}]", EditorStyles.miniLabel, GUILayout.Width(25));
+            ShowEventContextMenu(eventData);
+            currentEvent.Use();
         }
     }
     
-    void DrawEventDetails()
+    void DrawEventIndicators(RandomEvent eventData)
     {
-        GUILayout.Space(10);
-        GUILayout.Label("Event Details", EditorStyles.boldLabel);
+        // 选择数量指示器
+        if (eventData.choices != null && eventData.choices.Length > 0)
+        {
+            GUI.color = AccentColor;
+            GUILayout.Label($"{IconChoice}{eventData.choices.Length}", EditorStyles.miniLabel, GUILayout.Width(30));
+            GUI.color = Color.white;
+        }
+        
+        // 任务指示器
+        if (eventData.isQuest)
+        {
+            GUI.color = WarningColor;
+            GUILayout.Label(IconQuest, EditorStyles.miniLabel, GUILayout.Width(15));
+            GUI.color = Color.white;
+        }
+        
+        // 类型指示器
+        var typeIcon = GetEventTypeIcon(eventData.eventType);
+        var typeColor = GetEventTypeColor(eventData.eventType);
+        GUI.color = typeColor;
+        GUILayout.Label(typeIcon, EditorStyles.miniLabel, GUILayout.Width(15));
+        GUI.color = Color.white;
+    }
+    
+    void DrawEventQuickInfo(RandomEvent eventData)
+    {
+        var miniStyle = new GUIStyle(EditorStyles.miniLabel);
+        miniStyle.normal.textColor = new Color(0.7f, 0.7f, 0.7f);
+        
+        EditorGUILayout.BeginHorizontal();
+        GUILayout.Label($"类型: {eventData.eventType}", miniStyle);
+        GUILayout.FlexibleSpace();
+        GUILayout.Label($"天数: {eventData.minDay}-{eventData.maxDay}", miniStyle);
+        EditorGUILayout.EndHorizontal();
+        
+        if (!string.IsNullOrEmpty(eventData.eventDescription))
+        {
+            var descStyle = new GUIStyle(EditorStyles.miniLabel);
+            descStyle.normal.textColor = new Color(0.6f, 0.6f, 0.6f);
+            descStyle.wordWrap = true;
+            
+            string shortDesc = eventData.eventDescription.Length > 60 ? 
+                eventData.eventDescription.Substring(0, 60) + "..." : 
+                eventData.eventDescription;
+            GUILayout.Label(shortDesc, descStyle);
+        }
+    }
+    
+    void DrawModernEventDetails()
+    {
+        EditorGUILayout.BeginVertical(modernCardStyle);
+        
+        EditorGUILayout.LabelField("📝 事件详情", modernHeaderStyle);
         
         EditorGUI.BeginChangeCheck();
         
-        selectedEvent.eventName = EditorGUILayout.TextField("Event Name", selectedEvent.eventName);
-        selectedEvent.eventType = (EventType)EditorGUILayout.EnumPopup("Event Type", selectedEvent.eventType);
-        selectedEvent.priority = (EventPriority)EditorGUILayout.EnumPopup("Priority", selectedEvent.priority);
+        selectedEvent.eventName = EditorGUILayout.TextField("事件名称", selectedEvent.eventName);
+        selectedEvent.eventType = (EventType)EditorGUILayout.EnumPopup("事件类型", selectedEvent.eventType);
+        selectedEvent.priority = (EventPriority)EditorGUILayout.EnumPopup("优先级", selectedEvent.priority);
         
-        GUILayout.Label("Description:");
-        selectedEvent.eventDescription = EditorGUILayout.TextArea(selectedEvent.eventDescription, GUILayout.Height(60));
+        GUILayout.Space(4);
         
-        GUILayout.Label("Trigger Settings:");
-        selectedEvent.minDay = EditorGUILayout.IntField("Min Day", selectedEvent.minDay);
-        selectedEvent.maxDay = EditorGUILayout.IntField("Max Day", selectedEvent.maxDay);
-        selectedEvent.baseTriggerChance = EditorGUILayout.Slider("Trigger Chance", selectedEvent.baseTriggerChance, 0f, 1f);
+        GUILayout.Label("描述:");
+        selectedEvent.eventDescription = EditorGUILayout.TextArea(selectedEvent.eventDescription, GUILayout.Height(50));
         
-        selectedEvent.requiresChoice = EditorGUILayout.Toggle("Requires Choice", selectedEvent.requiresChoice);
-        selectedEvent.canRepeat = EditorGUILayout.Toggle("Can Repeat", selectedEvent.canRepeat);
+        GUILayout.Space(4);
+        
+        EditorGUILayout.BeginHorizontal();
+        selectedEvent.minDay = EditorGUILayout.IntField("最小天数", selectedEvent.minDay);
+        selectedEvent.maxDay = EditorGUILayout.IntField("最大天数", selectedEvent.maxDay);
+        EditorGUILayout.EndHorizontal();
+        
+        selectedEvent.baseTriggerChance = EditorGUILayout.Slider("触发概率", selectedEvent.baseTriggerChance, 0f, 1f);
+        
+        EditorGUILayout.BeginHorizontal();
+        selectedEvent.requiresChoice = EditorGUILayout.Toggle("需要选择", selectedEvent.requiresChoice);
+        selectedEvent.canRepeat = EditorGUILayout.Toggle("可重复", selectedEvent.canRepeat);
+        EditorGUILayout.EndHorizontal();
         
         if (EditorGUI.EndChangeCheck())
         {
             EditorUtility.SetDirty(selectedEvent);
         }
         
-        if (GUILayout.Button("Edit Choices"))
+        GUILayout.Space(8);
+        
+        if (GUILayout.Button($"{IconChoice} 编辑选择", modernButtonStyle, GUILayout.Height(30)))
         {
-            EventChoiceEditor.OpenWindow(selectedEvent);
+            ModernEventChoiceEditor.OpenWindow(selectedEvent);
         }
         
-        // 任务相关设置
-        selectedEvent.isQuest = EditorGUILayout.Toggle("Is Quest", selectedEvent.isQuest);
+        // 任务设置
+        selectedEvent.isQuest = EditorGUILayout.Toggle("是任务", selectedEvent.isQuest);
         
         if (selectedEvent.isQuest)
         {
-            showQuestFields = EditorGUILayout.Foldout(showQuestFields, "Quest Settings");
+            showQuestFields = EditorGUILayout.Foldout(showQuestFields, "任务设置");
             if (showQuestFields)
             {
                 DrawQuestFields();
             }
         }
         
-        // 扩展字段
-        GUILayout.Label("Advanced Settings:", EditorStyles.boldLabel);
-        selectedEvent.isMainQuest = EditorGUILayout.Toggle("Is Main Quest", selectedEvent.isMainQuest);
-        selectedEvent.isSideQuest = EditorGUILayout.Toggle("Is Side Quest", selectedEvent.isSideQuest);
-        selectedEvent.questChain = EditorGUILayout.TextField("Quest Chain", selectedEvent.questChain ?? "");
-        selectedEvent.questOrder = EditorGUILayout.IntField("Quest Order", selectedEvent.questOrder);
-        
-        // 事件标签
-        GUILayout.Label("Tags:", EditorStyles.boldLabel);
-        DrawEventTags();
-        
-        selectedEvent.editorColor = EditorGUILayout.ColorField("Editor Color", selectedEvent.editorColor);
-    }
-    
-    void DrawEventTags()
-    {
-        if (selectedEvent.tags == null) selectedEvent.tags = new string[0];
-        
-        int newSize = EditorGUILayout.IntField("Tags Count", selectedEvent.tags.Length);
-        if (newSize != selectedEvent.tags.Length)
-        {
-            Array.Resize(ref selectedEvent.tags, newSize);
-        }
-        
-        for (int i = 0; i < selectedEvent.tags.Length; i++)
-        {
-            selectedEvent.tags[i] = EditorGUILayout.TextField($"Tag {i}", selectedEvent.tags[i] ?? "");
-        }
+        EditorGUILayout.EndVertical();
     }
     
     void DrawQuestFields()
     {
         EditorGUILayout.BeginVertical("box");
         
-        GUILayout.Label("Prerequisites:", EditorStyles.boldLabel);
-        DrawStringArray(ref selectedEvent.prerequisiteQuestIds, "Prerequisite Quest IDs");
-        
-        GUILayout.Label("Unlocks:", EditorStyles.boldLabel);
-        DrawStringArray(ref selectedEvent.unlockQuestIds, "Unlock Quest IDs");
-        
-        GUILayout.Label("Objectives:", EditorStyles.boldLabel);
-        DrawQuestObjectives();
+        selectedEvent.isMainQuest = EditorGUILayout.Toggle("主线任务", selectedEvent.isMainQuest);
+        selectedEvent.isSideQuest = EditorGUILayout.Toggle("支线任务", selectedEvent.isSideQuest);
+        selectedEvent.questChain = EditorGUILayout.TextField("任务链", selectedEvent.questChain ?? "");
+        selectedEvent.questOrder = EditorGUILayout.IntField("任务顺序", selectedEvent.questOrder);
         
         EditorGUILayout.EndVertical();
     }
     
-    void DrawStringArray(ref string[] array, string label)
-    {
-        if (array == null) array = new string[0];
-        
-        int newSize = EditorGUILayout.IntField("Size", array.Length);
-        if (newSize != array.Length)
-        {
-            Array.Resize(ref array, newSize);
-        }
-        
-        for (int i = 0; i < array.Length; i++)
-        {
-            array[i] = EditorGUILayout.TextField($"Element {i}", array[i] ?? "");
-        }
-    }
-    
-    void DrawQuestObjectives()
-    {
-        if (selectedEvent.questObjectives == null) selectedEvent.questObjectives = new QuestObjective[0];
-        
-        int newSize = EditorGUILayout.IntField("Objectives Count", selectedEvent.questObjectives.Length);
-        if (newSize != selectedEvent.questObjectives.Length)
-        {
-            Array.Resize(ref selectedEvent.questObjectives, newSize);
-            for (int i = 0; i < selectedEvent.questObjectives.Length; i++)
-            {
-                if (selectedEvent.questObjectives[i] == null)
-                    selectedEvent.questObjectives[i] = new QuestObjective();
-            }
-        }
-        
-        for (int i = 0; i < selectedEvent.questObjectives.Length; i++)
-        {
-            var obj = selectedEvent.questObjectives[i];
-            EditorGUILayout.BeginVertical("box");
-            
-            obj.objectiveId = EditorGUILayout.TextField("Objective ID", obj.objectiveId ?? "");
-            obj.description = EditorGUILayout.TextField("Description", obj.description ?? "");
-            obj.type = (QuestObjectiveType)EditorGUILayout.EnumPopup("Type", obj.type);
-            obj.targetAmount = EditorGUILayout.IntField("Target Amount", obj.targetAmount);
-            obj.targetId = EditorGUILayout.TextField("Target ID", obj.targetId ?? "");
-            
-            EditorGUILayout.EndVertical();
-        }
-    }
-    
-    void DrawRightPanel(Rect panel)
+    void DrawModernRightPanel(Rect panel)
     {
         GUILayout.BeginArea(panel);
         
-        GUILayout.Label("Event Flow Graph", EditorStyles.boldLabel);
+        EditorGUILayout.BeginVertical(modernSectionStyle, GUILayout.ExpandHeight(true));
         
-        Rect graphArea = new Rect(0, 25, panel.width, panel.height - 25);
-        DrawEventGraph(graphArea);
+        EditorGUILayout.LabelField($"{IconNode} 事件流程图", modernHeaderStyle);
+        
+        GUILayout.Space(8);
+        
+        Rect graphArea = new Rect(0, 40, panel.width - 32, panel.height - 72);
+        DrawModernEventGraph(graphArea);
+        
+        EditorGUILayout.EndVertical();
         
         GUILayout.EndArea();
     }
     
-    void DrawEventGraph(Rect area)
+    void DrawModernEventGraph(Rect area)
     {
-        DrawGrid(area);
+        DrawModernGrid(area);
         
         nodeScrollPos = GUI.BeginScrollView(area, nodeScrollPos, nodeArea);
         
-        DrawConnections();
-        DrawNodes();
+        DrawModernConnections();
+        DrawModernNodes();
         
         GUI.EndScrollView();
     }
     
-    void DrawGrid(Rect area)
+    void DrawModernGrid(Rect area)
     {
-        int gridSpacing = 20;
-        Color gridColor = new Color(0.3f, 0.3f, 0.3f, 0.5f);
+        int gridSpacing = 25;
+        Color gridColor = new Color(0.2f, 0.2f, 0.2f, 0.4f);
+        Color majorGridColor = new Color(0.3f, 0.3f, 0.3f, 0.6f);
         
         Handles.BeginGUI();
-        Handles.color = gridColor;
         
+        // 小网格
+        Handles.color = gridColor;
         for (int x = 0; x < area.width; x += gridSpacing)
         {
             Handles.DrawLine(new Vector3(x, 0), new Vector3(x, area.height));
@@ -594,10 +809,22 @@ public class EventEditorWindow : EditorWindow
             Handles.DrawLine(new Vector3(0, y), new Vector3(area.width, y));
         }
         
+        // 主网格
+        Handles.color = majorGridColor;
+        for (int x = 0; x < area.width; x += gridSpacing * 4)
+        {
+            Handles.DrawLine(new Vector3(x, 0), new Vector3(x, area.height));
+        }
+        
+        for (int y = 0; y < area.height; y += gridSpacing * 4)
+        {
+            Handles.DrawLine(new Vector3(0, y), new Vector3(area.width, y));
+        }
+        
         Handles.EndGUI();
     }
     
-    void DrawNodes()
+    void DrawModernNodes()
     {
         BeginWindows();
         
@@ -606,24 +833,74 @@ public class EventEditorWindow : EditorWindow
             var node = eventNodes[i];
             if (node.eventData != null)
             {
-                GUIStyle style = node.isSelected ? selectedNodeStyle : nodeStyle;
-                node.rect = GUILayout.Window(i, node.rect, DrawNodeWindow, node.eventData.eventName, style);
+                GUIStyle style = node.isSelected ? modernSelectedNodeStyle : modernNodeStyle;
+                node.rect = GUILayout.Window(i, node.rect, DrawModernNodeWindow, "", style);
             }
         }
         
         EndWindows();
     }
     
-    void DrawNodeWindow(int id)
+    void DrawModernNodeWindow(int id)
     {
         if (id < 0 || id >= eventNodes.Count) return;
         
         var node = eventNodes[id];
+        var eventData = node.eventData;
         
-        GUILayout.Label($"Type: {node.eventData.eventType}");
-        GUILayout.Label($"Day: {node.eventData.minDay}-{node.eventData.maxDay}");
-        GUILayout.Label($"Chance: {node.eventData.baseTriggerChance:P0}");
+        // 标题
+        var titleStyle = new GUIStyle(EditorStyles.boldLabel);
+        titleStyle.normal.textColor = Color.white;
+        titleStyle.fontSize = 12;
         
+        // 事件名称（限制长度）
+        string displayName = eventData.eventName.Length > 18 ? 
+            eventData.eventName.Substring(0, 15) + "..." : 
+            eventData.eventName;
+        
+        GUILayout.Label(displayName, titleStyle);
+        
+        GUILayout.Space(2);
+        
+        // 事件类型和优先级
+        EditorGUILayout.BeginHorizontal();
+        
+        var typeColor = GetEventTypeColor(eventData.eventType);
+        GUI.color = typeColor;
+        GUILayout.Label(GetEventTypeIcon(eventData.eventType), GUILayout.Width(15));
+        GUI.color = Color.white;
+        
+        var typeStyle = new GUIStyle(EditorStyles.miniLabel);
+        typeStyle.normal.textColor = new Color(0.8f, 0.8f, 0.8f);
+        GUILayout.Label(eventData.eventType.ToString(), typeStyle);
+        
+        EditorGUILayout.EndHorizontal();
+        
+        // 优先级指示器
+        EditorGUILayout.BeginHorizontal();
+        var priorityColor = GetPriorityColor(eventData.priority);
+        GUI.color = priorityColor;
+        GUILayout.Label("●", GUILayout.Width(15));
+        GUI.color = Color.white;
+        
+        GUILayout.Label($"{eventData.priority}", typeStyle);
+        EditorGUILayout.EndHorizontal();
+        
+        // 统计信息
+        GUILayout.Space(2);
+        
+        var statsStyle = new GUIStyle(EditorStyles.miniLabel);
+        statsStyle.normal.textColor = new Color(0.7f, 0.7f, 0.7f);
+        
+        GUILayout.Label($"天数: {eventData.minDay}-{eventData.maxDay}", statsStyle);
+        GUILayout.Label($"概率: {eventData.baseTriggerChance:P0}", statsStyle);
+        
+        if (eventData.choices != null && eventData.choices.Length > 0)
+        {
+            GUILayout.Label($"选择: {eventData.choices.Length}", statsStyle);
+        }
+        
+        // 处理事件
         Event currentEvent = Event.current;
         if (currentEvent.type == UnityEngine.EventType.MouseDown)
         {
@@ -633,7 +910,7 @@ public class EventEditorWindow : EditorWindow
             Repaint();
         }
         
-        // 保存节点位置到事件数据
+        // 保存节点位置
         if (currentEvent.type == UnityEngine.EventType.MouseDrag || 
             currentEvent.type == UnityEngine.EventType.MouseUp)
         {
@@ -641,6 +918,202 @@ public class EventEditorWindow : EditorWindow
         }
         
         GUI.DragWindow();
+    }
+    
+    void DrawModernConnections()
+    {
+        foreach (var node in eventNodes)
+        {
+            if (node.eventData.followupEvent != null)
+            {
+                EditorEventNode targetNode = eventNodes.FirstOrDefault(n => n.eventData == node.eventData.followupEvent);
+                if (targetNode != null)
+                {
+                    DrawModernConnection(node, targetNode);
+                }
+            }
+        }
+    }
+    
+    void DrawModernConnection(EditorEventNode from, EditorEventNode to)
+    {
+        Vector3 startPos = new Vector3(from.rect.x + from.rect.width, from.rect.y + from.rect.height / 2);
+        Vector3 endPos = new Vector3(to.rect.x, to.rect.y + to.rect.height / 2);
+        
+        Handles.BeginGUI();
+        
+        // 绘制阴影
+        Handles.color = new Color(0, 0, 0, 0.3f);
+        Handles.DrawBezier(
+            startPos + Vector3.one * 2, 
+            endPos + Vector3.one * 2, 
+            startPos + Vector3.right * 60 + Vector3.one * 2, 
+            endPos + Vector3.left * 60 + Vector3.one * 2, 
+            Color.black, 
+            null, 
+            4f
+        );
+        
+        // 绘制连接线
+        Handles.color = PrimaryColor;
+        Handles.DrawBezier(
+            startPos, 
+            endPos, 
+            startPos + Vector3.right * 60, 
+            endPos + Vector3.left * 60, 
+            PrimaryColor, 
+            null, 
+            3f
+        );
+        
+        // 绘制箭头
+        Vector3 direction = (endPos - startPos).normalized;
+        Vector3 arrowHead = endPos - direction * 15;
+        Vector3 arrowSide1 = arrowHead + new Vector3(-direction.y, direction.x) * 8;
+        Vector3 arrowSide2 = arrowHead + new Vector3(direction.y, -direction.x) * 8;
+        
+        Handles.DrawLine(endPos, arrowSide1);
+        Handles.DrawLine(endPos, arrowSide2);
+        
+        Handles.EndGUI();
+    }
+    
+    void DrawModernEventTestingPanel()
+    {
+        EditorGUILayout.BeginVertical(modernCardStyle);
+        
+        EditorGUILayout.LabelField($"{IconPlay} 事件测试", modernHeaderStyle);
+        
+        if (selectedEvent == null)
+        {
+            var helpStyle = new GUIStyle(EditorStyles.helpBox);
+            helpStyle.normal.textColor = new Color(0.7f, 0.7f, 0.7f);
+            EditorGUILayout.HelpBox("选择一个事件进行测试", MessageType.Info);
+        }
+        else
+        {
+            EditorGUILayout.LabelField($"测试事件: {selectedEvent.eventName}");
+            
+            if (!Application.isPlaying)
+            {
+                EditorGUILayout.HelpBox("进入播放模式以测试事件", MessageType.Warning);
+            }
+            else
+            {
+                EditorGUILayout.BeginHorizontal();
+                
+                if (GUILayout.Button($"{IconPlay} 触发事件", modernButtonStyle, GUILayout.Height(28)))
+                {
+                    TriggerEventInGame(selectedEvent);
+                }
+                
+                if (GUILayout.Button("✓ 验证", modernButtonStyle, GUILayout.Height(28)))
+                {
+                    var issues = ValidateEvent(selectedEvent);
+                    string message = issues.Count > 0 ? 
+                        "发现问题:\n" + string.Join("\n", issues) : 
+                        "事件验证通过!";
+                    EditorUtility.DisplayDialog("验证结果", message, "确定");
+                }
+                
+                EditorGUILayout.EndHorizontal();
+            }
+        }
+        
+        EditorGUILayout.EndVertical();
+    }
+    
+    void DrawModernEventStatisticsPanel()
+    {
+        EditorGUILayout.BeginVertical(modernCardStyle);
+        
+        EditorGUILayout.LabelField($"{IconStats} 事件统计", modernHeaderStyle);
+        
+        statisticsScrollPos = EditorGUILayout.BeginScrollView(statisticsScrollPos, GUILayout.Height(120));
+        
+        var typeGroups = allEvents.GroupBy(e => e.eventType);
+        EditorGUILayout.LabelField("按类型分组:", EditorStyles.boldLabel);
+        foreach (var group in typeGroups)
+        {
+            var typeColor = GetEventTypeColor(group.Key);
+            var typeIcon = GetEventTypeIcon(group.Key);
+            
+            EditorGUILayout.BeginHorizontal();
+            GUI.color = typeColor;
+            GUILayout.Label(typeIcon, GUILayout.Width(20));
+            GUI.color = Color.white;
+            GUILayout.Label($"{group.Key}: {group.Count()}");
+            EditorGUILayout.EndHorizontal();
+        }
+        
+        GUILayout.Space(8);
+        
+        var priorityGroups = allEvents.GroupBy(e => e.priority);
+        EditorGUILayout.LabelField("按优先级分组:", EditorStyles.boldLabel);
+        foreach (var group in priorityGroups)
+        {
+            var priorityColor = GetPriorityColor(group.Key);
+            
+            EditorGUILayout.BeginHorizontal();
+            GUI.color = priorityColor;
+            GUILayout.Label("●", GUILayout.Width(20));
+            GUI.color = Color.white;
+            GUILayout.Label($"{group.Key}: {group.Count()}");
+            EditorGUILayout.EndHorizontal();
+        }
+        
+        GUILayout.Space(8);
+        
+        var withChoices = allEvents.Count(e => e.choices != null && e.choices.Length > 0);
+        var questEvents = allEvents.Count(e => e.isQuest);
+        
+        EditorGUILayout.LabelField("其他统计:", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField($"  总事件数: {allEvents.Count}");
+        EditorGUILayout.LabelField($"  有选择的: {withChoices}");
+        EditorGUILayout.LabelField($"  任务事件: {questEvents}");
+        
+        EditorGUILayout.EndScrollView();
+        
+        EditorGUILayout.EndVertical();
+    }
+    
+    // 辅助方法
+    Color GetPriorityColor(EventPriority priority)
+    {
+        return priority switch
+        {
+            EventPriority.Critical => DangerColor,
+            EventPriority.High => WarningColor,
+            EventPriority.Normal => SuccessColor,
+            EventPriority.Low => new Color(0.6f, 0.6f, 0.6f),
+            _ => Color.white
+        };
+    }
+    
+    Color GetEventTypeColor(EventType type)
+    {
+        return type switch
+        {
+            EventType.ResourceGain => SuccessColor,
+            EventType.ResourceLoss => DangerColor,
+            EventType.HealthEvent => WarningColor,
+            EventType.Discovery => PrimaryColor,
+            EventType.Encounter => new Color(0.8f, 0.4f, 0.8f),
+            _ => Color.white
+        };
+    }
+    
+    string GetEventTypeIcon(EventType type)
+    {
+        return type switch
+        {
+            EventType.ResourceGain => "📈",
+            EventType.ResourceLoss => "📉",
+            EventType.HealthEvent => "❤",
+            EventType.Discovery => "🔍",
+            EventType.Encounter => "👥",
+            _ => "📅"
+        };
     }
     
     void SaveNodePosition(EditorEventNode node)
@@ -660,35 +1133,6 @@ public class EventEditorWindow : EditorWindow
         }
     }
     
-    void DrawConnections()
-    {
-        foreach (var node in eventNodes)
-        {
-            if (node.eventData.followupEvent != null)
-            {
-                EditorEventNode targetNode = eventNodes.FirstOrDefault(n => n.eventData == node.eventData.followupEvent);
-                if (targetNode != null)
-                {
-                    DrawConnection(node, targetNode);
-                }
-            }
-        }
-    }
-    
-    void DrawConnection(EditorEventNode from, EditorEventNode to)
-    {
-        Vector3 startPos = new Vector3(from.rect.x + from.rect.width, from.rect.y + from.rect.height / 2);
-        Vector3 endPos = new Vector3(to.rect.x, to.rect.y + to.rect.height / 2);
-        
-        Handles.BeginGUI();
-        Handles.color = Color.cyan;
-        Handles.DrawBezier(startPos, endPos, 
-            startPos + Vector3.right * 50, 
-            endPos + Vector3.left * 50, 
-            Color.cyan, null, 3f);
-        Handles.EndGUI();
-    }
-    
     void ProcessNodeEvents()
     {
         Event currentEvent = Event.current;
@@ -696,11 +1140,11 @@ public class EventEditorWindow : EditorWindow
         if (currentEvent.type == UnityEngine.EventType.MouseDown && currentEvent.button == 1)
         {
             Vector2 mousePos = currentEvent.mousePosition;
-            mousePos.y -= 30; // 调整工具栏高度
+            mousePos.y -= 60;
             
-            if (mousePos.x > 300) // 在右侧面板
+            if (mousePos.x > 416)
             {
-                Vector2 graphMousePos = mousePos - new Vector2(300, 25) + nodeScrollPos;
+                Vector2 graphMousePos = mousePos - new Vector2(416, 40) + nodeScrollPos;
                 ShowGraphContextMenu(graphMousePos);
                 currentEvent.Use();
             }
@@ -711,7 +1155,7 @@ public class EventEditorWindow : EditorWindow
     {
         GenericMenu menu = new GenericMenu();
         
-        menu.AddItem(new GUIContent("Create New Event"), false, () => {
+        menu.AddItem(new GUIContent($"{IconAdd} 创建新事件"), false, () => {
             CreateNewEventAt(position);
         });
         
@@ -725,25 +1169,19 @@ public class EventEditorWindow : EditorWindow
     
     void CreateNewEventAt(Vector2 position)
     {
-        // 弹出文件名输入对话框
         string fileName = EditorUtility.SaveFilePanel(
             "创建新事件", 
             "Assets/GameData/Events", 
             "NewEvent", 
             "asset");
             
-        if (string.IsNullOrEmpty(fileName))
-        {
-            return; // 用户取消了
-        }
+        if (string.IsNullOrEmpty(fileName)) return;
         
-        // 转换为相对路径
         if (fileName.StartsWith(Application.dataPath))
         {
             fileName = "Assets" + fileName.Substring(Application.dataPath.Length);
         }
         
-        // 检查文件是否已存在
         if (System.IO.File.Exists(fileName))
         {
             if (!EditorUtility.DisplayDialog("文件已存在", 
@@ -754,17 +1192,14 @@ public class EventEditorWindow : EditorWindow
             }
         }
         
-        // 确保目录存在
         string directory = System.IO.Path.GetDirectoryName(fileName);
         if (!System.IO.Directory.Exists(directory))
         {
             System.IO.Directory.CreateDirectory(directory);
         }
         
-        // 创建事件
         RandomEvent newEvent = CreateInstance<RandomEvent>();
         
-        // 从文件名推导事件名（移除扩展名和路径）
         string eventName = System.IO.Path.GetFileNameWithoutExtension(fileName);
         newEvent.eventName = eventName;
         
@@ -788,12 +1223,10 @@ public class EventEditorWindow : EditorWindow
         newEvent.tags = new string[0];
         newEvent.editorColor = Color.white;
         
-        // 初始化节点位置（使用GameEventManager中定义的EventNode）
         if (newEvent.nodePosition == null)
             newEvent.nodePosition = new EventNode();
         newEvent.nodePosition.position = position;
         
-        // 创建资源文件
         AssetDatabase.CreateAsset(newEvent, fileName);
         AssetDatabase.SaveAssets();
         
@@ -802,7 +1235,7 @@ public class EventEditorWindow : EditorWindow
         EditorEventNode newNode = new EditorEventNode
         {
             eventData = newEvent,
-            rect = new Rect(position.x, position.y, 180, 120),
+            rect = new Rect(position.x, position.y, 200, 140),
             isSelected = false
         };
         eventNodes.Add(newNode);
@@ -811,16 +1244,16 @@ public class EventEditorWindow : EditorWindow
         selectedNode = newNode;
         UpdateNodeSelection();
         
-        // 自动进入重命名模式，让用户可以立即修改事件名
         EditorApplication.delayCall += () => {
             EnterRenameMode(newEvent);
         };
         
         Repaint();
         
-        Debug.Log($"[EventEditor] 创建新事件: {fileName}");
+        Debug.Log($"[ModernEventEditor] 创建新事件: {fileName}");
     }
     
+    // 保持所有原有功能方法...
     void SaveAllEvents()
     {
         foreach (var eventData in allEvents)
@@ -832,26 +1265,26 @@ public class EventEditorWindow : EditorWindow
         }
         AssetDatabase.SaveAssets();
         
-        EditorUtility.DisplayDialog("Save Complete", "All events have been saved.", "OK");
+        EditorUtility.DisplayDialog("保存完成", "所有事件已保存完成!", "确定");
     }
     
     void ShowEventContextMenu(RandomEvent eventData)
     {
         GenericMenu menu = new GenericMenu();
         
-        menu.AddItem(new GUIContent("Rename"), false, () => {
+        menu.AddItem(new GUIContent($"{IconRename} 重命名"), false, () => {
             EnterRenameMode(eventData);
         });
         
-        menu.AddItem(new GUIContent("Duplicate"), false, () => {
+        menu.AddItem(new GUIContent($"{IconCopy} 复制"), false, () => {
             DuplicateEvent(eventData);
         });
         
         menu.AddSeparator("");
         
-        menu.AddItem(new GUIContent("Delete"), false, () => {
-            if (EditorUtility.DisplayDialog("Delete Event", 
-                $"Are you sure you want to delete '{eventData.eventName}'?", "Delete", "Cancel"))
+        menu.AddItem(new GUIContent($"{IconDelete} 删除"), false, () => {
+            if (EditorUtility.DisplayDialog("删除事件", 
+                $"确定要删除 '{eventData.eventName}' 吗？", "删除", "取消"))
             {
                 DeleteEvent(eventData);
             }
@@ -859,7 +1292,7 @@ public class EventEditorWindow : EditorWindow
         
         menu.AddSeparator("");
         
-        menu.AddItem(new GUIContent("Show in Project"), false, () => {
+        menu.AddItem(new GUIContent("在项目中显示"), false, () => {
             EditorGUIUtility.PingObject(eventData);
         });
         
@@ -911,7 +1344,7 @@ public class EventEditorWindow : EditorWindow
             RandomEvent duplicate = AssetDatabase.LoadAssetAtPath<RandomEvent>(newPath);
             if (duplicate != null)
             {
-                duplicate.eventName += " (Copy)";
+                duplicate.eventName += " (副本)";
                 EditorUtility.SetDirty(duplicate);
                 
                 allEvents.Add(duplicate);
@@ -920,7 +1353,7 @@ public class EventEditorWindow : EditorWindow
                 var newNode = new EditorEventNode
                 {
                     eventData = duplicate,
-                    rect = new Rect(100, 100, 180, 120),
+                    rect = new Rect(120, 120, 200, 140),
                     isSelected = false
                 };
                 eventNodes.Add(newNode);
@@ -959,8 +1392,8 @@ public class EventEditorWindow : EditorWindow
                 case KeyCode.Delete:
                     if (selectedEvent != null && !isRenamingEvent)
                     {
-                        if (EditorUtility.DisplayDialog("Delete Event", 
-                            $"Delete '{selectedEvent.eventName}'?", "Delete", "Cancel"))
+                        if (EditorUtility.DisplayDialog("删除事件", 
+                            $"删除 '{selectedEvent.eventName}'?", "删除", "取消"))
                         {
                             DeleteEvent(selectedEvent);
                         }
@@ -991,81 +1424,20 @@ public class EventEditorWindow : EditorWindow
                         currentEvent.Use();
                     }
                     break;
+                    
+                case KeyCode.Return:
+                    if (isRenamingEvent)
+                    {
+                        if (!string.IsNullOrEmpty(renamingText))
+                        {
+                            RenameEvent(renamingEvent, renamingText);
+                        }
+                        ExitRenameMode();
+                        currentEvent.Use();
+                    }
+                    break;
             }
         }
-    }
-    
-    void DrawEventTestingPanel()
-    {
-        EditorGUILayout.Space();
-        EditorGUILayout.LabelField("Event Testing", EditorStyles.boldLabel);
-        EditorGUILayout.BeginVertical("box");
-        
-        if (selectedEvent == null)
-        {
-            EditorGUILayout.HelpBox("Select an event to test", MessageType.Info);
-        }
-        else
-        {
-            EditorGUILayout.LabelField($"Testing: {selectedEvent.eventName}");
-            
-            if (!Application.isPlaying)
-            {
-                EditorGUILayout.HelpBox("Enter Play Mode to test events", MessageType.Warning);
-            }
-            else
-            {
-                if (GUILayout.Button("Trigger Event"))
-                {
-                    TriggerEventInGame(selectedEvent);
-                }
-                
-                if (GUILayout.Button("Validate Event"))
-                {
-                    var issues = ValidateEvent(selectedEvent);
-                    string message = issues.Count > 0 ? 
-                        "Issues found:\n" + string.Join("\n", issues) : 
-                        "Event is valid!";
-                    EditorUtility.DisplayDialog("Validation Result", message, "OK");
-                }
-            }
-        }
-        
-        EditorGUILayout.EndVertical();
-    }
-    
-    void DrawEventStatisticsPanel()
-    {
-        EditorGUILayout.Space();
-        EditorGUILayout.LabelField("Event Statistics", EditorStyles.boldLabel);
-        
-        statisticsScrollPos = EditorGUILayout.BeginScrollView(statisticsScrollPos, "box", GUILayout.Height(150));
-        
-        var typeGroups = allEvents.GroupBy(e => e.eventType);
-        EditorGUILayout.LabelField("Events by Type:", EditorStyles.boldLabel);
-        foreach (var group in typeGroups)
-        {
-            EditorGUILayout.LabelField($"  {group.Key}: {group.Count()}");
-        }
-        
-        EditorGUILayout.Space();
-        
-        var priorityGroups = allEvents.GroupBy(e => e.priority);
-        EditorGUILayout.LabelField("Events by Priority:", EditorStyles.boldLabel);
-        foreach (var group in priorityGroups)
-        {
-            EditorGUILayout.LabelField($"  {group.Key}: {group.Count()}");
-        }
-        
-        EditorGUILayout.Space();
-        
-        var withChoices = allEvents.Count(e => e.choices != null && e.choices.Length > 0);
-        
-        EditorGUILayout.LabelField("Other Statistics:", EditorStyles.boldLabel);
-        EditorGUILayout.LabelField($"  Total Events: {allEvents.Count}");
-        EditorGUILayout.LabelField($"  With Choices: {withChoices}");
-        
-        EditorGUILayout.EndScrollView();
     }
     
     void ValidateAllEvents()
@@ -1084,16 +1456,16 @@ public class EventEditorWindow : EditorWindow
         
         if (issues.Count > 0)
         {
-            string message = $"Found issues in events:\n" + string.Join("\n", issues.Take(10));
+            string message = $"发现问题:\n" + string.Join("\n", issues.Take(10));
             if (issues.Count > 10)
             {
-                message += $"\n... and {issues.Count - 10} more issues";
+                message += $"\n... 还有 {issues.Count - 10} 个问题";
             }
-            EditorUtility.DisplayDialog("Event Validation Results", message, "OK");
+            EditorUtility.DisplayDialog("事件验证结果", message, "确定");
         }
         else
         {
-            EditorUtility.DisplayDialog("Event Validation Results", "All events validated successfully!", "OK");
+            EditorUtility.DisplayDialog("事件验证结果", "所有事件验证成功!", "确定");
         }
     }
     
@@ -1102,19 +1474,19 @@ public class EventEditorWindow : EditorWindow
         var issues = new List<string>();
         
         if (string.IsNullOrEmpty(eventData.eventName))
-            issues.Add("Event name is empty");
+            issues.Add("事件名称为空");
         
         if (string.IsNullOrEmpty(eventData.eventDescription))
-            issues.Add("Event description is empty");
+            issues.Add("事件描述为空");
         
         if (eventData.minDay > eventData.maxDay)
-            issues.Add("Min day is greater than max day");
+            issues.Add("最小天数大于最大天数");
         
         if (eventData.baseTriggerChance <= 0 || eventData.baseTriggerChance > 1)
-            issues.Add("Invalid trigger chance (should be 0-1)");
+            issues.Add("触发概率无效 (应为0-1)");
         
         if (eventData.requiresChoice && (eventData.choices == null || eventData.choices.Length == 0))
-            issues.Add("Requires choice but no choices defined");
+            issues.Add("需要选择但未定义选择");
         
         return issues;
     }
@@ -1125,64 +1497,138 @@ public class EventEditorWindow : EditorWindow
         if (gameEventManager != null)
         {
             gameEventManager.TriggerEventExternally(eventData);
-            EditorUtility.DisplayDialog("Event Triggered", $"Triggered: {eventData.eventName}", "OK");
+            EditorUtility.DisplayDialog("事件已触发", $"触发: {eventData.eventName}", "确定");
         }
         else
         {
-            EditorUtility.DisplayDialog("Error", "GameEventManager not found in scene", "OK");
+            EditorUtility.DisplayDialog("错误", "场景中未找到 GameEventManager", "确定");
         }
     }
     
     void ShowHelp()
     {
-        string helpText = @"Event Editor Help:
+        string helpText = @"现代事件编辑器帮助:
 
-快捷键:
-- F2: 重命名选中的事件
-- Delete: 删除选中的事件  
-- Ctrl+D: 复制选中的事件
-- Esc: 取消重命名
+🔧 快捷键:
+• F2: 重命名选中的事件
+• Delete: 删除选中的事件  
+• Ctrl+D: 复制选中的事件
+• Esc: 取消重命名
+• Enter: 确认重命名
 
-搜索:
-- 支持按名称、描述、类型搜索
-- 使用类型和优先级过滤器
+🔍 搜索与过滤:
+• 支持按名称、描述、类型搜索
+• 使用类型和优先级过滤器
+• 实时过滤结果
 
-右键菜单:
-- 重命名、复制、删除事件
-- 在项目中显示文件
+🖱️ 右键菜单:
+• 重命名、复制、删除事件
+• 在项目中显示文件
 
-节点图:
-- 拖拽移动节点
-- 右键创建新事件
-- 连接线显示事件关系";
+📊 节点图操作:
+• 拖拽移动节点
+• 右键创建新事件
+• 连接线显示事件关系
+• 可视化事件流程
+
+🎯 测试功能:
+• 播放模式下触发事件
+• 事件验证检查
+• 实时统计信息";
         
-        EditorUtility.DisplayDialog("Event Editor Help", helpText, "OK");
+        EditorUtility.DisplayDialog("帮助", helpText, "确定");
     }
 }
 
-// 事件选择编辑器
-public class EventChoiceEditor : EditorWindow
+// 现代化事件选择编辑器
+public class ModernEventChoiceEditor : EditorWindow
 {
     private RandomEvent targetEvent;
     private Vector2 scrollPos;
     
+    // 现代样式（简化版）
+    private GUIStyle modernCardStyle;
+    private GUIStyle modernButtonStyle;
+    private GUIStyle modernHeaderStyle;
+    
+    private static readonly Color PrimaryColor = new Color(0.3f, 0.7f, 1f);
+    private static readonly Color CardColor = new Color(0.18f, 0.18f, 0.18f);
+    private static readonly Color DangerColor = new Color(0.9f, 0.3f, 0.3f);
+    
     public static void OpenWindow(RandomEvent eventData)
     {
-        EventChoiceEditor window = GetWindow<EventChoiceEditor>("Event Choice Editor");
+        ModernEventChoiceEditor window = GetWindow<ModernEventChoiceEditor>("事件选择编辑器");
         window.targetEvent = eventData;
-        window.minSize = new Vector2(600, 400);
+        window.minSize = new Vector2(700, 500);
         window.Show();
+    }
+    
+    void OnEnable()
+    {
+        InitializeStyles();
+    }
+    
+    void InitializeStyles()
+    {
+        modernCardStyle = new GUIStyle();
+        modernCardStyle.normal.background = CreateRoundedTexture(CardColor, 8);
+        modernCardStyle.border = new RectOffset(8, 8, 8, 8);
+        modernCardStyle.padding = new RectOffset(12, 12, 12, 12);
+        modernCardStyle.margin = new RectOffset(4, 4, 4, 4);
+        
+        modernButtonStyle = new GUIStyle();
+        modernButtonStyle.normal.background = CreateRoundedTexture(PrimaryColor, 6);
+        modernButtonStyle.hover.background = CreateRoundedTexture(new Color(PrimaryColor.r * 1.2f, PrimaryColor.g * 1.2f, PrimaryColor.b * 1.2f), 6);
+        modernButtonStyle.normal.textColor = Color.white;
+        modernButtonStyle.hover.textColor = Color.white;
+        modernButtonStyle.border = new RectOffset(6, 6, 6, 6);
+        modernButtonStyle.padding = new RectOffset(12, 12, 8, 8);
+        modernButtonStyle.alignment = TextAnchor.MiddleCenter;
+        modernButtonStyle.fontStyle = FontStyle.Bold;
+        
+        modernHeaderStyle = new GUIStyle(EditorStyles.boldLabel);
+        modernHeaderStyle.fontSize = 16;
+        modernHeaderStyle.normal.textColor = new Color(0.9f, 0.9f, 0.9f);
+    }
+    
+    Texture2D CreateRoundedTexture(Color color, int radius)
+    {
+        int size = radius * 4;
+        Texture2D texture = new Texture2D(size, size);
+        
+        for (int x = 0; x < size; x++)
+        {
+            for (int y = 0; y < size; y++)
+            {
+                float distance = Vector2.Distance(new Vector2(x, y), new Vector2(size/2f, size/2f));
+                float alpha = distance < radius ? 1f : 0f;
+                texture.SetPixel(x, y, new Color(color.r, color.g, color.b, alpha * color.a));
+            }
+        }
+        texture.Apply();
+        return texture;
     }
     
     void OnGUI()
     {
+        if (modernCardStyle == null) InitializeStyles();
+        
+        // 设置背景
+        EditorGUI.DrawRect(new Rect(0, 0, position.width, position.height), new Color(0.08f, 0.08f, 0.08f));
+        
         if (targetEvent == null)
         {
-            GUILayout.Label("No event selected");
+            GUILayout.Label("未选择事件");
             return;
         }
         
-        GUILayout.Label($"Editing Choices for: {targetEvent.eventName}", EditorStyles.boldLabel);
+        EditorGUILayout.BeginVertical(modernCardStyle);
+        
+        GUILayout.Label($"🔀 编辑选择: {targetEvent.eventName}", modernHeaderStyle);
+        
+        EditorGUILayout.EndVertical();
+        
+        GUILayout.Space(8);
         
         scrollPos = GUILayout.BeginScrollView(scrollPos);
         
@@ -1190,23 +1636,30 @@ public class EventChoiceEditor : EditorWindow
         {
             for (int i = 0; i < targetEvent.choices.Length; i++)
             {
-                DrawChoiceEditor(i);
-                GUILayout.Space(10);
+                DrawModernChoiceEditor(i);
+                GUILayout.Space(8);
             }
         }
         
         GUILayout.EndScrollView();
         
-        GUILayout.BeginHorizontal();
-        if (GUILayout.Button("Add Choice"))
+        GUILayout.Space(8);
+        
+        // 底部按钮
+        EditorGUILayout.BeginHorizontal();
+        
+        if (GUILayout.Button("➕ 添加选择", modernButtonStyle, GUILayout.Height(35)))
         {
             AddNewChoice();
         }
-        if (GUILayout.Button("Remove Last Choice") && targetEvent.choices != null && targetEvent.choices.Length > 0)
+        
+        if (GUILayout.Button("➖ 删除最后", modernButtonStyle, GUILayout.Height(35)) && 
+            targetEvent.choices != null && targetEvent.choices.Length > 0)
         {
             RemoveLastChoice();
         }
-        GUILayout.EndHorizontal();
+        
+        EditorGUILayout.EndHorizontal();
         
         if (GUI.changed)
         {
@@ -1214,103 +1667,117 @@ public class EventChoiceEditor : EditorWindow
         }
     }
     
-    void DrawChoiceEditor(int index)
+    void DrawModernChoiceEditor(int index)
     {
         if (targetEvent.choices == null || index >= targetEvent.choices.Length) return;
         
         var choice = targetEvent.choices[index];
         
-        GUILayout.BeginVertical("box");
+        EditorGUILayout.BeginVertical(modernCardStyle);
         
-        GUILayout.Label($"Choice {index + 1}", EditorStyles.boldLabel);
+        GUILayout.Label($"🔀 选择 {index + 1}", modernHeaderStyle);
         
-        choice.choiceText = EditorGUILayout.TextField("Choice Text", choice.choiceText ?? "");
+        choice.choiceText = EditorGUILayout.TextField("选择文本", choice.choiceText ?? "");
         choice.resultDescription = EditorGUILayout.TextArea(choice.resultDescription ?? "", GUILayout.Height(40));
-        choice.isRecommended = EditorGUILayout.Toggle("Is Recommended", choice.isRecommended);
-        choice.buttonColor = EditorGUILayout.ColorField("Button Color", choice.buttonColor);
+        
+        EditorGUILayout.BeginHorizontal();
+        choice.isRecommended = EditorGUILayout.Toggle("推荐选择", choice.isRecommended);
+        choice.buttonColor = EditorGUILayout.ColorField("按钮颜色", choice.buttonColor);
+        EditorGUILayout.EndHorizontal();
         
         // 需求条件
-        GUILayout.Label("Requirements:", EditorStyles.boldLabel);
+        GUILayout.Label("📋 需求条件:", EditorStyles.boldLabel);
         if (choice.requirements != null)
         {
             for (int r = 0; r < choice.requirements.Length; r++)
             {
                 var req = choice.requirements[r];
-                GUILayout.BeginHorizontal();
-                req.resourceType = EditorGUILayout.TextField("Resource", req.resourceType ?? "");
-                req.amount = EditorGUILayout.IntField("Amount", req.amount);
-                if (GUILayout.Button("Remove", GUILayout.Width(60)))
+                EditorGUILayout.BeginHorizontal();
+                req.resourceType = EditorGUILayout.TextField("资源", req.resourceType ?? "");
+                req.amount = EditorGUILayout.IntField("数量", req.amount);
+                
+                var deleteStyle = new GUIStyle(modernButtonStyle);
+                deleteStyle.normal.background = CreateRoundedTexture(DangerColor, 6);
+                
+                if (GUILayout.Button("🗑", deleteStyle, GUILayout.Width(30)))
                 {
                     RemoveRequirement(index, r);
+                    EditorGUILayout.EndHorizontal();
+                    EditorGUILayout.EndVertical();
                     return;
                 }
-                GUILayout.EndHorizontal();
+                EditorGUILayout.EndHorizontal();
             }
         }
         
-        if (GUILayout.Button("Add Requirement"))
+        if (GUILayout.Button("➕ 添加需求", modernButtonStyle, GUILayout.Height(25)))
         {
             AddRequirement(index);
         }
         
         // 效果
-        GUILayout.Label("Effects:", EditorStyles.boldLabel);
+        GUILayout.Label("⚡ 效果:", EditorStyles.boldLabel);
         if (choice.effects != null)
         {
             for (int e = 0; e < choice.effects.Length; e++)
             {
                 var effect = choice.effects[e];
-                GUILayout.BeginVertical("box");
+                EditorGUILayout.BeginVertical("box");
                 
-                effect.type = (EffectType)EditorGUILayout.EnumPopup("Type", effect.type);
+                effect.type = (EffectType)EditorGUILayout.EnumPopup("类型", effect.type);
                 
                 // 根据效果类型显示相关字段
                 switch (effect.type)
                 {
                     case EffectType.ModifyResource:
-                        effect.resourceType = EditorGUILayout.TextField("Resource Type", effect.resourceType ?? "");
-                        effect.resourceAmount = EditorGUILayout.IntField("Amount", effect.resourceAmount);
+                        effect.resourceType = EditorGUILayout.TextField("资源类型", effect.resourceType ?? "");
+                        effect.resourceAmount = EditorGUILayout.IntField("数量", effect.resourceAmount);
                         break;
                         
                     case EffectType.ModifyHealth:
-                        effect.affectAllFamily = EditorGUILayout.Toggle("Affect All Family", effect.affectAllFamily);
-                        effect.healthChange = EditorGUILayout.IntField("Health Change", effect.healthChange);
-                        effect.cureIllness = EditorGUILayout.Toggle("Cure Illness", effect.cureIllness);
-                        effect.causeIllness = EditorGUILayout.Toggle("Cause Illness", effect.causeIllness);
+                        effect.affectAllFamily = EditorGUILayout.Toggle("影响所有家庭", effect.affectAllFamily);
+                        effect.healthChange = EditorGUILayout.IntField("健康变化", effect.healthChange);
+                        effect.cureIllness = EditorGUILayout.Toggle("治愈疾病", effect.cureIllness);
+                        effect.causeIllness = EditorGUILayout.Toggle("引起疾病", effect.causeIllness);
                         break;
                         
                     case EffectType.AddJournalEntry:
-                        effect.customMessage = EditorGUILayout.TextField("Message", effect.customMessage ?? "");
+                        effect.customMessage = EditorGUILayout.TextField("消息", effect.customMessage ?? "");
                         break;
                         
                     case EffectType.UnlockContent:
-                        effect.unlockMap = EditorGUILayout.Toggle("Unlock Map", effect.unlockMap);
+                        effect.unlockMap = EditorGUILayout.Toggle("解锁地图", effect.unlockMap);
                         if (effect.unlockMap)
                         {
-                            effect.mapToUnlock = EditorGUILayout.TextField("Map ID", effect.mapToUnlock ?? "");
+                            effect.mapToUnlock = EditorGUILayout.TextField("地图ID", effect.mapToUnlock ?? "");
                         }
                         break;
                 }
                 
-                if (GUILayout.Button("Remove Effect"))
+                var deleteEffectStyle = new GUIStyle(modernButtonStyle);
+                deleteEffectStyle.normal.background = CreateRoundedTexture(DangerColor, 6);
+                
+                if (GUILayout.Button("🗑 删除效果", deleteEffectStyle, GUILayout.Height(25)))
                 {
                     RemoveEffect(index, e);
-                    GUILayout.EndVertical();
+                    EditorGUILayout.EndVertical();
+                    EditorGUILayout.EndVertical();
                     return;
                 }
                 
-                GUILayout.EndVertical();
+                EditorGUILayout.EndVertical();
             }
         }
         
-        if (GUILayout.Button("Add Effect"))
+        if (GUILayout.Button("➕ 添加效果", modernButtonStyle, GUILayout.Height(25)))
         {
             AddEffect(index);
         }
         
-        GUILayout.EndVertical();
+        EditorGUILayout.EndVertical();
     }
     
+    // 保持所有原有的功能方法...
     void AddRequirement(int choiceIndex)
     {
         var choice = targetEvent.choices[choiceIndex];
@@ -1351,8 +1818,8 @@ public class EventChoiceEditor : EditorWindow
     {
         var newChoice = new EventChoice
         {
-            choiceText = "New Choice",
-            resultDescription = "Result description",
+            choiceText = "新选择",
+            resultDescription = "结果描述",
             requirements = new ResourceRequirement[0],
             effects = new EventEffect[0],
             buttonColor = Color.white

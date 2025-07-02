@@ -58,19 +58,34 @@ public class GameManager : Singleton<GameManager>
     protected override void Awake()
     {
         base.Awake();
-        
+    
+        // 等待所有管理器初始化完成
+        StartCoroutine(WaitForManagersInitialization());
+    }
+
+    IEnumerator WaitForManagersInitialization()
+    {
+        var singletonManager = FindObjectOfType<ImprovedSingletonManager>();
+        if (singletonManager != null)
+        {
+            // 等待所有管理器初始化完成
+            while (!singletonManager.AreAllManagersInitialized())
+            {
+                yield return null;
+            }
+        }
+    
         // 确保配置有效
         if (gameConfig == null)
         {
             Debug.LogError("[GameManager] GameConfig not assigned!");
             enabled = false;
-            return;
+            yield break;
         }
-        
+    
         // 初始化系统
         InitializeSystems();
     }
-    
     void Start()
     {
         
@@ -310,27 +325,7 @@ public class GameManager : Singleton<GameManager>
             ReturnHomeFromExploration(true);
         }
     }
-    /*IEnumerator ExplorationCountdown()
-    {
-        while (phaseTimer > 0 && currentPhase == GamePhase.Exploration)
-        {
-            phaseTimer -= Time.deltaTime;
-            
-            // 时间警告
-            if (phaseTimer <= gameConfig.timeWarningThreshold && UIManager)
-            {
-                UIManager.ShowTimeWarning();
-            }
-            
-            yield return null;
-        }
-        
-        if (currentPhase == GamePhase.Exploration)
-        {
-            // 超时强制返回
-            ReturnHomeFromExploration(true);
-        }
-    }*/
+   
     
     IEnumerator ProcessEventPhaseDelay()
     {

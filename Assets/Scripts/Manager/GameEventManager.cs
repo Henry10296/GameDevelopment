@@ -15,6 +15,10 @@ public enum EventType
     NeighborRequest, // 邻居请求
     MilitaryDrop,    // 军方投放
     RandomMisfortune // 随机灾难
+    ,
+    HealthEvent,
+    Discovery,
+    Encounter
 }
 
 public enum EventPriority
