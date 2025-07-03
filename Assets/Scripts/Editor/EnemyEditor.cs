@@ -33,39 +33,38 @@ namespace Editor
         private EnemyType filterType = EnemyType.Zombie;
         private bool useTypeFilter = false;
     
-        // 现代UI样式
-        private GUIStyle modernCardStyle;
-        private GUIStyle modernHeaderStyle;
-        private GUIStyle modernButtonStyle;
-        private GUIStyle modernToolbarStyle;
-        private GUIStyle modernSelectedStyle;
-        private GUIStyle modernSectionStyle;
-        private GUIStyle modernIconButtonStyle;
+        // 专业UI样式系统
+        private GUIStyle headerStyle;
+        private GUIStyle subHeaderStyle;
+        private GUIStyle cardStyle;
+        private GUIStyle selectedCardStyle;
+        private GUIStyle toolbarStyle;
+        private GUIStyle buttonPrimaryStyle;
+        private GUIStyle buttonSecondaryStyle;
+        private GUIStyle buttonDangerStyle;
+        private GUIStyle tabActiveStyle;
+        private GUIStyle tabInactiveStyle;
+        private GUIStyle sectionStyle;
+        private GUIStyle labelStyle;
+        private GUIStyle searchFieldStyle;
     
-        // 颜色主题
-        private static readonly Color PrimaryColor = new Color(0.2f, 0.6f, 1f);
-        private static readonly Color SecondaryColor = new Color(0.15f, 0.15f, 0.15f);
-        private static readonly Color AccentColor = new Color(0.3f, 0.8f, 0.4f);
-        private static readonly Color BackgroundColor = new Color(0.12f, 0.12f, 0.12f);
-        private static readonly Color CardColor = new Color(0.18f, 0.18f, 0.18f);
-        private static readonly Color TextColor = new Color(0.9f, 0.9f, 0.9f);
-        private static readonly Color DangerColor = new Color(0.9f, 0.3f, 0.3f);
+        // 专业配色方案
+        private static readonly Color Primary = new Color(0.26f, 0.54f, 0.96f);      // 主色调 - 蓝色
+        private static readonly Color PrimaryDark = new Color(0.21f, 0.43f, 0.77f);  // 主色调深色
+        private static readonly Color Secondary = new Color(0.45f, 0.55f, 0.60f);    // 次要色
+        private static readonly Color Success = new Color(0.30f, 0.69f, 0.31f);      // 成功色
+        private static readonly Color Warning = new Color(0.96f, 0.61f, 0.07f);      // 警告色
+        private static readonly Color Danger = new Color(0.86f, 0.21f, 0.27f);       // 危险色
+        private static readonly Color Background = new Color(0.94f, 0.94f, 0.96f);   // 背景色
+        private static readonly Color Surface = new Color(1f, 1f, 1f);               // 表面色
+        private static readonly Color Border = new Color(0.86f, 0.86f, 0.88f);       // 边框色
+        private static readonly Color TextPrimary = new Color(0.13f, 0.13f, 0.13f);  // 主文本
+        private static readonly Color TextSecondary = new Color(0.46f, 0.46f, 0.46f); // 次要文本
     
-        // 图标Unicode字符
-        private const string IconAdd = "＋";
-        private const string IconDelete = "🗑";
-        private const string IconCopy = "📋";
-        private const string IconSettings = "⚙";
-        private const string IconSearch = "🔍";
-        private const string IconFilter = "🔽";
-        private const string IconPreview = "👁";
-        private const string IconSave = "💾";
-        private const string IconRefresh = "🔄";
-    
-        [MenuItem("Game Tools/Modern Enemy Editor")]
+        [MenuItem("Game Tools/Enemy Editor")]
         public static void OpenWindow()
         {
-            var window = GetWindow<EnemyEditor>("敌人编辑器");
+            var window = GetWindow<EnemyEditor>("Enemy Editor");
             window.minSize = new Vector2(1000, 700);
             window.Show();
         }
@@ -73,7 +72,7 @@ namespace Editor
         void OnEnable()
         {
             LoadAllEnemyAssets();
-            InitializeModernStyles();
+            InitializeProfessionalStyles();
             InitializeFoldouts();
         }
     
@@ -82,61 +81,95 @@ namespace Editor
             CleanupPreview();
         }
     
-        void InitializeModernStyles()
+        void InitializeProfessionalStyles()
         {
-            // 现代卡片样式
-            modernCardStyle = new GUIStyle();
-            modernCardStyle.normal.background = CreateRoundedTexture(CardColor, 8);
-            modernCardStyle.border = new RectOffset(8, 8, 8, 8);
-            modernCardStyle.padding = new RectOffset(12, 12, 12, 12);
-            modernCardStyle.margin = new RectOffset(4, 4, 4, 4);
+            // 标题样式
+            headerStyle = new GUIStyle(EditorStyles.largeLabel);
+            headerStyle.fontSize = 18;
+            headerStyle.fontStyle = FontStyle.Bold;
+            headerStyle.normal.textColor = TextPrimary;
+            headerStyle.margin = new RectOffset(0, 0, 8, 12);
         
-            // 现代标题样式
-            modernHeaderStyle = new GUIStyle(EditorStyles.boldLabel);
-            modernHeaderStyle.fontSize = 16;
-            modernHeaderStyle.normal.textColor = TextColor;
-            modernHeaderStyle.padding = new RectOffset(0, 0, 8, 8);
+            // 子标题样式
+            subHeaderStyle = new GUIStyle(EditorStyles.boldLabel);
+            subHeaderStyle.fontSize = 14;
+            subHeaderStyle.normal.textColor = TextPrimary;
+            subHeaderStyle.margin = new RectOffset(0, 0, 8, 8);
         
-            // 现代按钮样式
-            modernButtonStyle = new GUIStyle();
-            modernButtonStyle.normal.background = CreateRoundedTexture(PrimaryColor, 6);
-            modernButtonStyle.hover.background = CreateRoundedTexture(new Color(PrimaryColor.r * 1.2f, PrimaryColor.g * 1.2f, PrimaryColor.b * 1.2f), 6);
-            modernButtonStyle.active.background = CreateRoundedTexture(new Color(PrimaryColor.r * 0.8f, PrimaryColor.g * 0.8f, PrimaryColor.b * 0.8f), 6);
-            modernButtonStyle.normal.textColor = Color.white;
-            modernButtonStyle.hover.textColor = Color.white;
-            modernButtonStyle.active.textColor = Color.white;
-            modernButtonStyle.border = new RectOffset(6, 6, 6, 6);
-            modernButtonStyle.padding = new RectOffset(12, 12, 8, 8);
-            modernButtonStyle.margin = new RectOffset(2, 2, 2, 2);
-            modernButtonStyle.alignment = TextAnchor.MiddleCenter;
-            modernButtonStyle.fontStyle = FontStyle.Bold;
+            // 卡片样式
+            cardStyle = new GUIStyle();
+            cardStyle.normal.background = CreateSolidTexture(Surface);
+            cardStyle.border = new RectOffset(1, 1, 1, 1);
+            cardStyle.padding = new RectOffset(16, 16, 12, 12);
+            cardStyle.margin = new RectOffset(0, 0, 0, 8);
         
-            // 图标按钮样式
-            modernIconButtonStyle = new GUIStyle(modernButtonStyle);
-            modernIconButtonStyle.padding = new RectOffset(8, 8, 6, 6);
-            modernIconButtonStyle.fontSize = 16;
+            // 选中卡片样式
+            selectedCardStyle = new GUIStyle(cardStyle);
+            selectedCardStyle.normal.background = CreateBorderedTexture(Surface, Primary, 2);
         
             // 工具栏样式
-            modernToolbarStyle = new GUIStyle();
-            modernToolbarStyle.normal.background = CreateColorTexture(SecondaryColor);
-            modernToolbarStyle.padding = new RectOffset(8, 8, 8, 8);
+            toolbarStyle = new GUIStyle();
+            toolbarStyle.normal.background = CreateSolidTexture(Surface);
+            toolbarStyle.border = new RectOffset(0, 0, 0, 1);
+            toolbarStyle.padding = new RectOffset(16, 16, 12, 12);
         
-            // 选中样式
-            modernSelectedStyle = new GUIStyle();
-            modernSelectedStyle.normal.background = CreateRoundedTexture(new Color(PrimaryColor.r, PrimaryColor.g, PrimaryColor.b, 0.3f), 6);
-            modernSelectedStyle.border = new RectOffset(6, 6, 6, 6);
-            modernSelectedStyle.padding = new RectOffset(8, 8, 6, 6);
-            modernSelectedStyle.margin = new RectOffset(2, 2, 1, 1);
+            // 主按钮样式
+            buttonPrimaryStyle = CreateButtonStyle(Primary, Color.white);
+        
+            // 次要按钮样式  
+            buttonSecondaryStyle = CreateButtonStyle(Secondary, Color.white);
+        
+            // 危险按钮样式
+            buttonDangerStyle = CreateButtonStyle(Danger, Color.white);
+        
+            // 活动标签样式
+            tabActiveStyle = new GUIStyle();
+            tabActiveStyle.normal.background = CreateSolidTexture(Primary);
+            tabActiveStyle.normal.textColor = Color.white;
+            tabActiveStyle.padding = new RectOffset(16, 16, 8, 8);
+            tabActiveStyle.margin = new RectOffset(0, 1, 0, 0);
+            tabActiveStyle.alignment = TextAnchor.MiddleCenter;
+            tabActiveStyle.fontStyle = FontStyle.Bold;
+        
+            // 非活动标签样式
+            tabInactiveStyle = new GUIStyle();
+            tabInactiveStyle.normal.background = CreateSolidTexture(Background);
+            tabInactiveStyle.normal.textColor = TextSecondary;
+            tabInactiveStyle.padding = new RectOffset(16, 16, 8, 8);
+            tabInactiveStyle.margin = new RectOffset(0, 1, 0, 0);
+            tabInactiveStyle.alignment = TextAnchor.MiddleCenter;
         
             // 区域样式
-            modernSectionStyle = new GUIStyle();
-            modernSectionStyle.normal.background = CreateRoundedTexture(new Color(0.1f, 0.1f, 0.1f), 6);
-            modernSectionStyle.border = new RectOffset(6, 6, 6, 6);
-            modernSectionStyle.padding = new RectOffset(12, 12, 12, 12);
-            modernSectionStyle.margin = new RectOffset(2, 2, 2, 2);
+            sectionStyle = new GUIStyle();
+            sectionStyle.normal.background = CreateSolidTexture(Background);
+            sectionStyle.padding = new RectOffset(16, 16, 16, 16);
+        
+            // 标签样式
+            labelStyle = new GUIStyle(EditorStyles.label);
+            labelStyle.normal.textColor = TextPrimary;
+        
+            // 搜索框样式
+            searchFieldStyle = new GUIStyle(EditorStyles.textField);
+            searchFieldStyle.padding = new RectOffset(8, 8, 6, 6);
         }
     
-        Texture2D CreateColorTexture(Color color)
+        GUIStyle CreateButtonStyle(Color bgColor, Color textColor)
+        {
+            var style = new GUIStyle();
+            style.normal.background = CreateSolidTexture(bgColor);
+            style.hover.background = CreateSolidTexture(AdjustBrightness(bgColor, 1.1f));
+            style.active.background = CreateSolidTexture(AdjustBrightness(bgColor, 0.9f));
+            style.normal.textColor = textColor;
+            style.hover.textColor = textColor;
+            style.active.textColor = textColor;
+            style.padding = new RectOffset(16, 16, 8, 8);
+            style.margin = new RectOffset(0, 4, 0, 0);
+            style.alignment = TextAnchor.MiddleCenter;
+            style.fontStyle = FontStyle.Bold;
+            return style;
+        }
+    
+        Texture2D CreateSolidTexture(Color color)
         {
             Texture2D texture = new Texture2D(1, 1);
             texture.SetPixel(0, 0, color);
@@ -144,22 +177,32 @@ namespace Editor
             return texture;
         }
     
-        Texture2D CreateRoundedTexture(Color color, int radius)
+        Texture2D CreateBorderedTexture(Color fillColor, Color borderColor, int borderWidth)
         {
-            int size = radius * 4;
+            int size = 20;
             Texture2D texture = new Texture2D(size, size);
-        
+            
             for (int x = 0; x < size; x++)
             {
                 for (int y = 0; y < size; y++)
                 {
-                    float distance = Vector2.Distance(new Vector2(x, y), new Vector2(size/2f, size/2f));
-                    float alpha = distance < radius ? 1f : 0f;
-                    texture.SetPixel(x, y, new Color(color.r, color.g, color.b, alpha * color.a));
+                    bool isBorder = x < borderWidth || x >= size - borderWidth || 
+                                   y < borderWidth || y >= size - borderWidth;
+                    texture.SetPixel(x, y, isBorder ? borderColor : fillColor);
                 }
             }
             texture.Apply();
             return texture;
+        }
+    
+        Color AdjustBrightness(Color color, float factor)
+        {
+            return new Color(
+                Mathf.Clamp01(color.r * factor),
+                Mathf.Clamp01(color.g * factor),
+                Mathf.Clamp01(color.b * factor),
+                color.a
+            );
         }
     
         void LoadAllEnemyAssets()
@@ -202,7 +245,7 @@ namespace Editor
                 }
             }
         
-            Debug.Log($"[ModernEnemyEditor] 加载了 {allEnemyConfigs.Count} 个配置, {allEnemyData.Count} 个数据");
+            Debug.Log($"[EnemyEditor] Loaded {allEnemyConfigs.Count} configs, {allEnemyData.Count} data assets");
         }
     
         void InitializeFoldouts()
@@ -216,53 +259,52 @@ namespace Editor
         void OnGUI()
         {
             // 设置背景色
-            EditorGUI.DrawRect(new Rect(0, 0, position.width, position.height), BackgroundColor);
+            EditorGUI.DrawRect(new Rect(0, 0, position.width, position.height), Background);
         
-            DrawModernToolbar();
+            DrawToolbar();
         
             EditorGUILayout.BeginHorizontal(GUILayout.ExpandHeight(true));
         
-            // 左侧面板 - 使用固定宽度和现代样式
-            EditorGUILayout.BeginVertical(modernSectionStyle, GUILayout.Width(350), GUILayout.ExpandHeight(true));
-            DrawModernLeftPanel();
+            // 左侧面板
+            EditorGUILayout.BeginVertical(sectionStyle, GUILayout.Width(350), GUILayout.ExpandHeight(true));
+            DrawLeftPanel();
             EditorGUILayout.EndVertical();
         
-            GUILayout.Space(8);
+            // 分割线
+            EditorGUI.DrawRect(new Rect(366, 50, 1, position.height - 50), Border);
         
             // 右侧面板
-            EditorGUILayout.BeginVertical(modernSectionStyle, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
-            DrawModernRightPanel();
+            EditorGUILayout.BeginVertical(sectionStyle, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
+            DrawRightPanel();
             EditorGUILayout.EndVertical();
         
             EditorGUILayout.EndHorizontal();
         }
     
-        void DrawModernToolbar()
+        void DrawToolbar()
         {
-            EditorGUILayout.BeginHorizontal(modernToolbarStyle, GUILayout.Height(50));
+            EditorGUILayout.BeginHorizontal(toolbarStyle, GUILayout.Height(50));
         
-            GUILayout.Space(8);
-        
-            // 主要操作按钮
-            if (GUILayout.Button(IconAdd + " 新建配置", modernButtonStyle, GUILayout.Height(32)))
+            // 主要操作
+            if (GUILayout.Button("New Config", buttonPrimaryStyle, GUILayout.Height(32)))
             {
                 CreateNewEnemyConfig();
             }
         
-            if (GUILayout.Button(IconAdd + " 新建数据", modernButtonStyle, GUILayout.Height(32)))
+            if (GUILayout.Button("New Data", buttonSecondaryStyle, GUILayout.Height(32)))
             {
                 CreateNewEnemyData();
             }
         
-            GUILayout.Space(12);
+            GUILayout.Space(16);
         
-            // 工具按钮
-            if (GUILayout.Button(IconRefresh, modernIconButtonStyle, GUILayout.Width(40), GUILayout.Height(32)))
+            // 工具操作
+            if (GUILayout.Button("Refresh", buttonSecondaryStyle, GUILayout.Width(80), GUILayout.Height(32)))
             {
                 LoadAllEnemyAssets();
             }
         
-            if (GUILayout.Button(IconSave, modernIconButtonStyle, GUILayout.Width(40), GUILayout.Height(32)))
+            if (GUILayout.Button("Save All", buttonSecondaryStyle, GUILayout.Width(80), GUILayout.Height(32)))
             {
                 SaveAllAssets();
             }
@@ -270,100 +312,102 @@ namespace Editor
             GUILayout.FlexibleSpace();
         
             // 搜索区域
-            DrawModernSearchBar();
+            DrawSearchBar();
         
-            GUILayout.Space(8);
+            GUILayout.Space(16);
         
             // 预览切换
             var prevPreview = showPreview;
-            showPreview = GUILayout.Toggle(showPreview, IconPreview, modernIconButtonStyle, GUILayout.Width(40), GUILayout.Height(32));
+            showPreview = GUILayout.Toggle(showPreview, "Preview", "Button", GUILayout.Width(80), GUILayout.Height(32));
             if (prevPreview != showPreview)
             {
                 UpdatePreview();
             }
         
-            GUILayout.Space(8);
-        
             EditorGUILayout.EndHorizontal();
         
-            // 绘制分隔线
-            EditorGUI.DrawRect(new Rect(0, 50, position.width, 1), new Color(0.3f, 0.3f, 0.3f));
+            // 工具栏底部边框
+            EditorGUI.DrawRect(new Rect(0, 50, position.width, 1), Border);
         }
     
-        void DrawModernSearchBar()
+        void DrawSearchBar()
         {
+            EditorGUILayout.BeginVertical();
+        
             EditorGUILayout.BeginHorizontal();
-        
-            // 搜索图标
-            GUILayout.Label(IconSearch, GUILayout.Width(20));
-        
-            // 搜索框
-            var newSearchText = EditorGUILayout.TextField(searchText, EditorStyles.toolbarTextField, GUILayout.Width(200));
+            GUILayout.Label("Search:", GUILayout.Width(50));
+            
+            var newSearchText = EditorGUILayout.TextField(searchText, searchFieldStyle, GUILayout.Width(150));
             if (newSearchText != searchText)
             {
                 searchText = newSearchText;
             }
         
-            // 过滤器
-            var prevUseFilter = useTypeFilter;
-            useTypeFilter = GUILayout.Toggle(useTypeFilter, IconFilter, EditorStyles.toolbarButton, GUILayout.Width(30));
-        
-            if (useTypeFilter)
+            if (!string.IsNullOrEmpty(searchText))
             {
-                filterType = (EnemyType)EditorGUILayout.EnumPopup(filterType, EditorStyles.toolbarPopup, GUILayout.Width(100));
-            }
-        
-            // 清除按钮
-            if (!string.IsNullOrEmpty(searchText) || useTypeFilter)
-            {
-                if (GUILayout.Button("✗", EditorStyles.toolbarButton, GUILayout.Width(25)))
+                if (GUILayout.Button("×", EditorStyles.miniButton, GUILayout.Width(20)))
                 {
                     searchText = "";
+                }
+            }
+            EditorGUILayout.EndHorizontal();
+        
+            // 过滤器
+            EditorGUILayout.BeginHorizontal();
+            useTypeFilter = GUILayout.Toggle(useTypeFilter, "Filter:", GUILayout.Width(50));
+            
+            GUI.enabled = useTypeFilter;
+            filterType = (EnemyType)EditorGUILayout.EnumPopup(filterType, GUILayout.Width(100));
+            GUI.enabled = true;
+            
+            if (useTypeFilter)
+            {
+                if (GUILayout.Button("×", EditorStyles.miniButton, GUILayout.Width(20)))
+                {
                     useTypeFilter = false;
                 }
             }
-        
             EditorGUILayout.EndHorizontal();
+        
+            EditorGUILayout.EndVertical();
         }
     
-        void DrawModernLeftPanel()
+        void DrawLeftPanel()
         {
+            GUILayout.Label("Asset Management", headerStyle);
+        
             // 标签页
             EditorGUILayout.BeginHorizontal();
-            string[] tabs = { "⚙ 配置", "📊 数据" };
+            string[] tabs = { "Configs", "Data" };
         
             for (int i = 0; i < tabs.Length; i++)
             {
-                var style = (selectedTabIndex == i) ? modernSelectedStyle : EditorStyles.miniButton;
-                if (GUILayout.Button(tabs[i], style, GUILayout.Height(30)))
+                var style = (selectedTabIndex == i) ? tabActiveStyle : tabInactiveStyle;
+                if (GUILayout.Button(tabs[i], style, GUILayout.Height(32)))
                 {
                     selectedTabIndex = i;
                 }
             }
             EditorGUILayout.EndHorizontal();
         
-            GUILayout.Space(8);
+            GUILayout.Space(16);
         
             leftScrollPos = EditorGUILayout.BeginScrollView(leftScrollPos);
         
             switch (selectedTabIndex)
             {
-                case 0: DrawModernConfigList(); break;
-                case 1: DrawModernDataList(); break;
+                case 0: DrawConfigList(); break;
+                case 1: DrawDataList(); break;
             }
         
             EditorGUILayout.EndScrollView();
         
-            GUILayout.Space(8);
-        
-            // 快速创建区域
-            DrawModernQuickCreate();
+            GUILayout.Space(16);
+            DrawQuickCreate();
         }
     
-        void DrawModernConfigList()
+        void DrawConfigList()
         {
-            EditorGUILayout.LabelField("敌人配置", modernHeaderStyle);
-        
             var filteredTypes = GetFilteredEnemyTypes();
         
             foreach (EnemyType type in filteredTypes)
@@ -374,25 +418,24 @@ namespace Editor
                 var configs = GetFilteredConfigs(configsByType[type]);
                 if (configs.Count == 0) continue;
             
-                EditorGUILayout.BeginVertical(modernCardStyle);
+                EditorGUILayout.BeginVertical(cardStyle);
             
                 // 类型标题行
                 EditorGUILayout.BeginHorizontal();
             
-                string typeIcon = GetTypeIcon(type);
                 var foldoutRect = GUILayoutUtility.GetRect(20, 20);
                 typeFoldouts[type] = EditorGUI.Foldout(foldoutRect, typeFoldouts[type], "", true);
             
-                GUILayout.Label($"{typeIcon} {GetTypeDisplayName(type)}", EditorStyles.boldLabel);
+                GUILayout.Label($"{GetTypeDisplayName(type)}", subHeaderStyle);
             
                 GUILayout.FlexibleSpace();
             
                 // 数量标签
                 var countStyle = new GUIStyle(EditorStyles.miniLabel);
-                countStyle.normal.textColor = PrimaryColor;
-                GUILayout.Label($"{configs.Count}", countStyle);
+                countStyle.normal.textColor = TextSecondary;
+                GUILayout.Label($"({configs.Count})", countStyle);
             
-                if (GUILayout.Button(IconAdd, modernIconButtonStyle, GUILayout.Width(25), GUILayout.Height(20)))
+                if (GUILayout.Button("+", EditorStyles.miniButton, GUILayout.Width(20), GUILayout.Height(20)))
                 {
                     CreateEnemyConfigOfType(type);
                 }
@@ -404,19 +447,16 @@ namespace Editor
                     GUILayout.Space(4);
                     foreach (var config in configs)
                     {
-                        DrawModernConfigItem(config);
+                        DrawConfigItem(config);
                     }
                 }
             
                 EditorGUILayout.EndVertical();
-                GUILayout.Space(4);
             }
         }
     
-        void DrawModernDataList()
+        void DrawDataList()
         {
-            EditorGUILayout.LabelField("敌人数据", modernHeaderStyle);
-        
             var filteredTypes = GetFilteredEnemyTypes();
         
             foreach (EnemyType type in filteredTypes)
@@ -427,23 +467,22 @@ namespace Editor
                 var data = GetFilteredData(dataByType[type]);
                 if (data.Count == 0) continue;
             
-                EditorGUILayout.BeginVertical(modernCardStyle);
+                EditorGUILayout.BeginVertical(cardStyle);
             
                 EditorGUILayout.BeginHorizontal();
             
-                string typeIcon = GetTypeIcon(type);
                 var foldoutRect = GUILayoutUtility.GetRect(20, 20);
                 typeFoldouts[type] = EditorGUI.Foldout(foldoutRect, typeFoldouts[type], "", true);
             
-                GUILayout.Label($"{typeIcon} {GetTypeDisplayName(type)}", EditorStyles.boldLabel);
+                GUILayout.Label($"{GetTypeDisplayName(type)}", subHeaderStyle);
             
                 GUILayout.FlexibleSpace();
             
                 var countStyle = new GUIStyle(EditorStyles.miniLabel);
-                countStyle.normal.textColor = PrimaryColor;
-                GUILayout.Label($"{data.Count}", countStyle);
+                countStyle.normal.textColor = TextSecondary;
+                GUILayout.Label($"({data.Count})", countStyle);
             
-                if (GUILayout.Button(IconAdd, modernIconButtonStyle, GUILayout.Width(25), GUILayout.Height(20)))
+                if (GUILayout.Button("+", EditorStyles.miniButton, GUILayout.Width(20), GUILayout.Height(20)))
                 {
                     CreateEnemyDataOfType(type);
                 }
@@ -455,21 +494,20 @@ namespace Editor
                     GUILayout.Space(4);
                     foreach (var dataItem in data)
                     {
-                        DrawModernDataItem(dataItem);
+                        DrawDataItem(dataItem);
                     }
                 }
             
                 EditorGUILayout.EndVertical();
-                GUILayout.Space(4);
             }
         }
     
-        void DrawModernConfigItem(EnemyConfig config)
+        void DrawConfigItem(EnemyConfig config)
         {
             bool isSelected = selectedConfig == config;
         
-            var itemStyle = isSelected ? modernSelectedStyle : new GUIStyle();
-            itemStyle.padding = new RectOffset(8, 8, 6, 6);
+            var itemStyle = isSelected ? selectedCardStyle : new GUIStyle();
+            itemStyle.padding = new RectOffset(12, 12, 8, 8);
             itemStyle.margin = new RectOffset(0, 0, 1, 1);
         
             EditorGUILayout.BeginVertical(itemStyle);
@@ -477,7 +515,7 @@ namespace Editor
             EditorGUILayout.BeginHorizontal();
         
             // 主按钮
-            if (GUILayout.Button(config.enemyName, EditorStyles.label))
+            if (GUILayout.Button(config.enemyName, labelStyle))
             {
                 selectedConfig = config;
                 selectedData = null;
@@ -487,7 +525,7 @@ namespace Editor
             GUILayout.FlexibleSpace();
         
             // 操作按钮
-            if (GUILayout.Button(IconSettings, EditorStyles.miniButton, GUILayout.Width(20)))
+            if (GUILayout.Button("⋯", EditorStyles.miniButton, GUILayout.Width(20)))
             {
                 ShowConfigContextMenu(config);
             }
@@ -496,26 +534,26 @@ namespace Editor
         
             if (isSelected)
             {
-                GUILayout.Space(2);
+                GUILayout.Space(4);
                 DrawConfigPreviewStats(config);
             }
         
             EditorGUILayout.EndVertical();
         }
     
-        void DrawModernDataItem(EnemyData data)
+        void DrawDataItem(EnemyData data)
         {
             bool isSelected = selectedData == data;
         
-            var itemStyle = isSelected ? modernSelectedStyle : new GUIStyle();
-            itemStyle.padding = new RectOffset(8, 8, 6, 6);
+            var itemStyle = isSelected ? selectedCardStyle : new GUIStyle();
+            itemStyle.padding = new RectOffset(12, 12, 8, 8);
             itemStyle.margin = new RectOffset(0, 0, 1, 1);
         
             EditorGUILayout.BeginVertical(itemStyle);
         
             EditorGUILayout.BeginHorizontal();
         
-            if (GUILayout.Button(data.enemyName, EditorStyles.label))
+            if (GUILayout.Button(data.enemyName, labelStyle))
             {
                 selectedData = data;
                 selectedConfig = null;
@@ -524,7 +562,7 @@ namespace Editor
         
             GUILayout.FlexibleSpace();
         
-            if (GUILayout.Button(IconSettings, EditorStyles.miniButton, GUILayout.Width(20)))
+            if (GUILayout.Button("⋯", EditorStyles.miniButton, GUILayout.Width(20)))
             {
                 ShowDataContextMenu(data);
             }
@@ -533,7 +571,7 @@ namespace Editor
         
             if (isSelected)
             {
-                GUILayout.Space(2);
+                GUILayout.Space(4);
                 DrawDataPreviewStats(data);
             }
         
@@ -543,113 +581,104 @@ namespace Editor
         void DrawConfigPreviewStats(EnemyConfig config)
         {
             var miniStyle = new GUIStyle(EditorStyles.miniLabel);
-            miniStyle.normal.textColor = new Color(0.7f, 0.7f, 0.7f);
+            miniStyle.normal.textColor = TextSecondary;
         
             EditorGUILayout.BeginHorizontal();
-            GUILayout.Label($"♥ {config.health}", miniStyle, GUILayout.Width(50));
-            GUILayout.Label($"⚔ {config.attackDamage}", miniStyle, GUILayout.Width(50));
-            GUILayout.Label($"🏃 {config.chaseSpeed}", miniStyle);
+            GUILayout.Label($"Health: {config.health}", miniStyle, GUILayout.Width(80));
+            GUILayout.Label($"Damage: {config.attackDamage}", miniStyle, GUILayout.Width(80));
+            GUILayout.Label($"Speed: {config.chaseSpeed}", miniStyle);
             EditorGUILayout.EndHorizontal();
         }
     
         void DrawDataPreviewStats(EnemyData data)
         {
             var miniStyle = new GUIStyle(EditorStyles.miniLabel);
-            miniStyle.normal.textColor = new Color(0.7f, 0.7f, 0.7f);
+            miniStyle.normal.textColor = TextSecondary;
         
             EditorGUILayout.BeginHorizontal();
-            GUILayout.Label($"♥ {data.health}", miniStyle, GUILayout.Width(50));
-            GUILayout.Label($"🛡 {data.armor}", miniStyle, GUILayout.Width(50));
-            GUILayout.Label($"🏃 {data.moveSpeed}", miniStyle);
+            GUILayout.Label($"Health: {data.health}", miniStyle, GUILayout.Width(80));
+            GUILayout.Label($"Armor: {data.armor}", miniStyle, GUILayout.Width(80));
+            GUILayout.Label($"Speed: {data.moveSpeed}", miniStyle);
             EditorGUILayout.EndHorizontal();
         }
     
-        void DrawModernQuickCreate()
+        void DrawQuickCreate()
         {
-            EditorGUILayout.BeginVertical(modernCardStyle);
-            EditorGUILayout.LabelField("快速创建", modernHeaderStyle);
+            EditorGUILayout.BeginVertical(cardStyle);
+            GUILayout.Label("Quick Create", subHeaderStyle);
         
-            GUILayout.Label("配置模板:", EditorStyles.miniLabel);
+            GUILayout.Label("Config Templates:", labelStyle);
             EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button("🧟 僵尸", modernButtonStyle, GUILayout.Height(28))) CreateEnemyConfigOfType(EnemyType.Zombie);
-            if (GUILayout.Button("🏹 射手", modernButtonStyle, GUILayout.Height(28))) CreateEnemyConfigOfType(EnemyType.Shooter);
+            if (GUILayout.Button("Zombie", buttonSecondaryStyle, GUILayout.Height(28))) CreateEnemyConfigOfType(EnemyType.Zombie);
+            if (GUILayout.Button("Shooter", buttonSecondaryStyle, GUILayout.Height(28))) CreateEnemyConfigOfType(EnemyType.Shooter);
             EditorGUILayout.EndHorizontal();
         
-            GUILayout.Space(4);
+            GUILayout.Space(8);
         
-            GUILayout.Label("数据模板:", EditorStyles.miniLabel);
+            GUILayout.Label("Data Templates:", labelStyle);
             EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button("🧟 僵尸数据", modernButtonStyle, GUILayout.Height(28))) CreateEnemyDataOfType(EnemyType.Zombie);
-            if (GUILayout.Button("🏹 射手数据", modernButtonStyle, GUILayout.Height(28))) CreateEnemyDataOfType(EnemyType.Shooter);
+            if (GUILayout.Button("Zombie Data", buttonSecondaryStyle, GUILayout.Height(28))) CreateEnemyDataOfType(EnemyType.Zombie);
+            if (GUILayout.Button("Shooter Data", buttonSecondaryStyle, GUILayout.Height(28))) CreateEnemyDataOfType(EnemyType.Shooter);
             EditorGUILayout.EndHorizontal();
         
             EditorGUILayout.EndVertical();
         }
     
-        void DrawModernRightPanel()
+        void DrawRightPanel()
         {
             if (selectedConfig != null)
             {
-                DrawModernConfigDetails();
+                DrawConfigDetails();
             }
             else if (selectedData != null)
             {
-                DrawModernDataDetails();
+                DrawDataDetails();
             }
             else
             {
-                DrawModernWelcomePanel();
+                DrawWelcomePanel();
             }
         }
     
-        void DrawModernWelcomePanel()
+        void DrawWelcomePanel()
         {
             GUILayout.FlexibleSpace();
         
-            EditorGUILayout.BeginVertical(modernCardStyle);
+            EditorGUILayout.BeginVertical(cardStyle);
         
             // 标题
-            var titleStyle = new GUIStyle(EditorStyles.largeLabel);
-            titleStyle.fontSize = 24;
-            titleStyle.normal.textColor = PrimaryColor;
+            var titleStyle = new GUIStyle(headerStyle);
             titleStyle.alignment = TextAnchor.MiddleCenter;
-            GUILayout.Label("🎮 怪物编辑器", titleStyle);
+            titleStyle.fontSize = 24;
+            GUILayout.Label("Enemy Editor", titleStyle);
         
             GUILayout.Space(20);
         
             // 功能介绍
-            var sectionStyle = new GUIStyle(EditorStyles.boldLabel);
-            sectionStyle.fontSize = 14;
-            sectionStyle.normal.textColor = AccentColor;
+            GUILayout.Label("Features", subHeaderStyle);
+            GUILayout.Space(8);
         
-            GUILayout.Label("✨ 功能说明", sectionStyle);
-            GUILayout.Space(5);
-        
-            var descStyle = new GUIStyle(EditorStyles.label);
-            descStyle.normal.textColor = TextColor;
-            descStyle.wordWrap = true;
-        
-            GUILayout.Label("• EnemyConfig: 游戏逻辑配置 (AI行为、数值等)", descStyle);
-            GUILayout.Label("• EnemyData: Doom风格数据 (精灵、音效等)", descStyle);
-            GUILayout.Label("• 左侧选择要编辑的敌人", descStyle);
-            GUILayout.Label("• 使用快速创建制作新敌人", descStyle);
-        
-            GUILayout.Space(15);
-        
-            GUILayout.Label("🎯 敌人类型", sectionStyle);
-            GUILayout.Space(5);
-        
-            GUILayout.Label("• 🧟 僵尸 (Zombie): 近战敌人", descStyle);
-            GUILayout.Label("• 🏹 射手 (Shooter): 远程敌人", descStyle);
-            GUILayout.Label("• 🎯 狙击手 (Snipers): 精确射击", descStyle);
+            GUILayout.Label("• EnemyConfig: Game logic configuration (AI behavior, stats)", labelStyle);
+            GUILayout.Label("• EnemyData: Doom-style data (sprites, audio)", labelStyle);
+            GUILayout.Label("• Select enemies from the left panel to edit", labelStyle);
+            GUILayout.Label("• Use quick create for new enemy templates", labelStyle);
         
             GUILayout.Space(20);
+        
+            GUILayout.Label("Enemy Types", subHeaderStyle);
+            GUILayout.Space(8);
+        
+            GUILayout.Label("• Zombie: Melee enemies", labelStyle);
+            GUILayout.Label("• Shooter: Ranged enemies", labelStyle);
+            GUILayout.Label("• Snipers: Precision shooting", labelStyle);
+        
+            GUILayout.Space(30);
         
             // 快速开始按钮
             EditorGUILayout.BeginHorizontal();
             GUILayout.FlexibleSpace();
         
-            if (GUILayout.Button("🚀 创建第一个敌人", modernButtonStyle, GUILayout.Width(200), GUILayout.Height(40)))
+            if (GUILayout.Button("Create First Enemy", buttonPrimaryStyle, GUILayout.Width(180), GUILayout.Height(40)))
             {
                 selectedTabIndex = 0;
                 CreateNewEnemyConfig();
@@ -663,18 +692,15 @@ namespace Editor
             GUILayout.FlexibleSpace();
         }
     
-        void DrawModernConfigDetails()
+        void DrawConfigDetails()
         {
             // 标题栏
             EditorGUILayout.BeginHorizontal();
-            var titleStyle = new GUIStyle(EditorStyles.largeLabel);
-            titleStyle.normal.textColor = PrimaryColor;
-            EditorGUILayout.LabelField($"⚙ {selectedConfig.enemyName}", titleStyle);
+            GUILayout.Label($"Configuration: {selectedConfig.enemyName}", headerStyle);
         
             GUILayout.FlexibleSpace();
         
-            // 操作按钮
-            if (GUILayout.Button(IconSave, modernIconButtonStyle, GUILayout.Width(30), GUILayout.Height(30)))
+            if (GUILayout.Button("Save", buttonPrimaryStyle, GUILayout.Width(60), GUILayout.Height(32)))
             {
                 EditorUtility.SetDirty(selectedConfig);
                 AssetDatabase.SaveAssets();
@@ -682,65 +708,65 @@ namespace Editor
         
             EditorGUILayout.EndHorizontal();
         
-            GUILayout.Space(8);
+            GUILayout.Space(16);
         
             rightScrollPos = EditorGUILayout.BeginScrollView(rightScrollPos);
         
             EditorGUI.BeginChangeCheck();
         
             // 基础属性卡片
-            DrawModernSection("🎯 基础属性", () => {
-                selectedConfig.enemyName = EditorGUILayout.TextField("敌人名称", selectedConfig.enemyName);
-                selectedConfig.enemyType = (EnemyType)EditorGUILayout.EnumPopup("敌人类型", selectedConfig.enemyType);
-                selectedConfig.health = EditorGUILayout.FloatField("血量", selectedConfig.health);
+            DrawSection("Basic Properties", () => {
+                selectedConfig.enemyName = EditorGUILayout.TextField("Enemy Name", selectedConfig.enemyName);
+                selectedConfig.enemyType = (EnemyType)EditorGUILayout.EnumPopup("Enemy Type", selectedConfig.enemyType);
+                selectedConfig.health = EditorGUILayout.FloatField("Health", selectedConfig.health);
             });
         
             // 移动设置卡片
-            DrawModernSection("🏃 移动设置", () => {
-                selectedConfig.patrolSpeed = EditorGUILayout.FloatField("巡逻速度", selectedConfig.patrolSpeed);
-                selectedConfig.chaseSpeed = EditorGUILayout.FloatField("追击速度", selectedConfig.chaseSpeed);
-                selectedConfig.rotationSpeed = EditorGUILayout.FloatField("旋转速度", selectedConfig.rotationSpeed);
+            DrawSection("Movement Settings", () => {
+                selectedConfig.patrolSpeed = EditorGUILayout.FloatField("Patrol Speed", selectedConfig.patrolSpeed);
+                selectedConfig.chaseSpeed = EditorGUILayout.FloatField("Chase Speed", selectedConfig.chaseSpeed);
+                selectedConfig.rotationSpeed = EditorGUILayout.FloatField("Rotation Speed", selectedConfig.rotationSpeed);
             });
         
             // 感知系统卡片
-            DrawModernSection("👁 感知系统", () => {
-                selectedConfig.visionRange = EditorGUILayout.FloatField("视野范围", selectedConfig.visionRange);
-                selectedConfig.visionAngle = EditorGUILayout.FloatField("视野角度", selectedConfig.visionAngle);
-                selectedConfig.hearingRange = EditorGUILayout.FloatField("听觉范围", selectedConfig.hearingRange);
+            DrawSection("Detection System", () => {
+                selectedConfig.visionRange = EditorGUILayout.FloatField("Vision Range", selectedConfig.visionRange);
+                selectedConfig.visionAngle = EditorGUILayout.FloatField("Vision Angle", selectedConfig.visionAngle);
+                selectedConfig.hearingRange = EditorGUILayout.FloatField("Hearing Range", selectedConfig.hearingRange);
             });
         
             // 攻击设置卡片
-            DrawModernSection("⚔ 攻击设置", () => {
-                selectedConfig.attackDamage = EditorGUILayout.FloatField("攻击伤害", selectedConfig.attackDamage);
-                selectedConfig.attackRange = EditorGUILayout.FloatField("攻击范围", selectedConfig.attackRange);
-                selectedConfig.attackCooldown = EditorGUILayout.FloatField("攻击冷却", selectedConfig.attackCooldown);
+            DrawSection("Combat Settings", () => {
+                selectedConfig.attackDamage = EditorGUILayout.FloatField("Attack Damage", selectedConfig.attackDamage);
+                selectedConfig.attackRange = EditorGUILayout.FloatField("Attack Range", selectedConfig.attackRange);
+                selectedConfig.attackCooldown = EditorGUILayout.FloatField("Attack Cooldown", selectedConfig.attackCooldown);
             });
         
             // 射击设置（条件显示）
             if (selectedConfig.enemyType == EnemyType.Shooter || selectedConfig.enemyType == EnemyType.Snipers)
             {
-                DrawModernSection("🏹 射击设置", () => {
-                    selectedConfig.shootRange = EditorGUILayout.FloatField("射击范围", selectedConfig.shootRange);
-                    selectedConfig.shootInterval = EditorGUILayout.FloatField("射击间隔", selectedConfig.shootInterval);
-                    selectedConfig.shootAccuracy = EditorGUILayout.Slider("射击精度", selectedConfig.shootAccuracy, 0f, 1f);
+                DrawSection("Shooting Settings", () => {
+                    selectedConfig.shootRange = EditorGUILayout.FloatField("Shoot Range", selectedConfig.shootRange);
+                    selectedConfig.shootInterval = EditorGUILayout.FloatField("Shoot Interval", selectedConfig.shootInterval);
+                    selectedConfig.shootAccuracy = EditorGUILayout.Slider("Shoot Accuracy", selectedConfig.shootAccuracy, 0f, 1f);
                 });
             }
         
             // AI行为卡片
-            DrawModernSection("🤖 AI行为", () => {
-                selectedConfig.alertDuration = EditorGUILayout.FloatField("警戒持续时间", selectedConfig.alertDuration);
-                selectedConfig.investigationTime = EditorGUILayout.FloatField("调查时间", selectedConfig.investigationTime);
-                selectedConfig.canOpenDoors = EditorGUILayout.Toggle("可以开门", selectedConfig.canOpenDoors);
-                selectedConfig.canClimbStairs = EditorGUILayout.Toggle("可以爬楼梯", selectedConfig.canClimbStairs);
+            DrawSection("AI Behavior", () => {
+                selectedConfig.alertDuration = EditorGUILayout.FloatField("Alert Duration", selectedConfig.alertDuration);
+                selectedConfig.investigationTime = EditorGUILayout.FloatField("Investigation Time", selectedConfig.investigationTime);
+                selectedConfig.canOpenDoors = EditorGUILayout.Toggle("Can Open Doors", selectedConfig.canOpenDoors);
+                selectedConfig.canClimbStairs = EditorGUILayout.Toggle("Can Climb Stairs", selectedConfig.canClimbStairs);
             });
         
             // 掉落设置卡片
-            DrawModernSection("💎 掉落设置", () => {
+            DrawSection("Drop Settings", () => {
                 SerializedObject serializedConfig = new SerializedObject(selectedConfig);
                 SerializedProperty dropItemsProperty = serializedConfig.FindProperty("dropItems");
-                EditorGUILayout.PropertyField(dropItemsProperty, new GUIContent("掉落物品"), true);
+                EditorGUILayout.PropertyField(dropItemsProperty, new GUIContent("Drop Items"), true);
             
-                selectedConfig.dropChance = EditorGUILayout.Slider("掉落概率", selectedConfig.dropChance, 0f, 1f);
+                selectedConfig.dropChance = EditorGUILayout.Slider("Drop Chance", selectedConfig.dropChance, 0f, 1f);
             
                 serializedConfig.ApplyModifiedProperties();
             });
@@ -752,21 +778,19 @@ namespace Editor
         
             EditorGUILayout.EndScrollView();
         
-            GUILayout.Space(8);
-            DrawModernConfigBottomButtons();
+            GUILayout.Space(16);
+            DrawConfigBottomButtons();
         }
     
-        void DrawModernDataDetails()
+        void DrawDataDetails()
         {
             // 标题栏
             EditorGUILayout.BeginHorizontal();
-            var titleStyle = new GUIStyle(EditorStyles.largeLabel);
-            titleStyle.normal.textColor = PrimaryColor;
-            EditorGUILayout.LabelField($"📊 {selectedData.enemyName}", titleStyle);
+            GUILayout.Label($"Data: {selectedData.enemyName}", headerStyle);
         
             GUILayout.FlexibleSpace();
         
-            if (GUILayout.Button(IconSave, modernIconButtonStyle, GUILayout.Width(30), GUILayout.Height(30)))
+            if (GUILayout.Button("Save", buttonPrimaryStyle, GUILayout.Width(60), GUILayout.Height(32)))
             {
                 EditorUtility.SetDirty(selectedData);
                 AssetDatabase.SaveAssets();
@@ -774,51 +798,51 @@ namespace Editor
         
             EditorGUILayout.EndHorizontal();
         
-            GUILayout.Space(8);
+            GUILayout.Space(16);
         
             rightScrollPos = EditorGUILayout.BeginScrollView(rightScrollPos);
         
             EditorGUI.BeginChangeCheck();
         
             // 各个设置区域...
-            DrawModernSection("🎯 基础信息", () => {
-                selectedData.enemyName = EditorGUILayout.TextField("敌人名称", selectedData.enemyName);
-                selectedData.enemyType = (EnemyType)EditorGUILayout.EnumPopup("敌人类型", selectedData.enemyType);
-                selectedData.health = EditorGUILayout.FloatField("血量", selectedData.health);
-                selectedData.armor = EditorGUILayout.FloatField("装甲", selectedData.armor);
+            DrawSection("Basic Information", () => {
+                selectedData.enemyName = EditorGUILayout.TextField("Enemy Name", selectedData.enemyName);
+                selectedData.enemyType = (EnemyType)EditorGUILayout.EnumPopup("Enemy Type", selectedData.enemyType);
+                selectedData.health = EditorGUILayout.FloatField("Health", selectedData.health);
+                selectedData.armor = EditorGUILayout.FloatField("Armor", selectedData.armor);
             });
         
-            DrawModernSection("🏃 移动设置", () => {
-                selectedData.moveSpeed = EditorGUILayout.FloatField("移动速度", selectedData.moveSpeed);
-                selectedData.chaseSpeed = EditorGUILayout.FloatField("追击速度", selectedData.chaseSpeed);
-                selectedData.rotationSpeed = EditorGUILayout.FloatField("旋转速度", selectedData.rotationSpeed);
-                selectedData.canFly = EditorGUILayout.Toggle("可以飞行", selectedData.canFly);
+            DrawSection("Movement Settings", () => {
+                selectedData.moveSpeed = EditorGUILayout.FloatField("Move Speed", selectedData.moveSpeed);
+                selectedData.chaseSpeed = EditorGUILayout.FloatField("Chase Speed", selectedData.chaseSpeed);
+                selectedData.rotationSpeed = EditorGUILayout.FloatField("Rotation Speed", selectedData.rotationSpeed);
+                selectedData.canFly = EditorGUILayout.Toggle("Can Fly", selectedData.canFly);
             });
         
-            DrawModernSection("🤖 AI行为", () => {
-                selectedData.detectionRange = EditorGUILayout.FloatField("检测范围", selectedData.detectionRange);
-                selectedData.attackRange = EditorGUILayout.FloatField("攻击范围", selectedData.attackRange);
-                selectedData.loseTargetTime = EditorGUILayout.FloatField("失去目标时间", selectedData.loseTargetTime);
-                selectedData.alwaysHostile = EditorGUILayout.Toggle("始终敌对", selectedData.alwaysHostile);
-                selectedData.canOpenDoors = EditorGUILayout.Toggle("可以开门", selectedData.canOpenDoors);
-                selectedData.immuneToInfighting = EditorGUILayout.Toggle("免疫内斗", selectedData.immuneToInfighting);
-                selectedData.painChance = EditorGUILayout.Slider("疼痛概率", selectedData.painChance, 0f, 1f);
+            DrawSection("AI Behavior", () => {
+                selectedData.detectionRange = EditorGUILayout.FloatField("Detection Range", selectedData.detectionRange);
+                selectedData.attackRange = EditorGUILayout.FloatField("Attack Range", selectedData.attackRange);
+                selectedData.loseTargetTime = EditorGUILayout.FloatField("Lose Target Time", selectedData.loseTargetTime);
+                selectedData.alwaysHostile = EditorGUILayout.Toggle("Always Hostile", selectedData.alwaysHostile);
+                selectedData.canOpenDoors = EditorGUILayout.Toggle("Can Open Doors", selectedData.canOpenDoors);
+                selectedData.immuneToInfighting = EditorGUILayout.Toggle("Immune To Infighting", selectedData.immuneToInfighting);
+                selectedData.painChance = EditorGUILayout.Slider("Pain Chance", selectedData.painChance, 0f, 1f);
             });
         
-            DrawModernSection("⚔ 攻击设置", () => {
-                selectedData.attackDamage = EditorGUILayout.FloatField("攻击伤害", selectedData.attackDamage);
-                selectedData.attackCooldown = EditorGUILayout.FloatField("攻击冷却", selectedData.attackCooldown);
+            DrawSection("Combat Settings", () => {
+                selectedData.attackDamage = EditorGUILayout.FloatField("Attack Damage", selectedData.attackDamage);
+                selectedData.attackCooldown = EditorGUILayout.FloatField("Attack Cooldown", selectedData.attackCooldown);
             
                 SerializedObject serializedData = new SerializedObject(selectedData);
                 SerializedProperty attackTypesProperty = serializedData.FindProperty("attackTypes");
-                EditorGUILayout.PropertyField(attackTypesProperty, new GUIContent("攻击类型"), true);
+                EditorGUILayout.PropertyField(attackTypesProperty, new GUIContent("Attack Types"), true);
                 serializedData.ApplyModifiedProperties();
             });
         
-            DrawModernSection("🎨 Sprite动画", () => {
+            DrawSection("Sprite Animation", () => {
                 SerializedObject serializedData = new SerializedObject(selectedData);
                 SerializedProperty spriteSetProperty = serializedData.FindProperty("spriteSet");
-                EditorGUILayout.PropertyField(spriteSetProperty, new GUIContent("精灵集合"), true);
+                EditorGUILayout.PropertyField(spriteSetProperty, new GUIContent("Sprite Set"), true);
                 serializedData.ApplyModifiedProperties();
             });
         
@@ -829,51 +853,46 @@ namespace Editor
         
             EditorGUILayout.EndScrollView();
         
-            GUILayout.Space(8);
-            DrawModernDataBottomButtons();
+            GUILayout.Space(16);
+            DrawDataBottomButtons();
         }
     
-        void DrawModernSection(string title, System.Action content)
+        void DrawSection(string title, System.Action content)
         {
-            EditorGUILayout.BeginVertical(modernCardStyle);
+            EditorGUILayout.BeginVertical(cardStyle);
         
-            EditorGUILayout.LabelField(title, modernHeaderStyle);
-            GUILayout.Space(4);
+            GUILayout.Label(title, subHeaderStyle);
+            GUILayout.Space(8);
         
             content?.Invoke();
         
             EditorGUILayout.EndVertical();
-            GUILayout.Space(6);
+            GUILayout.Space(8);
         }
     
-        void DrawModernConfigBottomButtons()
+        void DrawConfigBottomButtons()
         {
             EditorGUILayout.BeginHorizontal();
         
-            if (GUILayout.Button("💾 保存", modernButtonStyle, GUILayout.Height(32)))
+            if (GUILayout.Button("Save", buttonPrimaryStyle, GUILayout.Height(32)))
             {
                 EditorUtility.SetDirty(selectedConfig);
                 AssetDatabase.SaveAssets();
             }
         
-            if (GUILayout.Button("📋 复制", modernButtonStyle, GUILayout.Height(32)))
+            if (GUILayout.Button("Duplicate", buttonSecondaryStyle, GUILayout.Height(32)))
             {
                 DuplicateConfig(selectedConfig);
             }
         
-            if (GUILayout.Button("🎮 创建预制体", modernButtonStyle, GUILayout.Height(32)))
+            if (GUILayout.Button("Create Prefab", buttonSecondaryStyle, GUILayout.Height(32)))
             {
                 CreateEnemyPrefab(selectedConfig);
             }
         
             GUILayout.FlexibleSpace();
         
-            // 危险操作按钮
-            var deleteStyle = new GUIStyle(modernButtonStyle);
-            deleteStyle.normal.background = CreateRoundedTexture(DangerColor, 6);
-            deleteStyle.hover.background = CreateRoundedTexture(new Color(DangerColor.r * 1.2f, DangerColor.g * 1.2f, DangerColor.b * 1.2f), 6);
-        
-            if (GUILayout.Button("🗑 删除", deleteStyle, GUILayout.Height(32)))
+            if (GUILayout.Button("Delete", buttonDangerStyle, GUILayout.Height(32)))
             {
                 DeleteConfig(selectedConfig);
             }
@@ -881,28 +900,24 @@ namespace Editor
             EditorGUILayout.EndHorizontal();
         }
     
-        void DrawModernDataBottomButtons()
+        void DrawDataBottomButtons()
         {
             EditorGUILayout.BeginHorizontal();
         
-            if (GUILayout.Button("💾 保存", modernButtonStyle, GUILayout.Height(32)))
+            if (GUILayout.Button("Save", buttonPrimaryStyle, GUILayout.Height(32)))
             {
                 EditorUtility.SetDirty(selectedData);
                 AssetDatabase.SaveAssets();
             }
         
-            if (GUILayout.Button("📋 复制", modernButtonStyle, GUILayout.Height(32)))
+            if (GUILayout.Button("Duplicate", buttonSecondaryStyle, GUILayout.Height(32)))
             {
                 DuplicateData(selectedData);
             }
         
             GUILayout.FlexibleSpace();
         
-            var deleteStyle = new GUIStyle(modernButtonStyle);
-            deleteStyle.normal.background = CreateRoundedTexture(DangerColor, 6);
-            deleteStyle.hover.background = CreateRoundedTexture(new Color(DangerColor.r * 1.2f, DangerColor.g * 1.2f, DangerColor.b * 1.2f), 6);
-        
-            if (GUILayout.Button("🗑 删除", deleteStyle, GUILayout.Height(32)))
+            if (GUILayout.Button("Delete", buttonDangerStyle, GUILayout.Height(32)))
             {
                 DeleteData(selectedData);
             }
@@ -910,7 +925,7 @@ namespace Editor
             EditorGUILayout.EndHorizontal();
         }
     
-        // 辅助方法
+        // 辅助方法保持不变...
         List<EnemyType> GetFilteredEnemyTypes()
         {
             var types = System.Enum.GetValues(typeof(EnemyType)).Cast<EnemyType>().ToList();
@@ -935,24 +950,13 @@ namespace Editor
             return data.Where(d => d.enemyName.ToLower().Contains(searchText.ToLower())).ToList();
         }
     
-        string GetTypeIcon(EnemyType type)
-        {
-            return type switch
-            {
-                EnemyType.Zombie => "🧟",
-                EnemyType.Shooter => "🏹",
-                EnemyType.Snipers => "🎯",
-                _ => "👾"
-            };
-        }
-    
         string GetTypeDisplayName(EnemyType type)
         {
             return type switch
             {
-                EnemyType.Zombie => "僵尸",
-                EnemyType.Shooter => "射手",
-                EnemyType.Snipers => "狙击手",
+                EnemyType.Zombie => "Zombie",
+                EnemyType.Shooter => "Shooter",
+                EnemyType.Snipers => "Sniper",
                 _ => type.ToString()
             };
         }
@@ -1044,14 +1048,14 @@ namespace Editor
     
         void CreateEnemyConfigOfType(EnemyType type)
         {
-            string path = EditorUtility.SaveFilePanel("创建敌人配置", "Assets/Data/Enemies", $"New{type}Config", "asset");
+            string path = EditorUtility.SaveFilePanel("Create Enemy Config", "Assets/Data/Enemies", $"New{type}Config", "asset");
             if (string.IsNullOrEmpty(path)) return;
         
             if (path.StartsWith(Application.dataPath))
                 path = "Assets" + path.Substring(Application.dataPath.Length);
         
             EnemyConfig newConfig = CreateInstance<EnemyConfig>();
-            newConfig.enemyName = $"新{GetTypeDisplayName(type)}";
+            newConfig.enemyName = $"New {GetTypeDisplayName(type)}";
             newConfig.enemyType = type;
         
             SetConfigDefaults(newConfig, type);
@@ -1067,14 +1071,14 @@ namespace Editor
     
         void CreateEnemyDataOfType(EnemyType type)
         {
-            string path = EditorUtility.SaveFilePanel("创建敌人数据", "Assets/Data/Enemies", $"New{type}Data", "asset");
+            string path = EditorUtility.SaveFilePanel("Create Enemy Data", "Assets/Data/Enemies", $"New{type}Data", "asset");
             if (string.IsNullOrEmpty(path)) return;
         
             if (path.StartsWith(Application.dataPath))
                 path = "Assets" + path.Substring(Application.dataPath.Length);
         
             EnemyData newData = CreateInstance<EnemyData>();
-            newData.enemyName = $"新{GetTypeDisplayName(type)}";
+            newData.enemyName = $"New {GetTypeDisplayName(type)}";
             newData.enemyType = type;
         
             SetDataDefaults(newData, type);
@@ -1144,7 +1148,7 @@ namespace Editor
                 EnemyConfig duplicate = AssetDatabase.LoadAssetAtPath<EnemyConfig>(newPath);
                 if (duplicate != null)
                 {
-                    duplicate.enemyName += " (副本)";
+                    duplicate.enemyName += " (Copy)";
                     EditorUtility.SetDirty(duplicate);
                     selectedConfig = duplicate;
                     UpdatePreview();
@@ -1165,7 +1169,7 @@ namespace Editor
                 EnemyData duplicate = AssetDatabase.LoadAssetAtPath<EnemyData>(newPath);
                 if (duplicate != null)
                 {
-                    duplicate.enemyName += " (副本)";
+                    duplicate.enemyName += " (Copy)";
                     EditorUtility.SetDirty(duplicate);
                     selectedData = duplicate;
                     UpdatePreview();
@@ -1175,7 +1179,7 @@ namespace Editor
     
         void CreateEnemyPrefab(EnemyConfig config)
         {
-            string path = EditorUtility.SaveFilePanel("创建敌人预制体", "Assets/Prefabs/Enemies", config.enemyName, "prefab");
+            string path = EditorUtility.SaveFilePanel("Create Enemy Prefab", "Assets/Prefabs/Enemies", config.enemyName, "prefab");
             if (string.IsNullOrEmpty(path)) return;
         
             if (path.StartsWith(Application.dataPath))
@@ -1193,12 +1197,12 @@ namespace Editor
             PrefabUtility.SaveAsPrefabAsset(prefab, path);
             DestroyImmediate(prefab);
         
-            EditorUtility.DisplayDialog("创建成功", $"敌人预制体已创建: {path}", "确定");
+            EditorUtility.DisplayDialog("Success", $"Enemy prefab created: {path}", "OK");
         }
     
         void DeleteConfig(EnemyConfig config)
         {
-            if (EditorUtility.DisplayDialog("删除确认", $"确定要删除配置 '{config.enemyName}' 吗？", "删除", "取消"))
+            if (EditorUtility.DisplayDialog("Delete Confirmation", $"Are you sure you want to delete '{config.enemyName}'?", "Delete", "Cancel"))
             {
                 string path = AssetDatabase.GetAssetPath(config);
                 AssetDatabase.DeleteAsset(path);
@@ -1212,7 +1216,7 @@ namespace Editor
     
         void DeleteData(EnemyData data)
         {
-            if (EditorUtility.DisplayDialog("删除确认", $"确定要删除数据 '{data.enemyName}' 吗？", "删除", "取消"))
+            if (EditorUtility.DisplayDialog("Delete Confirmation", $"Are you sure you want to delete '{data.enemyName}'?", "Delete", "Cancel"))
             {
                 string path = AssetDatabase.GetAssetPath(data);
                 AssetDatabase.DeleteAsset(path);
@@ -1230,22 +1234,22 @@ namespace Editor
             foreach (var data in allEnemyData) EditorUtility.SetDirty(data);
         
             AssetDatabase.SaveAssets();
-            EditorUtility.DisplayDialog("保存完成", "所有敌人资源已保存", "确定");
+            EditorUtility.DisplayDialog("Save Complete", "All enemy assets have been saved", "OK");
         }
     
         void ShowConfigContextMenu(EnemyConfig config)
         {
             GenericMenu menu = new GenericMenu();
         
-            menu.AddItem(new GUIContent("编辑"), false, () => {
+            menu.AddItem(new GUIContent("Edit"), false, () => {
                 selectedConfig = config; selectedData = null; UpdatePreview();
             });
-            menu.AddItem(new GUIContent("复制"), false, () => DuplicateConfig(config));
-            menu.AddItem(new GUIContent("创建预制体"), false, () => CreateEnemyPrefab(config));
+            menu.AddItem(new GUIContent("Duplicate"), false, () => DuplicateConfig(config));
+            menu.AddItem(new GUIContent("Create Prefab"), false, () => CreateEnemyPrefab(config));
             menu.AddSeparator("");
-            menu.AddItem(new GUIContent("删除"), false, () => DeleteConfig(config));
+            menu.AddItem(new GUIContent("Delete"), false, () => DeleteConfig(config));
             menu.AddSeparator("");
-            menu.AddItem(new GUIContent("在项目中显示"), false, () => EditorGUIUtility.PingObject(config));
+            menu.AddItem(new GUIContent("Show in Project"), false, () => EditorGUIUtility.PingObject(config));
         
             menu.ShowAsContext();
         }
@@ -1254,14 +1258,14 @@ namespace Editor
         {
             GenericMenu menu = new GenericMenu();
         
-            menu.AddItem(new GUIContent("编辑"), false, () => {
+            menu.AddItem(new GUIContent("Edit"), false, () => {
                 selectedData = data; selectedConfig = null; UpdatePreview();
             });
-            menu.AddItem(new GUIContent("复制"), false, () => DuplicateData(data));
+            menu.AddItem(new GUIContent("Duplicate"), false, () => DuplicateData(data));
             menu.AddSeparator("");
-            menu.AddItem(new GUIContent("删除"), false, () => DeleteData(data));
+            menu.AddItem(new GUIContent("Delete"), false, () => DeleteData(data));
             menu.AddSeparator("");
-            menu.AddItem(new GUIContent("在项目中显示"), false, () => EditorGUIUtility.PingObject(data));
+            menu.AddItem(new GUIContent("Show in Project"), false, () => EditorGUIUtility.PingObject(data));
         
             menu.ShowAsContext();
         }

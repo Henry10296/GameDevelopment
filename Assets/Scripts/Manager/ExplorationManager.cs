@@ -248,7 +248,7 @@ public class ExplorationManager : Singleton<ExplorationManager>
             player.transform.rotation = playerSpawnPoint.rotation;
             
             // 重置玩家状态
-            if (player.TryGetComponent<FirstPersonController>(out var controller))
+            if (player.TryGetComponent<PlayerController>(out var controller))
             {
                 // 重置控制器状态
             }
