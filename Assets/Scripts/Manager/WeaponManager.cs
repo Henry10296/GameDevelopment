@@ -11,6 +11,9 @@ public class WeaponManager : MonoBehaviour
     [SerializeField] private Transform weaponHolder;
     [SerializeField] private Transform weaponCamera; // 用于武器渲染的独立相机
     
+    [Header("空手状态")]
+    public bool allowEmptyHands = true;
+    private bool isEmptyHands = false;
     [Header("切换设置")]
     [SerializeField] private float switchSpeed = 5f;
     [SerializeField] private float dropDistance = 0.5f;
@@ -76,16 +79,6 @@ public class WeaponManager : MonoBehaviour
         }
     }
     
-    public void SwitchWeapon(int index)
-    {
-        if (index < 0 || index >= weapons.Count || index == currentWeaponIndex || isSwitching)
-            return;
-        
-        if (switchCoroutine != null)
-            StopCoroutine(switchCoroutine);
-        
-        switchCoroutine = StartCoroutine(SwitchWeaponCoroutine(index));
-    }
     
     public void CycleWeapon(int direction)
     {
@@ -120,7 +113,33 @@ public class WeaponManager : MonoBehaviour
         
         isSwitching = false;
     }
+    public void SetEmptyHands()
+    {
+        if (!allowEmptyHands) return;
+        
+        if (currentWeapon)
+        {
+            currentWeapon.gameObject.SetActive(false);
+        }
+        
+        currentWeapon = null;
+        currentWeaponIndex = -1;
+        isEmptyHands = true;
+        
+        Debug.Log("切换到空手状态");
+    }
     
+    // 修改现有的SwitchWeapon方法
+    public void SwitchWeapon(int index)
+    {
+        if (index < 0 || index >= weapons.Count || isSwitching)
+            return;
+            
+        isEmptyHands = false; // 退出空手状态
+        
+        // 你现有的武器切换逻辑...
+        StartCoroutine(SwitchWeaponCoroutine(index));
+    }
     IEnumerator LowerWeapon()
     {
         if (currentWeapon == null) yield break;
@@ -230,7 +249,14 @@ public class WeaponManager : MonoBehaviour
     }
     
     // 公共方法
-    public WeaponController GetCurrentWeapon() => currentWeapon;
+    public WeaponController GetCurrentWeapon()
+    {
+        if (isEmptyHands) return null;
+        return currentWeapon;
+    }
+    
+    public bool IsEmptyHands() => isEmptyHands;
+
     public bool IsSwitching() => isSwitching;
     public bool HasAmmo() => currentWeapon != null && currentWeapon.HasAmmo();
 }

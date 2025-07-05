@@ -25,7 +25,7 @@ public class RandomEvent : ScriptableObject
     
     [Header("选择项")]
     public EventChoice[] choices;
-    //
+    
     [Header("自动效果（无选择时）")]
     public EventEffect[] automaticEffects;
     
@@ -162,7 +162,7 @@ public class RandomEvent : ScriptableObject
         
         QuestExtensionManager.Instance?.OnQuestCompleted(this);
     }
-    
+    //
     public float CalculateActualTriggerChance()
     {
         float chance = baseTriggerChance;

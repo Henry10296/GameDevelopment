@@ -5,20 +5,34 @@ using System.Collections;
 [System.Serializable]
 public class WeaponSpriteSet
 {
+    [Header("武器信息")]
     public WeaponType weaponType;
-    public Sprite[] idleFrames;
-    public Sprite[] fireFrames;
-    public Sprite[] reloadFrames;
-    public Sprite aimSprite;
+    public bool isMeleeWeapon = false;  // 是否为近战武器
+    
+    [Header("基础动画")]
+    public Sprite[] idleFrames;         // 待机动画
+    public Sprite[] raiseFrames;        // 抬起武器动画
+    public Sprite[] lowerFrames;        // 收起武器动画
+    
+    [Header("射击动画")]
+    public Sprite[] fireFrames;         // 射击动画
+    public Sprite[] reloadFrames;       // 换弹动画
+    public Sprite aimSprite;            // 瞄准精灵
+    
+    [Header("近战动画")]
+    public Sprite[] meleeFrames;        // 近战攻击动画
+    public Sprite[] meleeChargeFrames;  // 近战蓄力动画
 }
 
 [System.Serializable]
 public class HandSpriteSet
 {
-    [Header("空手精灵")]
+    [Header("空手动画")]
     public Sprite[] emptyHandsIdle;     // 空手待机
-    public Sprite[] interactionFrames;  // 交互动画（按E时）
-    public Sprite[] runningFrames;      // 跑步时的手部动画
+    public Sprite[] emptyHandsLower;    // 空手收起
+    public Sprite[] emptyHandsRaise;    // 空手抬起
+    public Sprite[] interactionFrames;  // 交互动画
+    public Sprite[] runningFrames;      // 跑步动画
 }
 
 public class WeaponDisplay : MonoBehaviour
@@ -37,40 +51,52 @@ public class WeaponDisplay : MonoBehaviour
     public float idleFrameRate = 8f;
     public float fireFrameRate = 20f;
     public float reloadFrameRate = 10f;
+    public float switchFrameRate = 15f;     // 切换动画帧率
+    public float meleeFrameRate = 25f;      // 近战动画帧率
     public float interactionFrameRate = 15f;
     
-    [Header("摇摆设置 (像素)")]
+    [Header("切换动画设置")]
+    public float switchLowerTime = 0.3f;    // 下降时间
+    public float switchRaiseTime = 0.4f;    // 抬起时间
+    public float switchHoldTime = 0.1f;     // 中间停顿时间
+    
+    [Header("摇摆设置")]
     public float mouseSwayAmount = 15f;
     public float breathSwayAmount = 8f;
     public float walkBobAmount = 12f;
-    public float runBobMultiplier = 1.5f;  // 跑步时摇摆倍数
+    public float runBobMultiplier = 1.5f;
     public float recoilKickback = 25f;
     
-    [Header("跑动抖动优化")]
-    public bool enableRunSmoothing = true;
-    public float runSmoothingFactor = 0.3f;  // 跑步平滑因子
-    public float maxRunBob = 20f;            // 最大跑步摇摆
+    [Header("近战设置")]
+    public float meleeReachDistance = 2f;   // 近战距离
+    public float meleeSwingAmount = 40f;    // 近战挥舞幅度
     
-    [Header("参考游戏风格")]
+    [Header("摇摆优化")]
+    public bool enableRunSmoothing = true;
+    public float runSmoothingFactor = 0.3f;
+    public float maxRunBob = 20f;
+    
+    [Header("参考风格")]
     [Range(0f, 1f)] public float mouseStyle = 0.7f;
     
     // 私有变量
     private Vector2 originalPosition;
     private WeaponController currentWeapon;
-    private Coroutine animationCoroutine;
+    private Coroutine currentAnimation;
+    private Coroutine switchAnimation;
     private Vector2 lastMousePosition;
     private float swayTimer;
     private bool isAnimating = false;
+    private bool isSwitching = false;
     private bool isEmptyHands = false;
-    private bool isInteracting = false;
+    private bool isMeleeWeapon = false;
     
     // 状态跟踪
+    private WeaponType lastWeaponType = (WeaponType)(-1);
     private bool wasReloading = false;
     private bool wasAiming = false;
     private bool wasRunning = false;
     private int lastAmmo = -1;
-    
-    // 跑动抖动优化
     private Vector2 smoothedWalkBob = Vector2.zero;
     
     void Start()
@@ -91,16 +117,15 @@ public class WeaponDisplay : MonoBehaviour
     
     void StartListeningToWeapon()
     {
+        // 检测当前武器状态
         currentWeapon = FindObjectOfType<WeaponController>();
         if (currentWeapon != null)
         {
-            SetWeaponType(currentWeapon.weaponType);
-            StartIdleAnimation();
-            isEmptyHands = false;
+            SwitchToWeapon(currentWeapon.weaponType);
         }
         else
         {
-            SetEmptyHands();
+            SwitchToEmptyHands();
         }
     }
     
@@ -109,18 +134,18 @@ public class WeaponDisplay : MonoBehaviour
         UpdateWeaponSway();
         CheckWeaponEvents();
         CheckInteractionInput();
+        CheckMeleeInput();
     }
     
     void UpdateWeaponSway()
     {
-        if (weaponRect == null) return;
+        if (weaponRect == null || isSwitching) return;
         
         Vector2 targetPos = originalPosition;
         
         // 鼠标摇摆
         Vector2 mouseDelta = (Vector2)Input.mousePosition - lastMousePosition;
         Vector2 mouseSway = mouseDelta * mouseSwayAmount * 0.01f;
-        
         float smoothness = Mathf.Lerp(0.1f, 0.3f, mouseStyle);
         mouseSway *= smoothness;
         mouseSway.x = -mouseSway.x;
@@ -132,7 +157,7 @@ public class WeaponDisplay : MonoBehaviour
             Mathf.Cos(swayTimer * 0.8f) * breathSwayAmount * 0.5f
         );
         
-        // 行走/跑步摇摆（优化抖动）
+        // 行走摇摆（优化）
         PlayerController player = FindObjectOfType<PlayerController>();
         Vector2 walkSway = Vector2.zero;
         
@@ -141,26 +166,22 @@ public class WeaponDisplay : MonoBehaviour
             float walkTimer = Time.time * 6f;
             bool isRunning = player.IsRunning();
             
-            // 计算目标摇摆
             Vector2 targetWalkBob = new Vector2(
                 Mathf.Sin(walkTimer * 2f) * walkBobAmount * 0.6f,
                 Mathf.Abs(Mathf.Cos(walkTimer)) * walkBobAmount
             );
             
-            // 跑步时增加摇摆
             if (isRunning)
             {
                 targetWalkBob *= runBobMultiplier;
                 targetWalkBob = Vector2.ClampMagnitude(targetWalkBob, maxRunBob);
                 
-                // 跑步状态变化时播放动画
                 if (isRunning != wasRunning && isEmptyHands)
                 {
                     PlayRunningAnimation();
                 }
             }
             
-            // 平滑跑步摇摆（减少抖动）
             if (enableRunSmoothing)
             {
                 smoothedWalkBob = Vector2.Lerp(smoothedWalkBob, targetWalkBob, 
@@ -176,28 +197,42 @@ public class WeaponDisplay : MonoBehaviour
         }
         else
         {
-            // 停止移动时平滑回到零
             smoothedWalkBob = Vector2.Lerp(smoothedWalkBob, Vector2.zero, Time.deltaTime * 10f);
             walkSway = smoothedWalkBob;
             wasRunning = false;
         }
         
-        // 合并所有摇摆
+        // 合并摇摆
         targetPos += mouseSway + breathSway + walkSway;
-        
-        // 平滑移动
         weaponRect.anchoredPosition = Vector2.Lerp(weaponRect.anchoredPosition, targetPos, Time.deltaTime * 8f);
         lastMousePosition = Input.mousePosition;
     }
     
     void CheckWeaponEvents()
     {
-        if (currentWeapon == null || isEmptyHands) return;
+        if (currentWeapon == null || isEmptyHands || isSwitching) return;
         
-        // 检测开火
+        // 检测武器类型变化（切换武器）
+        if (currentWeapon.weaponType != lastWeaponType)
+        {
+            SwitchToWeapon(currentWeapon.weaponType);
+            return;
+        }
+        
+        // 检测射击（通过弹药变化或你的射击事件）
         if (lastAmmo != -1 && currentWeapon.CurrentAmmo < lastAmmo && !currentWeapon.IsReloading)
         {
-            PlayFireAnimation();
+            if (isMeleeWeapon)
+            {
+                // 近战武器不响应射击
+            }
+            else
+            {
+                PlayFireAnimation();
+                
+                // 通知你的射击系统（保持你现有的逻辑）
+                TriggerWeaponFire();
+            }
         }
         lastAmmo = currentWeapon.CurrentAmmo;
         
@@ -219,116 +254,127 @@ public class WeaponDisplay : MonoBehaviour
     
     void CheckInteractionInput()
     {
-        // 检测交互输入（E键或F键）
         if (Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(KeyCode.F))
         {
-            PlayInteractionAnimation();
-        }
-    }
-    
-    public void SetEmptyHands()
-    {
-        isEmptyHands = true;
-        currentWeapon = null;
-        
-        if (weaponImage != null && handSprites.emptyHandsIdle.Length > 0)
-        {
-            weaponImage.sprite = handSprites.emptyHandsIdle[0];
-            StartEmptyHandsIdle();
-        }
-    }
-    
-    public void SetWeaponType(WeaponType weaponType)
-    {
-        isEmptyHands = false;
-        WeaponSpriteSet spriteSet = GetSpriteSet(weaponType);
-        if (spriteSet != null && weaponImage != null && spriteSet.idleFrames.Length > 0)
-        {
-            weaponImage.sprite = spriteSet.idleFrames[0];
-            StartIdleAnimation();
-        }
-    }
-    
-    WeaponSpriteSet GetSpriteSet(WeaponType weaponType)
-    {
-        for (int i = 0; i < weaponSprites.Length; i++)
-        {
-            if (weaponSprites[i].weaponType == weaponType)
+            if (isEmptyHands)
             {
-                return weaponSprites[i];
+                PlayInteractionAnimation();
             }
         }
-        return null;
     }
     
-    // 动画方法
-    public void PlayFireAnimation()
+    void CheckMeleeInput()
     {
-        if (isEmptyHands) return;
+        if (isMeleeWeapon && !isSwitching && !isAnimating)
+        {
+            if (Input.GetMouseButtonDown(0)) // 左键近战攻击
+            {
+                PlayMeleeAttack();
+            }
+            else if (Input.GetMouseButton(0)) // 持续按住蓄力
+            {
+                PlayMeleeCharge();
+            }
+        }
+    }
+    
+    // ==== 武器切换系统 ====
+    public void SwitchToWeapon(WeaponType weaponType)
+    {
+        if (isSwitching) return;
         
-        WeaponSpriteSet spriteSet = GetCurrentSpriteSet();
-        if (spriteSet != null && spriteSet.fireFrames.Length > 0)
-        {
-            if (animationCoroutine != null)
-                StopCoroutine(animationCoroutine);
-                
-            animationCoroutine = StartCoroutine(PlayAnimation(spriteSet.fireFrames, fireFrameRate, false));
-            StartCoroutine(RecoilEffect());
-        }
-    }
-    
-    public void PlayReloadAnimation()
-    {
-        if (isEmptyHands) return;
+        WeaponSpriteSet newWeaponSet = GetSpriteSet(weaponType);
+        if (newWeaponSet == null) return;
         
-        WeaponSpriteSet spriteSet = GetCurrentSpriteSet();
-        if (spriteSet != null && spriteSet.reloadFrames.Length > 0)
-        {
-            if (animationCoroutine != null)
-                StopCoroutine(animationCoroutine);
-                
-            animationCoroutine = StartCoroutine(PlayAnimation(spriteSet.reloadFrames, reloadFrameRate, false));
-        }
+        isMeleeWeapon = newWeaponSet.isMeleeWeapon;
+        lastWeaponType = weaponType;
+        isEmptyHands = false;
+        
+        // 开始切换动画
+        if (switchAnimation != null)
+            StopCoroutine(switchAnimation);
+        switchAnimation = StartCoroutine(WeaponSwitchCoroutine(newWeaponSet));
     }
     
-    public void PlayInteractionAnimation()
+    public void SwitchToEmptyHands()
     {
-        if (isEmptyHands && handSprites.interactionFrames.Length > 0)
-        {
-            if (animationCoroutine != null)
-                StopCoroutine(animationCoroutine);
-                
-            isInteracting = true;
-            animationCoroutine = StartCoroutine(PlayAnimation(handSprites.interactionFrames, interactionFrameRate, false));
-        }
+        if (isSwitching) return;
+        
+        isEmptyHands = true;
+        isMeleeWeapon = false;
+        currentWeapon = null;
+        lastWeaponType = (WeaponType)(-1);
+        
+        if (switchAnimation != null)
+            StopCoroutine(switchAnimation);
+        switchAnimation = StartCoroutine(EmptyHandsSwitchCoroutine());
     }
     
-    void PlayRunningAnimation()
+    IEnumerator WeaponSwitchCoroutine(WeaponSpriteSet newWeaponSet)
     {
-        if (isEmptyHands && handSprites.runningFrames.Length > 0)
+        isSwitching = true;
+        
+        // 第一阶段：收起当前武器
+        if (isEmptyHands && handSprites.emptyHandsLower.Length > 0)
         {
-            if (animationCoroutine != null)
-                StopCoroutine(animationCoroutine);
-                
-            animationCoroutine = StartCoroutine(PlayAnimation(handSprites.runningFrames, idleFrameRate * 1.5f, true));
+            yield return StartCoroutine(PlayAnimationCoroutine(handSprites.emptyHandsLower, switchFrameRate, false));
         }
-    }
-    
-    void StartIdleAnimation()
-    {
-        if (isEmptyHands)
+        else if (!isEmptyHands)
         {
-            StartEmptyHandsIdle();
-            return;
+            WeaponSpriteSet currentSet = GetCurrentSpriteSet();
+            if (currentSet != null && currentSet.lowerFrames.Length > 0)
+            {
+                yield return StartCoroutine(PlayAnimationCoroutine(currentSet.lowerFrames, switchFrameRate, false));
+            }
         }
         
-        WeaponSpriteSet spriteSet = GetCurrentSpriteSet();
-        if (spriteSet != null && spriteSet.idleFrames.Length > 0)
+        yield return new WaitForSeconds(switchHoldTime);
+        
+        // 第二阶段：抬起新武器
+        if (newWeaponSet.raiseFrames.Length > 0)
         {
-            if (animationCoroutine != null)
-                StopCoroutine(animationCoroutine);
-                
-            animationCoroutine = StartCoroutine(PlayAnimation(spriteSet.idleFrames, idleFrameRate, true));
+            yield return StartCoroutine(PlayAnimationCoroutine(newWeaponSet.raiseFrames, switchFrameRate, false));
+        }
+        
+        // 第三阶段：开始待机动画
+        isSwitching = false;
+        StartWeaponIdle(newWeaponSet);
+    }
+    
+    IEnumerator EmptyHandsSwitchCoroutine()
+    {
+        isSwitching = true;
+        
+        // 收起当前武器
+        if (!isEmptyHands)
+        {
+            WeaponSpriteSet currentSet = GetCurrentSpriteSet();
+            if (currentSet != null && currentSet.lowerFrames.Length > 0)
+            {
+                yield return StartCoroutine(PlayAnimationCoroutine(currentSet.lowerFrames, switchFrameRate, false));
+            }
+        }
+        
+        yield return new WaitForSeconds(switchHoldTime);
+        
+        // 抬起空手
+        if (handSprites.emptyHandsRaise.Length > 0)
+        {
+            yield return StartCoroutine(PlayAnimationCoroutine(handSprites.emptyHandsRaise, switchFrameRate, false));
+        }
+        
+        isSwitching = false;
+        StartEmptyHandsIdle();
+    }
+    
+    // ==== 动画播放系统 ====
+    void StartWeaponIdle(WeaponSpriteSet weaponSet)
+    {
+        if (weaponSet.idleFrames.Length > 0)
+        {
+            if (currentAnimation != null)
+                StopCoroutine(currentAnimation);
+            currentAnimation = StartCoroutine(PlayAnimationCoroutine(weaponSet.idleFrames, idleFrameRate, true));
         }
     }
     
@@ -336,16 +382,95 @@ public class WeaponDisplay : MonoBehaviour
     {
         if (handSprites.emptyHandsIdle.Length > 0)
         {
-            if (animationCoroutine != null)
-                StopCoroutine(animationCoroutine);
-                
-            animationCoroutine = StartCoroutine(PlayAnimation(handSprites.emptyHandsIdle, idleFrameRate, true));
+            if (currentAnimation != null)
+                StopCoroutine(currentAnimation);
+            currentAnimation = StartCoroutine(PlayAnimationCoroutine(handSprites.emptyHandsIdle, idleFrameRate, true));
+        }
+    }
+    
+    public void PlayFireAnimation()
+    {
+        if (isMeleeWeapon || isEmptyHands) return;
+        
+        WeaponSpriteSet spriteSet = GetCurrentSpriteSet();
+        if (spriteSet != null && spriteSet.fireFrames.Length > 0)
+        {
+            if (currentAnimation != null)
+                StopCoroutine(currentAnimation);
+            currentAnimation = StartCoroutine(PlayAnimationCoroutine(spriteSet.fireFrames, fireFrameRate, false));
+            StartCoroutine(RecoilEffect());
+        }
+    }
+    
+    public void PlayReloadAnimation()
+    {
+        if (isMeleeWeapon || isEmptyHands) return;
+        
+        WeaponSpriteSet spriteSet = GetCurrentSpriteSet();
+        if (spriteSet != null && spriteSet.reloadFrames.Length > 0)
+        {
+            if (currentAnimation != null)
+                StopCoroutine(currentAnimation);
+            currentAnimation = StartCoroutine(PlayAnimationCoroutine(spriteSet.reloadFrames, reloadFrameRate, false));
+        }
+    }
+    
+    public void PlayMeleeAttack()
+    {
+        if (!isMeleeWeapon) return;
+        
+        WeaponSpriteSet spriteSet = GetCurrentSpriteSet();
+        if (spriteSet != null && spriteSet.meleeFrames.Length > 0)
+        {
+            if (currentAnimation != null)
+                StopCoroutine(currentAnimation);
+            currentAnimation = StartCoroutine(PlayAnimationCoroutine(spriteSet.meleeFrames, meleeFrameRate, false));
+            
+            // 执行近战攻击逻辑
+            StartCoroutine(MeleeAttackCoroutine());
+        }
+    }
+    
+    public void PlayMeleeCharge()
+    {
+        if (!isMeleeWeapon || isAnimating) return;
+        
+        WeaponSpriteSet spriteSet = GetCurrentSpriteSet();
+        if (spriteSet != null && spriteSet.meleeChargeFrames.Length > 0)
+        {
+            if (currentAnimation != null)
+                StopCoroutine(currentAnimation);
+            currentAnimation = StartCoroutine(PlayAnimationCoroutine(spriteSet.meleeChargeFrames, meleeFrameRate * 0.5f, true));
+        }
+    }
+    
+    public void PlayInteractionAnimation()
+    {
+        if (!isEmptyHands) return;
+        
+        if (handSprites.interactionFrames.Length > 0)
+        {
+            if (currentAnimation != null)
+                StopCoroutine(currentAnimation);
+            currentAnimation = StartCoroutine(PlayAnimationCoroutine(handSprites.interactionFrames, interactionFrameRate, false));
+        }
+    }
+    
+    void PlayRunningAnimation()
+    {
+        if (!isEmptyHands) return;
+        
+        if (handSprites.runningFrames.Length > 0)
+        {
+            if (currentAnimation != null)
+                StopCoroutine(currentAnimation);
+            currentAnimation = StartCoroutine(PlayAnimationCoroutine(handSprites.runningFrames, idleFrameRate * 1.5f, true));
         }
     }
     
     public void SetAiming(bool aiming)
     {
-        if (isEmptyHands) return;
+        if (isEmptyHands || isMeleeWeapon) return;
         
         WeaponSpriteSet spriteSet = GetCurrentSpriteSet();
         if (spriteSet != null)
@@ -353,24 +478,18 @@ public class WeaponDisplay : MonoBehaviour
             if (aiming && spriteSet.aimSprite != null)
             {
                 isAnimating = false;
-                if (animationCoroutine != null)
-                    StopCoroutine(animationCoroutine);
+                if (currentAnimation != null)
+                    StopCoroutine(currentAnimation);
                 weaponImage.sprite = spriteSet.aimSprite;
             }
             else if (!aiming)
             {
-                StartIdleAnimation();
+                StartWeaponIdle(spriteSet);
             }
         }
     }
     
-    WeaponSpriteSet GetCurrentSpriteSet()
-    {
-        if (currentWeapon == null) return null;
-        return GetSpriteSet(currentWeapon.weaponType);
-    }
-    
-    IEnumerator PlayAnimation(Sprite[] frames, float frameRate, bool loop)
+    IEnumerator PlayAnimationCoroutine(Sprite[] frames, float frameRate, bool loop)
     {
         if (weaponImage == null || frames.Length == 0) yield break;
         
@@ -384,27 +503,112 @@ public class WeaponDisplay : MonoBehaviour
                 weaponImage.sprite = frames[i];
                 yield return new WaitForSeconds(frameTime);
             }
-        } while (loop && isAnimating);
+        } while (loop && isAnimating && !isSwitching);
         
         // 动画结束处理
-        if (!loop)
+        if (!loop && !isSwitching)
         {
-            if (isInteracting)
-            {
-                isInteracting = false;
-                StartEmptyHandsIdle();
-            }
-            else if (currentWeapon != null && !currentWeapon.IsReloading)
-            {
-                StartIdleAnimation();
-            }
-            else if (isEmptyHands)
+            if (isEmptyHands)
             {
                 StartEmptyHandsIdle();
             }
+            else
+            {
+                WeaponSpriteSet currentSet = GetCurrentSpriteSet();
+                if (currentSet != null)
+                {
+                    StartWeaponIdle(currentSet);
+                }
+            }
+        }
+        
+        isAnimating = false;
+    }
+    
+    // ==== 近战攻击逻辑 ====
+    IEnumerator MeleeAttackCoroutine()
+    {
+        yield return new WaitForSeconds(0.1f); // 攻击前摇
+        
+        // 检测近战范围内的敌人
+        Camera cam = Camera.main;
+        if (cam != null)
+        {
+            Vector3 screenCenter = new Vector3(Screen.width / 2f, Screen.height / 2f, 0);
+            Ray ray = cam.ScreenPointToRay(screenCenter);
+            
+            RaycastHit[] hits = Physics.RaycastAll(ray, meleeReachDistance);
+            
+            foreach (var hit in hits)
+            {
+                IDamageable damageable = hit.collider.GetComponent<IDamageable>();
+                if (damageable != null)
+                {
+                    // 近战伤害
+                    float meleeDamage = currentWeapon ? currentWeapon.damage : 50f;
+                    damageable.TakeDamage(meleeDamage);
+                    
+                    // 近战击中效果
+                    CreateMeleeHitEffect(hit.point, hit.normal);
+                    break; // 只击中第一个目标
+                }
+            }
+        }
+        
+        // 武器摇摆效果
+        StartCoroutine(MeleeSwingEffect());
+    }
+    
+    IEnumerator MeleeSwingEffect()
+    {
+        Vector2 startPos = weaponRect.anchoredPosition;
+        Vector2 swingPos = startPos + Vector2.right * meleeSwingAmount;
+        
+        // 快速挥舞
+        float elapsed = 0f;
+        while (elapsed < 0.15f)
+        {
+            elapsed += Time.deltaTime;
+            weaponRect.anchoredPosition = Vector2.Lerp(startPos, swingPos, elapsed / 0.15f);
+            yield return null;
+        }
+        
+        // 回归原位
+        elapsed = 0f;
+        while (elapsed < 0.1f)
+        {
+            elapsed += Time.deltaTime;
+            weaponRect.anchoredPosition = Vector2.Lerp(swingPos, startPos, elapsed / 0.1f);
+            yield return null;
         }
     }
     
+    void CreateMeleeHitEffect(Vector3 position, Vector3 normal)
+    {
+        // 这里可以创建近战击中特效
+        Debug.Log($"近战击中！位置：{position}");
+        
+        // 可以播放击中音效
+        // AudioSource.PlayClipAtPoint(meleeHitSound, position);
+    }
+    
+    // ==== 与你现有射击系统的集成 ====
+    void TriggerWeaponFire()
+    {
+        // 这里调用你现有的射击逻辑
+        // 比如生成子弹、播放音效等
+        
+        if (currentWeapon != null)
+        {
+            // 如果你的WeaponController有公共的Fire方法，可以这样调用：
+            // currentWeapon.Fire();
+            
+            // 或者通过事件系统通知
+            Debug.Log("触发武器射击！");
+        }
+    }
+    
+    // ==== 后坐力效果 ====
     IEnumerator RecoilEffect()
     {
         if (weaponRect == null) yield break;
@@ -429,9 +633,51 @@ public class WeaponDisplay : MonoBehaviour
         }
     }
     
-    // 公共方法
-    public void OnWeaponFired() => PlayFireAnimation();
-    public void OnWeaponReload() => PlayReloadAnimation();
-    public void OnWeaponSwitch(WeaponType newType) => SetWeaponType(newType);
-    public void OnInteraction() => PlayInteractionAnimation();
+    // ==== 辅助方法 ====
+    WeaponSpriteSet GetSpriteSet(WeaponType weaponType)
+    {
+        foreach (var spriteSet in weaponSprites)
+        {
+            if (spriteSet.weaponType == weaponType)
+                return spriteSet;
+        }
+        return null;
+    }
+    
+    WeaponSpriteSet GetCurrentSpriteSet()
+    {
+        if (currentWeapon == null) return null;
+        return GetSpriteSet(currentWeapon.weaponType);
+    }
+    
+    // ==== 公共方法供外部调用 ====
+    public void OnWeaponSwitch(WeaponType newType)
+    {
+        SwitchToWeapon(newType);
+    }
+    
+    public void OnGoEmptyHands()
+    {
+        SwitchToEmptyHands();
+    }
+    
+    public void OnWeaponFired()
+    {
+        PlayFireAnimation();
+    }
+    
+    public void OnWeaponReload()
+    {
+        PlayReloadAnimation();
+    }
+    
+    public void OnInteraction()
+    {
+        PlayInteractionAnimation();
+    }
+    
+    public void OnMeleeAttack()
+    {
+        PlayMeleeAttack();
+    }
 }

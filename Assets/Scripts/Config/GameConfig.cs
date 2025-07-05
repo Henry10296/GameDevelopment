@@ -154,6 +154,7 @@ public enum WeaponType
 {
     Pistol=1,
     Rifle=2,
+    Knife
 }
 [System.Serializable]
 public class WeaponSystemConfig

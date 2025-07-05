@@ -192,7 +192,7 @@ public class PlayerController : MonoBehaviour
         }
     }
     
-    void HandleWeaponSwitching()
+    /*void HandleWeaponSwitching()
     {
         if (weaponManager == null) return;
     
@@ -222,8 +222,94 @@ public class PlayerController : MonoBehaviour
         {
             weaponManager.Reload();
         }
+    }*/
+void HandleWeaponSwitching()
+{
+    if (weaponManager == null) return;
+    
+    // 保持你现有的武器切换逻辑
+    if (Input.GetKeyDown(KeyCode.Alpha1))
+    {
+        weaponManager.SwitchWeapon(0);
+        NotifyWeaponDisplay(0); // 修改：传入武器索引
     }
+    else if (Input.GetKeyDown(KeyCode.Alpha2))
+    {
+        weaponManager.SwitchWeapon(1);
+        NotifyWeaponDisplay(1);
+    }
+    else if (Input.GetKeyDown(KeyCode.Alpha3)) // 新增：近战武器
+    {
+        weaponManager.SwitchWeapon(2);
+        NotifyWeaponDisplay(2);
+    }
+    
+    // 滚轮切换
+    float scrollDelta = Input.GetAxis("Mouse ScrollWheel");
+    if (scrollDelta != 0)
+    {
+        int direction = scrollDelta > 0 ? 1 : -1;
+        weaponManager.CycleWeapon(direction);
+        NotifyWeaponDisplayCycle(); // 新增：循环切换通知
+    }
+    
+    // 空手切换（新增）
+    if (Input.GetKeyDown(KeyCode.Alpha0) || Input.GetKeyDown(KeyCode.H))
+    {
+        weaponManager.SetEmptyHands(); // 需要在WeaponManager中实现
+        NotifyWeaponDisplayEmptyHands();
+    }
+    
+    // 换弹（保持原有逻辑，但排除近战武器）
+    if (Input.GetKeyDown(KeyCode.R))
+    {
+        var currentWeapon = weaponManager.GetCurrentWeapon();
+        if (currentWeapon != null && currentWeapon.weaponType != WeaponType.Knife)
+        {
+            weaponManager.Reload();
+        }
+    }
+}
 
+// 新增：通知武器显示系统
+void NotifyWeaponDisplay(int weaponIndex)
+{
+    WeaponDisplay weaponDisplay = FindObjectOfType<WeaponDisplay>();
+    if (weaponDisplay != null && weaponManager != null)
+    {
+        var currentWeapon = weaponManager.GetCurrentWeapon();
+        if (currentWeapon != null)
+        {
+            weaponDisplay.OnWeaponSwitch(currentWeapon.weaponType);
+        }
+    }
+}
+
+void NotifyWeaponDisplayCycle()
+{
+    WeaponDisplay weaponDisplay = FindObjectOfType<WeaponDisplay>();
+    if (weaponDisplay != null && weaponManager != null)
+    {
+        var currentWeapon = weaponManager.GetCurrentWeapon();
+        if (currentWeapon != null)
+        {
+            weaponDisplay.OnWeaponSwitch(currentWeapon.weaponType);
+        }
+        else
+        {
+            weaponDisplay.OnGoEmptyHands();
+        }
+    }
+}
+
+void NotifyWeaponDisplayEmptyHands()
+{
+    WeaponDisplay weaponDisplay = FindObjectOfType<WeaponDisplay>();
+    if (weaponDisplay != null)
+    {
+        weaponDisplay.OnGoEmptyHands();
+    }
+}
 // 新增：通知2D武器显示系统
     void NotifyWeaponDisplay()
     {
@@ -238,7 +324,7 @@ public class PlayerController : MonoBehaviour
             else
             {
                 // 空手状态
-                weaponDisplay.SetEmptyHands();
+                weaponDisplay.OnGoEmptyHands(); // ✅ 正确的方法名
             }
         }
     }
