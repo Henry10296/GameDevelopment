@@ -2,6 +2,8 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+
+
 public abstract class WeaponController : MonoBehaviour
 {
     [Header("基础设置")]
@@ -58,6 +60,8 @@ public abstract class WeaponController : MonoBehaviour
     protected Vector2 currentRecoil;
     
     [HideInInspector] public Vector3 originalPosition;
+    
+
     
     public virtual void Initialize(WeaponManager manager)
     {

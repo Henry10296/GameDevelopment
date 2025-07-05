@@ -18,16 +18,15 @@ public class PlayerController : MonoBehaviour
     [Header("跳跃设置")]
     [SerializeField] private float jumpHeight = 1.5f;
     [SerializeField] private float gravity = 20f;
-    [SerializeField] private float groundCheckDistance = 0.1f;
+    [SerializeField] private float groundCheckDistance = 0.2f;
     
     [Header("鼠标设置")]
     [SerializeField] private float mouseSensitivity = 2f;
     [SerializeField] private float maxLookAngle = 80f;
     [SerializeField] private bool invertMouseY = false;
     
-    [Header("下蹲设置")]
-    [SerializeField] private float crouchHeight = 1f;
-    [SerializeField] private float standingHeight = 2f;
+    [Header("下蹲设置 (Doom风格)")]
+    [SerializeField] private float crouchCameraOffset = -0.8f; // 只降低相机，不改变碰撞体
     [SerializeField] private float crouchTransitionSpeed = 10f;
     
     [Header("倾斜设置")]
@@ -77,13 +76,14 @@ public class PlayerController : MonoBehaviour
     private Vector3 velocity;
     private float currentSpeed;
     private bool isGrounded;
+    private bool wasGrounded; // 用于落地检测
     private bool isRunning;
     private bool isCrouching;
     private bool isAiming;
     private bool isLeaning;
     private float leanDirection;
     private float currentLeanAngle;
-    private float currentCrouchHeight;
+    private float currentCrouchOffset; // 改为相机偏移而不是高度
     private float bobTimer;
     private float footstepTimer;
     private float swayTimer;
@@ -110,7 +110,6 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-  
     void InitializeComponents()
     {
         try
@@ -155,7 +154,7 @@ public class PlayerController : MonoBehaviour
             // 设置初始位置和旋转
             originalCameraPosition = playerCamera.transform.localPosition;
             originalCameraRotation = playerCamera.transform.localRotation;
-            currentCrouchHeight = standingHeight;
+            currentCrouchOffset = 0f; // 初始化下蹲偏移
             
             // 确保有AudioListener
             EnsureAudioListener();
@@ -193,11 +192,62 @@ public class PlayerController : MonoBehaviour
         }
     }
     
+    void HandleWeaponSwitching()
+    {
+        if (weaponManager == null) return;
+    
+        // 保持你现有的武器切换逻辑
+        if (Input.GetKeyDown(KeyCode.Alpha1))
+        {
+            weaponManager.SwitchWeapon(0);
+            NotifyWeaponDisplay(); // 新增：通知2D显示系统
+        }
+        else if (Input.GetKeyDown(KeyCode.Alpha2))
+        {
+            weaponManager.SwitchWeapon(1);
+            NotifyWeaponDisplay(); // 新增：通知2D显示系统
+        }
+    
+        // 滚轮切换（保持原有逻辑）
+        float scrollDelta = Input.GetAxis("Mouse ScrollWheel");
+        if (scrollDelta != 0)
+        {
+            int direction = scrollDelta > 0 ? 1 : -1;
+            weaponManager.CycleWeapon(direction);
+            NotifyWeaponDisplay(); // 新增：通知2D显示系统
+        }
+    
+        // 换弹（保持原有逻辑）
+        if (Input.GetKeyDown(KeyCode.R))
+        {
+            weaponManager.Reload();
+        }
+    }
+
+// 新增：通知2D武器显示系统
+    void NotifyWeaponDisplay()
+    {
+        WeaponDisplay weaponDisplay = FindObjectOfType<WeaponDisplay>();
+        if (weaponDisplay != null && weaponManager != null)
+        {
+            var currentWeapon = weaponManager.GetCurrentWeapon();
+            if (currentWeapon != null)
+            {
+                weaponDisplay.OnWeaponSwitch(currentWeapon.weaponType);
+            }
+            else
+            {
+                // 空手状态
+                weaponDisplay.SetEmptyHands();
+            }
+        }
+    }
     void CreatePlayerCamera()
     {
         GameObject cameraObj = new GameObject("PlayerCamera");
         cameraObj.transform.SetParent(transform);
-        cameraObj.transform.localPosition = new Vector3(0, standingHeight * 0.9f, 0);
+        // 修复：设置更贴近第一人称的相机位置
+        cameraObj.transform.localPosition = new Vector3(0, 1.6f, 0.1f); // 稍微前移一点
         cameraObj.transform.localRotation = Quaternion.identity;
         
         playerCamera = cameraObj.AddComponent<Camera>();
@@ -230,8 +280,9 @@ public class PlayerController : MonoBehaviour
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
             
-            controller.height = standingHeight;
-            controller.center = new Vector3(0, standingHeight / 2, 0);
+            // 修复：不要在运行时改变CharacterController的高度，保持固定
+            controller.height = 2f; // 固定高度
+            controller.center = new Vector3(0, 1f, 0); // 固定中心点
             
             if (playerCamera != null)
             {
@@ -249,10 +300,7 @@ public class PlayerController : MonoBehaviour
     void Update()
     {
         if (!isInitialized || playerCamera == null) return;
-        transform.position = new Vector3(transform.position.x, 1.1f, transform.position.z);
-        Debug.DrawRay(transform.position, Vector3.down * (controller.height / 2 + groundCheckDistance), Color.red);
-        Debug.Log($"[状态] isGrounded={isGrounded}, Velocity={velocity}, Controller.isGrounded={controller.isGrounded}");
-
+        
         try
         {
             HandleInput();
@@ -274,7 +322,7 @@ public class PlayerController : MonoBehaviour
     void HandleInput()
     {
         // 读取移动输入
-        moveInput = new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical"));
+        moveInput = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
         if (moveInput.magnitude > 1f) moveInput.Normalize();
 
         // 读取鼠标输入
@@ -283,30 +331,27 @@ public class PlayerController : MonoBehaviour
         // 状态判断
         isRunning = Input.GetKey(KeyCode.LeftShift) && !isCrouching && !isAiming;
 
-        // 缓冲跳跃判断
-        if (Input.GetButtonDown("Jump") && isGrounded && !isCrouching)
+        // 跳跃判断
+        if (Input.GetKeyDown(KeyCode.Space) && isGrounded && !isCrouching)
         {
             Jump();
         }
     }
 
-    
-    // 跳跃容错时间（Coyote Time）
-    private float groundedTimer = 0f;
-    private float coyoteTime = 0.2f;
-
     void HandleMovement()
     {
-        // 更稳定的地面检测
-        if (controller.isGrounded)
+        // 记录上一帧是否在地面
+        wasGrounded = isGrounded;
+        
+        // 修复：改进地面检测
+        CheckGrounded();
+        
+        // 检测落地
+        if (!wasGrounded && isGrounded && velocity.y < 0)
         {
-            isGrounded = true;
-            groundedTimer = coyoteTime;
-        }
-        else
-        {
-            groundedTimer -= Time.deltaTime;
-            isGrounded = groundedTimer > 0f;
+            // 刚落地
+            PlaySound(landSound);
+            Debug.Log("Player landed!");
         }
 
         // 计算移动方向（本地空间 → 世界空间）
@@ -322,34 +367,45 @@ public class PlayerController : MonoBehaviour
         else
             targetSpeed = walkSpeed;
 
-        // 平滑过渡速度
-        if (moveDirection.magnitude > 0.1f)
-            currentSpeed = Mathf.Lerp(currentSpeed, targetSpeed, acceleration * Time.deltaTime);
-        else
-            currentSpeed = Mathf.Lerp(currentSpeed, 0f, deceleration * Time.deltaTime);
-
-        // 最终水平速度
-        Vector3 targetVelocity = moveDirection * currentSpeed;
-
-        // 空中控制处理（只对 XZ）
-        if (!isGrounded)
+        // 修复：简化移动逻辑
+        if (isGrounded)
         {
-            Vector3 prevHorizontal = new Vector3(velocity.x, 0f, velocity.z);
-            Vector3 blended = Vector3.Lerp(prevHorizontal, targetVelocity, airControl);
-            velocity.x = blended.x;
-            velocity.z = blended.z;
+            // 地面移动
+            if (moveDirection.magnitude > 0.1f)
+            {
+                // 有输入时加速
+                currentSpeed = Mathf.Lerp(currentSpeed, targetSpeed, acceleration * Time.deltaTime);
+                Vector3 targetVelocity = moveDirection * currentSpeed;
+                velocity.x = targetVelocity.x;
+                velocity.z = targetVelocity.z;
+            }
+            else
+            {
+                // 无输入时减速
+                currentSpeed = Mathf.Lerp(currentSpeed, 0f, deceleration * Time.deltaTime);
+                velocity.x = Mathf.Lerp(velocity.x, 0f, deceleration * Time.deltaTime);
+                velocity.z = Mathf.Lerp(velocity.z, 0f, deceleration * Time.deltaTime);
+            }
+            
+            // 修复：在地面时重置垂直速度
+            if (velocity.y <= 0f)
+            {
+                velocity.y = -0.5f; // 轻微的负值保持贴地
+            }
         }
         else
         {
-            velocity.x = targetVelocity.x;
-            velocity.z = targetVelocity.z;
-        }
-
-        // 重力处理
-        if (isGrounded && velocity.y < 0f)
-            velocity.y = -2f; // 稳定贴地
-        else
+            // 空中移动 - 限制控制力
+            if (moveDirection.magnitude > 0.1f)
+            {
+                Vector3 targetVelocity = moveDirection * (targetSpeed * airControl);
+                velocity.x = Mathf.Lerp(velocity.x, targetVelocity.x, airControl * Time.deltaTime);
+                velocity.z = Mathf.Lerp(velocity.z, targetVelocity.z, airControl * Time.deltaTime);
+            }
+            
+            // 修复：确保重力持续作用
             velocity.y -= gravity * Time.deltaTime;
+        }
 
         // 最终移动应用
         controller.Move(velocity * Time.deltaTime);
@@ -368,6 +424,24 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    // 修复：更简单有效的地面检测
+    void CheckGrounded()
+    {
+        // 使用CharacterController自带的isGrounded作为主要判断
+        isGrounded = controller.isGrounded;
+        
+        // 如果CharacterController说不在地面，再用射线检测确认
+        if (!isGrounded)
+        {
+            Vector3 rayStart = transform.position + Vector3.up * 0.1f;
+            float rayDistance = 0.2f;
+            
+            isGrounded = Physics.Raycast(rayStart, Vector3.down, rayDistance);
+            
+            // 调试可视化
+            Debug.DrawRay(rayStart, Vector3.down * rayDistance, isGrounded ? Color.green : Color.red);
+        }
+    }
     
     void HandleRotation()
     {
@@ -375,14 +449,15 @@ public class PlayerController : MonoBehaviour
         
         try
         {
-            // 水平旋转（Y轴）
+            // 水平旋转（Y轴）- 旋转整个玩家
             transform.Rotate(Vector3.up * mouseInput.x * mouseSensitivity);
             
-            // 垂直旋转（X轴）
+            // 垂直旋转（X轴）- 只旋转相机
             float mouseY = invertMouseY ? mouseInput.y : -mouseInput.y;
             cameraRotationX += mouseY * mouseSensitivity;
             cameraRotationX = Mathf.Clamp(cameraRotationX, -maxLookAngle, maxLookAngle);
             
+            // 应用相机旋转（包括倾斜）
             playerCamera.transform.localRotation = Quaternion.Euler(cameraRotationX, 0f, currentLeanAngle);
         }
         catch (System.Exception e)
@@ -398,18 +473,20 @@ public class PlayerController : MonoBehaviour
             isCrouching = !isCrouching;
         }
         
-        float targetHeight = isCrouching ? crouchHeight : standingHeight;
-        currentCrouchHeight = Mathf.Lerp(currentCrouchHeight, targetHeight, crouchTransitionSpeed * Time.deltaTime);
+        // 修复：Doom风格下蹲 - 只改变相机位置，不改变碰撞体
+        float targetCrouchOffset = isCrouching ? crouchCameraOffset : 0f;
+        currentCrouchOffset = Mathf.Lerp(currentCrouchOffset, targetCrouchOffset, crouchTransitionSpeed * Time.deltaTime);
         
-        controller.height = currentCrouchHeight;
-        controller.center = new Vector3(0, currentCrouchHeight / 2, 0);
+        // 不再修改CharacterController的高度和中心点，保持固定
+        // controller.height = currentCrouchHeight;
+        // controller.center = new Vector3(0, currentCrouchHeight / 2, 0);
         
-        // 更新相机高度
+        // 只更新相机位置
         if (playerCamera != null)
         {
             Vector3 cameraPos = originalCameraPosition;
-            cameraPos.y = currentCrouchHeight - 0.2f;
-            playerCamera.transform.localPosition = Vector3.Lerp(playerCamera.transform.localPosition, cameraPos, crouchTransitionSpeed * Time.deltaTime);
+            cameraPos.y += currentCrouchOffset; // 只是上下移动相机
+            playerCamera.transform.localPosition = cameraPos;
         }
     }
     
@@ -420,25 +497,26 @@ public class PlayerController : MonoBehaviour
         float targetLean = 0f;
         Vector3 targetOffset = Vector3.zero;
         
+        // 修复：交换Q和E的倾斜方向
         if (Input.GetKey(KeyCode.Q))
-        {
-            targetLean = -leanAngle;
-            targetOffset = -transform.right * leanOffset;
-        }
-        else if (Input.GetKey(KeyCode.E))
         {
             targetLean = leanAngle;
             targetOffset = transform.right * leanOffset;
         }
+        else if (Input.GetKey(KeyCode.E))
+        {
+            targetLean = -leanAngle;
+            targetOffset = -transform.right * leanOffset;
+        }
         
         currentLeanAngle = Mathf.Lerp(currentLeanAngle, targetLean, leanSpeed * Time.deltaTime);
         
-        // 应用倾斜偏移
-        if (playerCamera.transform.parent != null)
-        {
-            Vector3 currentOffset = playerCamera.transform.parent.localPosition;
-            playerCamera.transform.parent.localPosition = Vector3.Lerp(currentOffset, targetOffset, leanSpeed * Time.deltaTime);
-        }
+        // 应用倾斜偏移到相机位置（结合下蹲偏移）
+        Vector3 currentCameraPos = playerCamera.transform.localPosition;
+        Vector3 desiredPos = originalCameraPosition + 
+                           new Vector3(0, currentCrouchOffset, 0) + // 下蹲偏移
+                           targetOffset; // 倾斜偏移
+        playerCamera.transform.localPosition = Vector3.Lerp(currentCameraPos, desiredPos, leanSpeed * Time.deltaTime);
     }
     
     void HandleAiming()
@@ -457,7 +535,7 @@ public class PlayerController : MonoBehaviour
         }
     }
     
-    void HandleWeaponSwitching()
+    /*void HandleWeaponSwitching()
     {
         if (weaponManager == null) return;
         
@@ -484,7 +562,7 @@ public class PlayerController : MonoBehaviour
         {
             weaponManager.Reload();
         }
-    }
+    }*/
     
     void HandleInteraction()
     {
@@ -511,7 +589,7 @@ public class PlayerController : MonoBehaviour
     {
         if (playerCamera == null) return;
         
-        // 相机摇晃
+        // 相机摇晃（行走时）
         if (isGrounded && currentSpeed > 0.1f)
         {
             float bobSpeed = isRunning ? runBobSpeed : walkBobSpeed;
@@ -528,7 +606,12 @@ public class PlayerController : MonoBehaviour
             float bobY = Mathf.Abs(Mathf.Cos(bobTimer)) * bobAmount;
             
             Vector3 bobOffset = new Vector3(bobX * 0.5f, bobY, 0);
-            playerCamera.transform.localPosition = originalCameraPosition + bobOffset;
+            
+            // 计算基础相机位置（包括下蹲和倾斜调整）
+            Vector3 baseCameraPos = originalCameraPosition;
+            baseCameraPos.y += currentCrouchOffset; // 添加下蹲偏移
+            
+            playerCamera.transform.localPosition = baseCameraPos + bobOffset;
         }
         
         // 瞄准摇晃
@@ -538,7 +621,7 @@ public class PlayerController : MonoBehaviour
             float swayX = Mathf.Sin(swayTimer) * aimSwayAmount;
             float swayY = Mathf.Sin(swayTimer * 0.7f) * aimSwayAmount * 0.7f;
             
-            playerCamera.transform.localRotation = originalCameraRotation * Quaternion.Euler(swayY, swayX, 0);
+            playerCamera.transform.localRotation = originalCameraRotation * Quaternion.Euler(cameraRotationX + swayY, swayX, currentLeanAngle);
         }
         
         // 手部/武器摇晃
@@ -567,8 +650,10 @@ public class PlayerController : MonoBehaviour
     
     void Jump()
     {
+        // 修复：使用正确的跳跃计算
         velocity.y = Mathf.Sqrt(jumpHeight * 2f * gravity);
         PlaySound(jumpSound);
+        Debug.Log($"Jump executed! velocity.y = {velocity.y}");
     }
     
     void PlayFootstep()

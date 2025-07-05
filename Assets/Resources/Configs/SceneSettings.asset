@@ -17,12 +17,16 @@ MonoBehaviour:
     sceneName: 0_MainMenu
     displayName: "\u4E3B\u83DC\u5355"
     scenePreview: {fileID: 0}
+  - gamePhase: 1
+    sceneName: 1_Story
+    displayName: "\u5730\u56FE\u9009\u62E9"
+    scenePreview: {fileID: 0}
   - gamePhase: 2
-    sceneName: 1_Home
+    sceneName: 2_Home
     displayName: "\u5BB6\u5EAD"
     scenePreview: {fileID: 0}
   - gamePhase: 3
-    sceneName: 1_Home
+    sceneName: 2_Home
     displayName: "\u5730\u56FE\u9009\u62E9"
     scenePreview: {fileID: 0}
   explorationScenes:

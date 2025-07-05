@@ -1,201 +1,262 @@
+using System.Collections;
+using TMPro;
 using UnityEngine;
-using System.Collections.Generic;
-using System;
-
-[System.Serializable]
-public class StoryChoice
-{
-    public string choiceText;
-    public string description;
-    public int foodBonus;
-    public int waterBonus;
-    public int medicineBonus;
-    public bool hasWeapon;
-    public string consequenceText;
-}
-
-[System.Serializable]
-public class StorySegment
-{
-    public string storyText;
-    public List<StoryChoice> choices;
-    public float displayDuration = 3f;
-}
+using UnityEngine.UI;
 
 public class StoryManager : Singleton<StoryManager>
 {
-    /*public static StoryManager Instance;*/
+    [Header("Story配置")]
+    public StoryData currentStory;
     
-    [Header("故事配置")]
-    public List<StorySegment> storySegments;
-    
-    [Header("UI引用")]
+    [Header("UI组件")]
     public GameObject storyPanel;
-    public TMPro.TextMeshProUGUI storyText;
-    public Transform choiceButtonParent;
+    public TextMeshProUGUI storyText;
+    public Image backgroundImage;
+    public Transform choiceContainer;
     public GameObject choiceButtonPrefab;
+    public CanvasGroup storyCanvasGroup;
     
-    public static event Action OnStoryCompleted;
+    [Header("动画设置")]
+    public float fadeSpeed = 2f;
+    public float typewriterSpeed = 50f;
     
     private int currentSegmentIndex = 0;
-    private bool storyInProgress = false;
-    void InitializeStory()
-    {
-        // 初始化故事段落
-        storySegments = new List<StorySegment>
-        {
-            new StorySegment
-            {
-                storyText = "核战争爆发了！你们一家三口被困在地下室中。外面的世界变得危险而混乱。你必须做出选择来决定如何度过这场灾难...",
-                displayDuration = 4f,
-                choices = new List<StoryChoice>
-                {
-                    new StoryChoice
-                    {
-                        choiceText = "储备食物",
-                        description = "你之前囤积了大量食物",
-                        foodBonus = 10,
-                        waterBonus = 5,
-                        medicineBonus = 0,
-                        hasWeapon = false,
-                        consequenceText = "你们有足够的食物，但缺乏其他物资"
-                    },
-                    new StoryChoice
-                    {
-                        choiceText = "准备医疗用品",
-                        description = "你预见到了医疗的重要性",
-                        foodBonus = 5,
-                        waterBonus = 5,
-                        medicineBonus = 8,
-                        hasWeapon = false,
-                        consequenceText = "你们有充足的医疗用品，但食物紧张"
-                    },
-                    new StoryChoice
-                    {
-                        choiceText = "武装自己",
-                        description = "你准备了武器来保护家人",
-                        foodBonus = 3,
-                        waterBonus = 3,
-                        medicineBonus = 1,
-                        hasWeapon = true,
-                        consequenceText = "你有武器，但物资稀缺，需要外出寻找"
-                    }
-                }
-            }
-        };
-    }
+    private bool storyActive = false;
+    private Coroutine currentAnimation;
     
     public void StartStory()
     {
-        if (storySegments.Count == 0) return;
+        if (currentStory == null || currentStory.segments.Length == 0)
+        {
+            Debug.LogError("No story data configured!");
+            return;
+        }
         
-        storyInProgress = true;
+        storyActive = true;
         currentSegmentIndex = 0;
         
+        // 显示故事面板
         if (storyPanel) storyPanel.SetActive(true);
         
-        StartCoroutine(DisplayStorySegment(storySegments[currentSegmentIndex]));
-    }
-    
-    System.Collections.IEnumerator DisplayStorySegment(StorySegment segment)
-    {
-        // 显示故事文本
-        if (storyText)
+        // 播放背景音乐
+        if (currentStory.backgroundMusic && AudioManager.Instance)
         {
-            storyText.text = segment.storyText;
+            AudioManager.Instance.PlayMusic(currentStory.backgroundMusic.name);
         }
         
+        // 开始第一段故事
+        StartCoroutine(PlayStorySegment(currentStory.segments[currentSegmentIndex]));
+    }
+    
+    IEnumerator PlayStorySegment(StorySegment segment)
+    {
         // 清空选择按钮
-        foreach (Transform child in choiceButtonParent)
+        ClearChoices();
+        
+        // 设置背景图片
+        if (backgroundImage && segment.segmentImage)
         {
-            Destroy(child.gameObject);
+            backgroundImage.sprite = segment.segmentImage;
         }
         
-        // 等待文本显示时间
-        yield return new WaitForSeconds(segment.displayDuration);
+        // 淡入效果
+        yield return StartCoroutine(FadeIn());
         
-        // 显示选择按钮
-        foreach (var choice in segment.choices)
+        // 打字机效果显示文本
+        yield return StartCoroutine(TypewriterEffect(segment.storyText, segment.textSpeed));
+        
+        // 等待暂停时间
+        yield return new WaitForSeconds(segment.pauseAfterText);
+        
+        // 显示选择项
+        if (segment.choices != null && segment.choices.Length > 0)
         {
-            CreateChoiceButton(choice);
+            CreateChoiceButtons(segment.choices);
+        }
+        else
+        {
+            // 没有选择，等待输入或自动继续
+            if (segment.waitForInput)
+            {
+                yield return new WaitUntil(() => Input.anyKeyDown);
+            }
+            
+            ContinueStory();
         }
     }
     
-    void CreateChoiceButton(StoryChoice choice)
+    IEnumerator TypewriterEffect(string text, float speed)
     {
-        GameObject buttonObj = Instantiate(choiceButtonPrefab, choiceButtonParent);
-        UnityEngine.UI.Button button = buttonObj.GetComponent<UnityEngine.UI.Button>();
-        TMPro.TextMeshProUGUI buttonText = buttonObj.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+        if (storyText == null) yield break;
         
-        if (buttonText)
+        storyText.text = "";
+        float characterDelay = 1f / speed;
+        
+        for (int i = 0; i < text.Length; i++)
         {
-            buttonText.text = choice.choiceText + "\n<size=12>" + choice.description + "</size>";
+            storyText.text += text[i];
+            yield return new WaitForSeconds(characterDelay);
+            
+            // 空格和标点符号稍微快一些
+            if (char.IsPunctuation(text[i]) || char.IsWhiteSpace(text[i]))
+            {
+                yield return new WaitForSeconds(characterDelay * 0.5f);
+            }
         }
+    }
+    
+    IEnumerator FadeIn()
+    {
+        if (storyCanvasGroup == null) yield break;
         
-        if (button)
+        float alpha = 0f;
+        while (alpha < 1f)
         {
-            button.onClick.AddListener(() => OnChoiceSelected(choice));
+            alpha += fadeSpeed * Time.deltaTime;
+            storyCanvasGroup.alpha = alpha;
+            yield return null;
+        }
+        storyCanvasGroup.alpha = 1f;
+    }
+    
+    void CreateChoiceButtons(StoryChoice[] choices)
+    {
+        foreach (var choice in choices)
+        {
+            GameObject buttonObj = Instantiate(choiceButtonPrefab, choiceContainer);
+            
+            // 设置按钮文本
+            var buttonText = buttonObj.GetComponentInChildren<TextMeshProUGUI>();
+            if (buttonText)
+            {
+                buttonText.text = $"{choice.choiceText}\n<size=14><color=#CCCCCC>{choice.description}</color></size>";
+            }
+            
+            // 绑定点击事件
+            var button = buttonObj.GetComponent<Button>();
+            if (button)
+            {
+                button.onClick.AddListener(() => OnChoiceSelected(choice));
+            }
         }
     }
     
     void OnChoiceSelected(StoryChoice choice)
     {
-        // 应用选择结果
-        ApplyChoiceConsequences(choice);
+        // 应用选择效果
+        ApplyChoiceEffects(choice);
         
         // 显示结果
         StartCoroutine(ShowChoiceResult(choice));
     }
     
-    void ApplyChoiceConsequences(StoryChoice choice)
+    void ApplyChoiceEffects(StoryChoice choice)
     {
         if (FamilyManager.Instance)
         {
-            FamilyManager.Instance.AddResource("food", choice.foodBonus);
-            FamilyManager.Instance.AddResource("water", choice.waterBonus);
-            FamilyManager.Instance.AddResource("medicine", choice.medicineBonus);
+            if (choice.foodBonus != 0)
+                FamilyManager.Instance.AddResource("food", choice.foodBonus);
+            if (choice.waterBonus != 0)
+                FamilyManager.Instance.AddResource("water", choice.waterBonus);
+            if (choice.medicineBonus != 0)
+                FamilyManager.Instance.AddResource("medicine", choice.medicineBonus);
         }
         
-        if (choice.hasWeapon && InventoryManager.Instance)
+        if (choice.grantWeapon && InventoryManager.Instance)
         {
-            // 添加手枪到背包
-            // 这里需要手枪的ItemData引用
-            Debug.Log("获得了手枪!");
+            // 根据weaponType添加武器到背包
+            // 需要武器的ItemData引用
+            Debug.Log($"获得了{choice.weaponType}!");
+        }
+        
+        // 记录到日志
+        if (JournalManager.Instance)
+        {
+            JournalManager.Instance.AddEntry("故事选择", 
+                $"选择了：{choice.choiceText}。{choice.resultText}", 
+                JournalEntryType.Important);
         }
     }
     
-    System.Collections.IEnumerator ShowChoiceResult(StoryChoice choice)
+    IEnumerator ShowChoiceResult(StoryChoice choice)
     {
-        // 清空选择按钮
-        foreach (Transform child in choiceButtonParent)
+        ClearChoices();
+        
+        // 显示结果文本
+        yield return StartCoroutine(TypewriterEffect(choice.resultText, typewriterSpeed));
+        
+        // 等待显示时间
+        yield return new WaitForSeconds(choice.resultDisplayTime);
+        
+        // 继续故事或结束
+        ContinueStory();
+    }
+    
+    void ClearChoices()
+    {
+        if (choiceContainer == null) return;
+        
+        foreach (Transform child in choiceContainer)
         {
             Destroy(child.gameObject);
         }
+    }
+    
+    void ContinueStory()
+    {
+        currentSegmentIndex++;
         
-        // 显示结果文本
-        if (storyText)
+        if (currentSegmentIndex < currentStory.segments.Length)
         {
-            storyText.text = choice.consequenceText;
+            // 继续下一段
+            StartCoroutine(PlayStorySegment(currentStory.segments[currentSegmentIndex]));
         }
-        
-        yield return new WaitForSeconds(3f);
-        
-        // 完成故事
-        CompleteStory();
+        else
+        {
+            // 故事结束
+            CompleteStory();
+        }
     }
     
     void CompleteStory()
     {
-        storyInProgress = false;
+        storyActive = false;
         
+        StartCoroutine(FadeOutAndFinish());
+    }
+    
+    IEnumerator FadeOutAndFinish()
+    {
+        // 淡出效果
+        if (storyCanvasGroup)
+        {
+            float alpha = 1f;
+            while (alpha > 0f)
+            {
+                alpha -= fadeSpeed * Time.deltaTime;
+                storyCanvasGroup.alpha = alpha;
+                yield return null;
+            }
+        }
+        
+        // 隐藏故事面板
         if (storyPanel) storyPanel.SetActive(false);
-        
-        OnStoryCompleted?.Invoke();
         
         // 切换到家庭场景
         if (GameManager.Instance)
         {
-            GameManager.Instance.ChangePhase(GamePhase.Home);
+            GameManager.Instance.CompleteStoryPhase();
+        }
+    }
+    
+    // 跳过故事（调试用）
+    [ContextMenu("Skip Story")]
+    public void SkipStory()
+    {
+        if (storyActive)
+        {
+            StopAllCoroutines();
+            CompleteStory();
         }
     }
 }

@@ -14,7 +14,6 @@ public enum GamePhase//用来管理游戏的全局状态
     GameEnd
 }
 
-
 public class GameManager : Singleton<GameManager>
 {
     [Header("游戏配置")]
@@ -124,19 +123,19 @@ public class GameManager : Singleton<GameManager>
     private void LoadOtherConfigs()
     {
         if (sceneSettings == null)
-            sceneSettings = Resources.Load<SceneSettings>("SceneSettings");
+            sceneSettings = Resources.Load<SceneSettings>("Configs/SceneSettings");
             
         if (inputSettings == null)
-            inputSettings = Resources.Load<InputSettings>("InputSettings");
+            inputSettings = Resources.Load<InputSettings>("Configs/InputSettings");
             
         if (uiTextSettings == null)
-            uiTextSettings = Resources.Load<UITextSettings>("UITextSettings");
+            uiTextSettings = Resources.Load<UITextSettings>("Configs/UITextSettings");
             
         if (gameValues == null)
-            gameValues = Resources.Load<GameValues>("GameValues");
+            gameValues = Resources.Load<GameValues>("Configs/GameValues");
             
         if (resourcePaths == null)
-            resourcePaths = Resources.Load<ResourcePaths>("ResourcePaths");
+            resourcePaths = Resources.Load<ResourcePaths>("Configs/ResourcePaths");
     }
 
     IEnumerator WaitForManagersInitialization()
@@ -279,10 +278,14 @@ public class GameManager : Singleton<GameManager>
         LoadScene(sceneName);
         Time.timeScale = 1f;
     }
-    
-    void HandleStoryPhase()
+    public void HandleStoryPhase()
     {
-        phaseTimer = float.MaxValue;
+        if (StoryManager.Instance)
+        {
+            StoryManager.Instance.StartStory();
+        }
+    
+        phaseTimer = float.MaxValue; // 故事阶段不限时
     }
     
     void HandleHomePhase()

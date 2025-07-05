@@ -17,7 +17,7 @@ MonoBehaviour:
   eventIcon: {fileID: 0}
   priority: 2
   minDay: 1
-  maxDay: 5
+  maxDay: 10
   baseTriggerChance: 0.3
   triggerConditions: []
   eventType: 0
@@ -32,7 +32,7 @@ MonoBehaviour:
   prerequisiteQuestIds: []
   unlockQuestIds: []
   nodePosition:
-    position: {x: 107, y: 163}
+    position: {x: 182, y: 40}
     size: {x: 180, y: 120}
     isExpanded: 1
     isSelected: 0
