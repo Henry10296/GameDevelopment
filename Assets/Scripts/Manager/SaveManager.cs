@@ -107,7 +107,12 @@ public partial class SaveManager : Singleton<SaveManager>
     [Header("存档配置")]
     public int maxSaveSlots = 10;
     public bool autoSave = true;
-    public float autoSaveInterval = 60f; // 自动存档间隔（秒）
+    public float autoSaveInterval = 60f;
+    
+    [Header("动态数据设置")]
+    public bool enableDynamicDataSave = true;
+    public bool captureScreenshot = true;
+    public bool savePerformanceData = true;
     
     [Header("事件")]
     public GameEvent onSaveCompleted;
@@ -117,10 +122,14 @@ public partial class SaveManager : Singleton<SaveManager>
     
     private float autoSaveTimer;
     private string saveDirectory;
+    private bool isQuitting = false;
+    private DynamicGameData currentDynamicData = new();
     
-    protected override void Awake()
+    // 销毁顺序：SaveManager应该较早销毁，避免依赖已销毁的管理器
+    protected override int DestroyOrder => 100;
+    
+    protected override void OnSingletonAwake()
     {
-        base.Awake();
         InitializeSaveSystem();
     }
     
@@ -131,7 +140,7 @@ public partial class SaveManager : Singleton<SaveManager>
     
     void Update()
     {
-        if (autoSave)
+        if (autoSave && !isQuitting)
         {
             autoSaveTimer += Time.deltaTime;
             if (autoSaveTimer >= autoSaveInterval)
@@ -156,15 +165,24 @@ public partial class SaveManager : Singleton<SaveManager>
     
     void SubscribeToEvents()
     {
-        if (GameManager.Instance)
+        if (GameManager.HasInstance)
         {
-            GameManager.Instance.onDayChanged.RegisterListener(
-                GetComponent<IntGameEventListener>());
+            var listener = GetComponent<IntGameEventListener>();
+            if (listener != null && GameManager.Instance.onDayChanged != null)
+            {
+                GameManager.Instance.onDayChanged.RegisterListener(listener);
+            }
         }
     }
     
     public async void SaveGame(int slotIndex, string saveName = "")
     {
+        if (isQuitting)
+        {
+            Debug.Log("[SaveManager] Skipping save during application quit");
+            return;
+        }
+        
         try
         {
             GameSaveData saveData = CollectSaveData();
@@ -179,14 +197,20 @@ public partial class SaveManager : Singleton<SaveManager>
             await System.IO.File.WriteAllTextAsync(filePath, json);
             
             onSaveCompleted?.Raise();
-            UIManager.Instance?.ShowMessage($"游戏已保存到槽位 {slotIndex + 1}", 2f);
+            if (UIManager.HasInstance)
+            {
+                UIManager.Instance.ShowMessage($"游戏已保存到槽位 {slotIndex + 1}", 2f);
+            }
             
-            Debug.Log($"[SaveManager] Game saved to      slot {slotIndex}: {saveData.saveName}");
+            Debug.Log($"[SaveManager] Game saved to slot {slotIndex}: {saveData.saveName}");
         }
         catch (System.Exception e)
         {
             onSaveFailed?.Raise();
-            UIManager.Instance?.ShowMessage("保存失败!", 3f);
+            if (UIManager.HasInstance)
+            {
+                UIManager.Instance.ShowMessage("保存失败!", 3f);
+            }
             Debug.LogError($"[SaveManager] Save failed: {e.Message}");
         }
     }
@@ -212,7 +236,10 @@ public partial class SaveManager : Singleton<SaveManager>
             {
                 ApplySaveData(saveData);
                 onLoadCompleted?.Raise();
-                UIManager.Instance?.ShowMessage($"游戏已从槽位 {slotIndex + 1} 加载", 2f);
+                if (UIManager.HasInstance)
+                {
+                    UIManager.Instance.ShowMessage($"游戏已从槽位 {slotIndex + 1} 加载", 2f);
+                }
                 
                 Debug.Log($"[SaveManager] Game loaded from slot {slotIndex}: {saveData.saveName}");
             }
@@ -220,36 +247,40 @@ public partial class SaveManager : Singleton<SaveManager>
         catch (System.Exception e)
         {
             onLoadFailed?.Raise();
-            UIManager.Instance?.ShowMessage("加载失败!", 3f);
+            if (UIManager.HasInstance)
+            {
+                UIManager.Instance.ShowMessage("加载失败!", 3f);
+            }
             Debug.LogError($"[SaveManager] Load failed: {e.Message}");
         }
     }
     
-    /*GameSaveData CollectSaveData()
+    GameSaveData CollectSaveData()
     {
         var saveData = new GameSaveData();
         
-        // 游戏状态
-        if (GameManager.Instance)
+        // 游戏状态 - 安全检查
+        if (GameManager.HasInstance)
         {
             saveData.currentDay = GameManager.Instance.CurrentDay;
             saveData.currentPhase = GameManager.Instance.CurrentPhase;
             saveData.gameProgress = (float)saveData.currentDay / 5f;
         }
         
-        // 家庭数据
-        if (FamilyManager.Instance)
+        // 家庭数据 - 安全检查
+        if (FamilyManager.HasInstance)
         {
-            saveData.food = FamilyManager.Instance.Food;
-            saveData.water = FamilyManager.Instance.Water;
-            saveData.medicine = FamilyManager.Instance.Medicine;
+            var fm = FamilyManager.Instance;
+            saveData.food = fm.Food;
+            saveData.water = fm.Water;
+            saveData.medicine = fm.Medicine;
             
-            saveData.familyMembers = FamilyManager.Instance.FamilyMembers
+            saveData.familyMembers = fm.FamilyMembers
                 .Select(ConvertFamilyMemberToSaveData).ToArray();
         }
         
-        // 库存数据
-        if (InventoryManager.Instance)
+        // 库存数据 - 安全检查
+        if (InventoryManager.HasInstance)
         {
             saveData.inventoryItems = InventoryManager.Instance.GetItems()
                 .Select(item => new InventoryItemSaveData 
@@ -259,35 +290,67 @@ public partial class SaveManager : Singleton<SaveManager>
                 }).ToArray();
         }
         
-        // 无线电数据
-        if (RadioManager.Instance)
+        // 无线电数据 - 安全检查
+        if (RadioManager.HasInstance)
         {
-            saveData.hasRadio = RadioManager.Instance.hasRadio;
-            saveData.broadcastDays = RadioManager.Instance.broadcastDays;
-            saveData.goodEndingUnlocked = RadioManager.Instance.GetGoodEndingAchieved();
+            var rm = RadioManager.Instance;
+            saveData.hasRadio = rm.hasRadio;
+            saveData.broadcastDays = rm.broadcastDays;
+            saveData.goodEndingUnlocked = rm.GetGoodEndingAchieved();
         }
         
-        // 日志数据
-        if (JournalManager.Instance)
+        // 日志数据 - 安全检查
+        if (JournalManager.HasInstance)
         {
             saveData.journalEntries = JournalManager.Instance.AllEntries
                 .Select(ConvertJournalEntryToSaveData).ToArray();
         }
         
+        // 动态数据收集 - 仅在启用时
+        if (enableDynamicDataSave && !isQuitting)
+        {
+            try
+            {
+                saveData.dynamicData = CollectDynamicData();
+                saveData.sceneDynamicData = CollectSceneDynamicData();
+                saveData.configState = CollectConfigState();
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"[SaveManager] Failed to collect dynamic data: {e.Message}");
+            }
+        }
+        
+        // 添加元数据
+        saveData.metadata = SaveMetadata.CreateCurrent();
+        
+        // 截图 - 仅在游戏运行时
+        if (captureScreenshot && Application.isPlaying && !isQuitting)
+        {
+            try
+            {
+                saveData.metadata.screenshotData = CaptureScreenshot();
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"[SaveManager] Failed to capture screenshot: {e.Message}");
+            }
+        }
+        
         return saveData;
-    }*/
+    }
     
-    /*void ApplySaveData(GameSaveData saveData)
+    void ApplySaveData(GameSaveData saveData)
     {
         // 恢复游戏状态
-        if (GameManager.Instance)
+        if (GameManager.HasInstance && saveData.currentDay > 0)
         {
-            // 这里需要小心处理状态恢复
-            // 可能需要特殊的加载状态来安全恢复
+            // 通过GameManager的公共方法恢复状态
+            // 这里需要GameManager提供相应的方法
         }
         
         // 恢复家庭数据
-        if (FamilyManager.Instance && saveData.familyMembers != null)
+        if (FamilyManager.HasInstance && saveData.familyMembers != null)
         {
             var familyMembers = FamilyManager.Instance.FamilyMembers;
             
@@ -297,35 +360,44 @@ public partial class SaveManager : Singleton<SaveManager>
             }
             
             // 恢复资源
-            FamilyManager.Instance.AddResource("food", saveData.food - FamilyManager.Instance.Food);
-            FamilyManager.Instance.AddResource("water", saveData.water - FamilyManager.Instance.Water);
-            FamilyManager.Instance.AddResource("medicine", saveData.medicine - FamilyManager.Instance.Medicine);
+            var fm = FamilyManager.Instance;
+            int foodDiff = saveData.food - fm.Food;
+            int waterDiff = saveData.water - fm.Water;
+            int medicineDiff = saveData.medicine - fm.Medicine;
+            
+            if (foodDiff != 0) fm.AddResource("food", foodDiff);
+            if (waterDiff != 0) fm.AddResource("water", waterDiff);
+            if (medicineDiff != 0) fm.AddResource("medicine", medicineDiff);
         }
         
         // 恢复库存数据
-        if (InventoryManager.Instance && saveData.inventoryItems != null)
+        if (InventoryManager.HasInstance && saveData.inventoryItems != null)
         {
-            // 清空当前库存
             InventoryManager.Instance.ClearInventory();
             
-            // 恢复保存的物品
             foreach (var itemSave in saveData.inventoryItems)
             {
-                // 根据物品名查找ItemData并添加到库存
-                // 这里需要物品数据库或查找系统
+                // 这里需要通过ItemDatabase或其他方式查找ItemData
+                // 临时实现：通过名称查找
+                var itemData = FindItemDataByName(itemSave.itemName);
+                if (itemData != null)
+                {
+                    InventoryManager.Instance.AddItem(itemData, itemSave.quantity);
+                }
             }
         }
         
         // 恢复无线电数据
-        if (RadioManager.Instance)
+        if (RadioManager.HasInstance)
         {
-            RadioManager.Instance.hasRadio = saveData.hasRadio;
-            RadioManager.Instance.broadcastDays = saveData.broadcastDays ?? new bool[6];
-            RadioManager.Instance.radioBroadcasted = saveData.goodEndingUnlocked;
+            var rm = RadioManager.Instance;
+            rm.hasRadio = saveData.hasRadio;
+            rm.broadcastDays = saveData.broadcastDays ?? new bool[6];
+            rm.radioBroadcasted = saveData.goodEndingUnlocked;
         }
         
         // 恢复日志数据
-        if (JournalManager.Instance && saveData.journalEntries != null)
+        if (JournalManager.HasInstance && saveData.journalEntries != null)
         {
             JournalManager.Instance.ClearJournal();
             
@@ -335,7 +407,35 @@ public partial class SaveManager : Singleton<SaveManager>
                 JournalManager.Instance.AddEntry(entrySave.title, entrySave.content, entryType);
             }
         }
-    }*/
+        
+        // 应用动态数据
+        if (enableDynamicDataSave)
+        {
+            if (saveData.dynamicData != null)
+            {
+                ApplyDynamicData(saveData.dynamicData);
+            }
+            
+            if (saveData.sceneDynamicData != null)
+            {
+                ApplySceneDynamicData(saveData.sceneDynamicData);
+            }
+            
+            if (saveData.configState != null)
+            {
+                ApplyConfigState(saveData.configState);
+            }
+        }
+    }
+    
+    // 查找ItemData的临时实现
+    ItemData FindItemDataByName(string itemName)
+    {
+        // 这里应该通过ItemDatabase或Resources查找
+        // 临时实现：通过Resources查找
+        var allItems = Resources.LoadAll<ItemData>("Items");
+        return System.Array.Find(allItems, item => item.itemName == itemName);
+    }
     
     FamilyMemberSaveData ConvertFamilyMemberToSaveData(FamilyMember member)
     {
@@ -380,6 +480,198 @@ public partial class SaveManager : Singleton<SaveManager>
         };
     }
     
+    // 动态数据收集
+    private DynamicGameData CollectDynamicData()
+    {
+        var dynamicData = new DynamicGameData();
+        
+        if (GameManager.HasInstance)
+        {
+            dynamicData.currentPhaseElapsedTime = Time.time;
+            dynamicData.totalExplorationTime = CalculateTotalExplorationTime();
+        }
+        
+        var player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null)
+        {
+            dynamicData.playerPosition = player.transform.position;
+            dynamicData.playerRotation = player.transform.rotation;
+            
+            if (player.TryGetComponent<PlayerHealth>(out var health))
+            {
+                dynamicData.playerHealth = health.currentHealth;
+            }
+        }
+        
+        if (savePerformanceData)
+        {
+            dynamicData.averageFPS = CalculateAverageFPS();
+        }
+        
+        return dynamicData;
+    }
+    
+    private SceneDynamicData[] CollectSceneDynamicData()
+    {
+        var sceneDataList = new List<SceneDynamicData>();
+        string currentSceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        
+        var sceneData = new SceneDynamicData
+        {
+            sceneName = currentSceneName,
+            timeSpentInScene = Time.time,
+            sceneDataJson = CollectSceneObjectStates()
+        };
+        
+        var player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null)
+        {
+            sceneData.lastPlayerPosition = player.transform.position;
+        }
+        
+        sceneDataList.Add(sceneData);
+        return sceneDataList.ToArray();
+    }
+    
+    private string CollectSceneObjectStates()
+    {
+        var sceneObjects = new Dictionary<string, object>();
+        
+        var saveables = FindObjectsOfType<MonoBehaviour>().OfType<IDynamicSaveable>()
+                       .OrderBy(s => s.GetSavePriority());
+        
+        foreach (var saveable in saveables)
+        {
+            try
+            {
+                sceneObjects[saveable.GetDynamicSaveKey()] = saveable.GetDynamicData();
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"Failed to save dynamic data for {saveable.GetDynamicSaveKey()}: {e.Message}");
+            }
+        }
+        
+        return sceneObjects.Count > 0 ? JsonUtility.ToJson(new SceneObjectData { objects = sceneObjects }) : "";
+    }
+    
+    private ConfigStateData CollectConfigState()
+    {
+        var configState = new ConfigStateData();
+        
+#if UNITY_EDITOR
+        if (GameManager.HasInstance)
+        {
+            if (GameManager.Instance.sceneSettings != null)
+            {
+                string path = UnityEditor.AssetDatabase.GetAssetPath(GameManager.Instance.sceneSettings);
+                configState.activeSceneSettingsGUID = UnityEditor.AssetDatabase.AssetPathToGUID(path);
+            }
+        }
+#endif
+        
+        return configState;
+    }
+    
+    private void ApplyDynamicData(DynamicGameData dynamicData)
+    {
+        var player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null)
+        {
+            player.transform.position = dynamicData.playerPosition;
+            player.transform.rotation = dynamicData.playerRotation;
+            
+            if (player.TryGetComponent<PlayerHealth>(out var health))
+            {
+                health.currentHealth = dynamicData.playerHealth;
+            }
+        }
+        
+        if (AudioManager.HasInstance)
+        {
+            AudioListener.volume = dynamicData.masterVolume;
+        }
+    }
+    
+    private void ApplySceneDynamicData(SceneDynamicData[] sceneDynamicData)
+    {
+        string currentSceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        
+        var currentSceneData = System.Array.Find(sceneDynamicData, s => s.sceneName == currentSceneName);
+        if (currentSceneData != null && !string.IsNullOrEmpty(currentSceneData.sceneDataJson))
+        {
+            ApplySceneObjectStates(currentSceneData.sceneDataJson);
+        }
+    }
+    
+    private void ApplySceneObjectStates(string sceneDataJson)
+    {
+        try
+        {
+            var sceneObjectData = JsonUtility.FromJson<SceneObjectData>(sceneDataJson);
+            var saveables = FindObjectsOfType<MonoBehaviour>().OfType<IDynamicSaveable>();
+            
+            foreach (var saveable in saveables)
+            {
+                string key = saveable.GetDynamicSaveKey();
+                if (sceneObjectData.objects.TryGetValue(key, out object data))
+                {
+                    saveable.LoadDynamicData(data);
+                }
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"Failed to apply scene object states: {e.Message}");
+        }
+    }
+    
+    private void ApplyConfigState(ConfigStateData configState)
+    {
+        foreach (var kvp in configState.runtimeConfigOverrides)
+        {
+            // 应用运行时修改的配置值
+        }
+    }
+    
+    private float CalculateTotalExplorationTime()
+    {
+        return 0f; // 实现具体逻辑
+    }
+    
+    private float CalculateAverageFPS()
+    {
+        return 1.0f / Time.deltaTime;
+    }
+    
+    private byte[] CaptureScreenshot()
+    {
+        if (!Application.isPlaying)
+        {
+            Debug.LogWarning("[SaveManager] Cannot capture screenshot outside of play mode");
+            return null;
+        }
+        
+        try
+        {
+            var texture = ScreenCapture.CaptureScreenshotAsTexture();
+            if (texture == null)
+            {
+                Debug.LogWarning("[SaveManager] Screenshot texture is null");
+                return null;
+            }
+            
+            var bytes = texture.EncodeToPNG();
+            DestroyImmediate(texture);
+            return bytes;
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[SaveManager] Failed to capture screenshot: {e.Message}");
+            return null;
+        }
+    }
+    
     string GetSaveFileName(int slotIndex)
     {
         return $"save_slot_{slotIndex:D2}.json";
@@ -397,37 +689,7 @@ public partial class SaveManager : Singleton<SaveManager>
         return saveSlots;
     }
     
-    /*SaveSlotInfo GetSaveSlotInfo(int slotIndex)
-    {
-        string fileName = GetSaveFileName(slotIndex);
-        string filePath = System.IO.Path.Combine(saveDirectory, fileName);
-        
-        if (!System.IO.File.Exists(filePath))
-        {
-            return new SaveSlotInfo { slotIndex = slotIndex, isEmpty = true };
-        }
-        
-        try
-        {
-            string json = System.IO.File.ReadAllText(filePath);
-            GameSaveData saveData = JsonUtility.FromJson<GameSaveData>(json);
-            
-            return new SaveSlotInfo
-            {
-                slotIndex = slotIndex,
-                isEmpty = false,
-                saveName = saveData.saveName,
-                saveTime = saveData.saveTime,
-                currentDay = saveData.currentDay,
-                gameProgress = saveData.gameProgress
-            };
-        }
-        catch (System.Exception e)
-        {
-            Debug.LogError($"[SaveManager] Failed to read save slot {slotIndex}: {e.Message}");
-            return new SaveSlotInfo { slotIndex = slotIndex, isEmpty = true, isCorrupted = true };
-        }
-    }*/
+   
     
     public void DeleteSave(int slotIndex)
     {
@@ -443,21 +705,47 @@ public partial class SaveManager : Singleton<SaveManager>
     
     void AutoSave()
     {
-        // 自动保存到特殊槽位
-        SaveGame(maxSaveSlots - 1, "自动保存");
+        if (!isQuitting)
+        {
+            SaveGame(maxSaveSlots - 1, "自动保存");
+        }
     }
     
     public void OnDayChanged(int newDay)
     {
-        if (autoSave)
+        if (autoSave && !isQuitting)
         {
             AutoSave();
         }
     }
     
-    protected override void OnDestroy()
+   
+    
+    // 应用退出时的清理
+    protected override void OnSingletonApplicationQuit()
     {
-        base.OnDestroy();
+        isQuitting = true;
+        
+        // 停止自动保存
+        autoSave = false;
+        
+        // 执行最后一次简化保存
+        try
+        {
+            if (GameManager.HasInstance)
+            {
+                PlayerPrefs.SetInt("LastDay", GameManager.Instance.CurrentDay);
+                PlayerPrefs.SetString("LastPhase", GameManager.Instance.CurrentPhase.ToString());
+                PlayerPrefs.Save();
+                Debug.Log("[SaveManager] Emergency save completed");
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[SaveManager] Emergency save failed: {e.Message}");
+        }
+        
+        Debug.Log("[SaveManager] Application quit cleanup completed");
     }
 }
 
@@ -484,52 +772,7 @@ public partial class SaveManager
     public bool enableAutoCollection = true;
     
     // 扩展现有CollectSaveData方法
-    GameSaveData CollectSaveData()
-    {
-        var saveData = new GameSaveData();
-        
-        // 现有的数据收集逻辑保持完全不变...
-        // 游戏状态
-        if (GameManager.Instance)
-        {
-            saveData.currentDay = GameManager.Instance.CurrentDay;
-            saveData.currentPhase = GameManager.Instance.CurrentPhase;
-            saveData.gameProgress = (float)saveData.currentDay / 5f;
-        }
-        
-        // 家庭数据 - 现有代码
-        if (FamilyManager.Instance)
-        {
-            saveData.food = FamilyManager.Instance.Food;
-            saveData.water = FamilyManager.Instance.Water;
-            saveData.medicine = FamilyManager.Instance.Medicine;
-            
-            saveData.familyMembers = FamilyManager.Instance.FamilyMembers
-                .Select(ConvertFamilyMemberToSaveData).ToArray();
-        }
-        if (enableDynamicDataSave)
-        {
-            saveData.dynamicData = CollectDynamicData();
-            saveData.sceneDynamicData = CollectSceneDynamicData();
-            saveData.configState = CollectConfigState();
-        }
-        
-        // 添加元数据
-        saveData.metadata = SaveMetadata.CreateCurrent();
-        if (captureScreenshot)
-        {
-            saveData.metadata.screenshotData = CaptureScreenshot();
-        }
-        // 现有库存、无线电、日志数据代码保持不变...
-        
-        // 新增：自动收集场景中的可保存组件
-        if (enableAutoCollection)
-        {
-            CollectSceneData(saveData);
-        }
-        
-        return saveData;
-    }
+   
     /*GameSaveData CollectSaveData()
     {
         var saveData = new GameSaveData();
@@ -583,30 +826,7 @@ public partial class SaveManager
         }
     }
     
-    // 扩展现有ApplySaveData方法
-    void ApplySaveData(GameSaveData saveData)
-    {
-        // 现有的数据应用逻辑完全保持不变...
-        if (enableDynamicDataSave && saveData.dynamicData != null)
-        {
-            ApplyDynamicData(saveData.dynamicData);
-        }
-        
-        if (saveData.sceneDynamicData != null)
-        {
-            ApplySceneDynamicData(saveData.sceneDynamicData);
-        }
-        
-        if (saveData.configState != null)
-        {
-            ApplyConfigState(saveData.configState);
-        }
-        // 新增：应用场景数据
-        if (enableAutoCollection && !string.IsNullOrEmpty(saveData.sceneDataJson))
-        {
-            ApplySceneData(saveData.sceneDataJson);
-        }
-    }
+    
     
     // 新增场景数据应用方法
     private void ApplySceneData(string sceneDataJson)
@@ -863,230 +1083,7 @@ public interface IDynamicSaveable
 }
 
 // 7. 扩展现有SaveManager - 添加动态数据收集
-public partial class SaveManager
-{
-    [Header("动态数据设置")] // 添加到现有字段后
-    public bool enableDynamicDataSave = true;
-    public bool captureScreenshot = true;
-    public bool savePerformanceData = true;
-    
-    private List<IDynamicSaveable> dynamicSaveables = new();
-    private DynamicGameData currentDynamicData = new();
-    
-    // 扩展现有CollectSaveData方法
-    
-    
-    // 收集动态游戏数据
-    private DynamicGameData CollectDynamicData()
-    {
-        var dynamicData = new DynamicGameData();
-        
-        // 游戏进度数据
-        if (GameManager.Instance)
-        {
-            dynamicData.currentPhaseElapsedTime = Time.time;
-            dynamicData.totalExplorationTime = CalculateTotalExplorationTime();
-        }
-        
-        // 玩家状态数据
-        var player = GameObject.FindGameObjectWithTag("Player");
-        if (player != null)
-        {
-            dynamicData.playerPosition = player.transform.position;
-            dynamicData.playerRotation = player.transform.rotation;
-            
-            if (player.TryGetComponent<PlayerHealth>(out var health))
-            {
-                dynamicData.playerHealth = health.currentHealth;
-            }
-        }
-        
-        // UI状态数据
-        if (UIManager.Instance)
-        {
-            // 可以记录UI的开启状态等
-        }
-        
-        // 音频状态数据
-        if (AudioManager.Instance)
-        {
-            // 记录当前音乐状态
-        }
-        
-        // 性能数据
-        if (savePerformanceData)
-        {
-            dynamicData.averageFPS = CalculateAverageFPS();
-        }
-        
-        return dynamicData;
-    }
-    
-    // 收集场景动态数据
-    private SceneDynamicData[] CollectSceneDynamicData()
-    {
-        var sceneDataList = new List<SceneDynamicData>();
-        string currentSceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-        
-        // 收集当前场景的动态数据
-        var sceneData = new SceneDynamicData
-        {
-            sceneName = currentSceneName,
-            timeSpentInScene = Time.time,
-            sceneDataJson = CollectSceneObjectStates()
-        };
-        
-        var player = GameObject.FindGameObjectWithTag("Player");
-        if (player != null)
-        {
-            sceneData.lastPlayerPosition = player.transform.position;
-        }
-        
-        sceneDataList.Add(sceneData);
-        
-        return sceneDataList.ToArray();
-    }
-    
-    // 收集场景对象状态
-    private string CollectSceneObjectStates()
-    {
-        var sceneObjects = new Dictionary<string, object>();
-        
-        // 收集所有实现IDynamicSaveable的对象
-        var saveables = FindObjectsOfType<MonoBehaviour>().OfType<IDynamicSaveable>()
-                       .OrderBy(s => s.GetSavePriority());
-        
-        foreach (var saveable in saveables)
-        {
-            try
-            {
-                sceneObjects[saveable.GetDynamicSaveKey()] = saveable.GetDynamicData();
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogWarning($"Failed to save dynamic data for {saveable.GetDynamicSaveKey()}: {e.Message}");
-            }
-        }
-        
-        return sceneObjects.Count > 0 ? JsonUtility.ToJson(new SceneObjectData { objects = sceneObjects }) : "";
-    }
-    
-    // 收集配置状态
-    private ConfigStateData CollectConfigState()
-    {
-        var configState = new ConfigStateData();
-        
-#if UNITY_EDITOR
-    if (GameManager.Instance)
-    {
-        if (GameManager.Instance.sceneSettings != null)
-        {
-            string path = AssetDatabase.GetAssetPath(GameManager.Instance.sceneSettings);
-            configState.activeSceneSettingsGUID = AssetDatabase.AssetPathToGUID(path);
-        }
-    }
-#endif
-        
-        return configState;
-    }
-    
 
-    
-    // 应用动态数据
-    private void ApplyDynamicData(DynamicGameData dynamicData)
-    {
-        // 恢复玩家位置
-        var player = GameObject.FindGameObjectWithTag("Player");
-        if (player != null)
-        {
-            player.transform.position = dynamicData.playerPosition;
-            player.transform.rotation = dynamicData.playerRotation;
-            
-            if (player.TryGetComponent<PlayerHealth>(out var health))
-            {
-                health.currentHealth = dynamicData.playerHealth;
-            }
-        }
-        
-        // 恢复音频状态
-        if (AudioManager.Instance)
-        {
-            AudioListener.volume = dynamicData.masterVolume;
-            // 恢复其他音频设置...
-        }
-        
-        // 恢复UI状态
-        // ...
-    }
-    
-    // 应用场景动态数据
-    private void ApplySceneDynamicData(SceneDynamicData[] sceneDynamicData)
-    {
-        string currentSceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-        
-        var currentSceneData = System.Array.Find(sceneDynamicData, s => s.sceneName == currentSceneName);
-        if (currentSceneData != null && !string.IsNullOrEmpty(currentSceneData.sceneDataJson))
-        {
-            ApplySceneObjectStates(currentSceneData.sceneDataJson);
-        }
-    }
-    
-    // 应用场景对象状态
-    private void ApplySceneObjectStates(string sceneDataJson)
-    {
-        try
-        {
-            var sceneObjectData = JsonUtility.FromJson<SceneObjectData>(sceneDataJson);
-            var saveables = FindObjectsOfType<MonoBehaviour>().OfType<IDynamicSaveable>();
-            
-            foreach (var saveable in saveables)
-            {
-                string key = saveable.GetDynamicSaveKey();
-                if (sceneObjectData.objects.TryGetValue(key, out object data))
-                {
-                    saveable.LoadDynamicData(data);
-                }
-            }
-        }
-        catch (System.Exception e)
-        {
-            Debug.LogWarning($"Failed to apply scene object states: {e.Message}");
-        }
-    }
-    
-    // 应用配置状态
-    private void ApplyConfigState(ConfigStateData configState)
-    {
-        // 恢复配置文件引用
-        // 应用运行时配置覆盖
-        foreach (var kvp in configState.runtimeConfigOverrides)
-        {
-            // 应用运行时修改的配置值
-        }
-    }
-    
-    // 辅助方法
-    private float CalculateTotalExplorationTime()
-    {
-        // 计算总探索时间
-        return 0f; // 实现具体逻辑
-    }
-    
-    private float CalculateAverageFPS()
-    {
-        // 计算平均FPS
-        return 1.0f / Time.deltaTime;
-    }
-    
-    private byte[] CaptureScreenshot()
-    {
-        // 捕获存档截图
-        var texture = ScreenCapture.CaptureScreenshotAsTexture();
-        var bytes = texture.EncodeToPNG();
-        DestroyImmediate(texture);
-        return bytes;
-    }
-}
 
 // 8. 场景对象数据包装类
 [System.Serializable]

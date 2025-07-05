@@ -13,6 +13,15 @@ public class InventoryManager : Singleton<InventoryManager>
 
     public static event Action<List<InventoryItem>> OnInventoryChanged;
     
+    
+    protected override void OnSingletonApplicationQuit()
+    {
+        // 清理事件
+        OnInventoryChanged = null;
+        onItemChanged = null;
+    
+        Debug.Log("[InventoryManager] Application quit cleanup completed");
+    }
     public bool AddItem(ItemData itemData, int quantity = 1)
     {
         if (itemData == null) return false;

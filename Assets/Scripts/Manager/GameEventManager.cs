@@ -5,7 +5,7 @@ using System.Linq;
 using UnityEngine.UI;
 using TMPro;
 
-public enum EventType
+public enum GameEventType
 {
     ResourceGain,    // 资源获得
     ResourceLoss,    // 资源损失  
@@ -21,7 +21,7 @@ public enum EventType
     Encounter
 }
 
-public enum EventPriority
+public enum GameEventPriority
 {
     Critical,  // 关键事件，必须触发
     High,      // 高优先级
@@ -257,18 +257,6 @@ public enum ConditionType
     Custom             // 自定义条件
 }
 
-
-public enum GameEventType
-{
-    FamilyIllness,     // 家人生病
-    ResourceLoss,      // 资源丢失
-    ResourceGain,      // 资源获得
-    RadioBroadcast,    // 电台广播
-    WeatherChange,     // 天气变化
-    EnemyIncrease,     // 敌人增加
-    SpecialEncounter   // 特殊遭遇
-}
-
 public class GameEventManager : Singleton<GameEventManager>
 {
     
@@ -291,6 +279,7 @@ public class GameEventManager : Singleton<GameEventManager>
         base.Awake();
         LoadQuests();
     }
+    
     void Start()
     {
         foreach (var evt in configuredEvents)
@@ -315,7 +304,16 @@ public class GameEventManager : Singleton<GameEventManager>
     {
         CheckDayEvents(newDay);
     }
+    protected override void OnSingletonApplicationQuit()
+    {
+        // 清理事件
+        OnEventTriggered = null;
     
+        // 清理队列
+        allQuests?.Clear();
+    
+        Debug.Log("[GameEventManager] Application quit cleanup completed");
+    }
     void CheckDayEvents(int day)
     {
         foreach (var evt in configuredEvents)

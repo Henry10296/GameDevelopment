@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 16fe64ed86edac344bf8c2133a168ea4, type: 3}
   m_Name: NewShooterConfig
   m_EditorClassIdentifier: 
-  enemyName: "\u65B0\u5C04\u624B"
+  enemyName: New Shooter
   enemyType: 1
   health: 75
   patrolSpeed: 3
@@ -27,8 +27,7 @@ MonoBehaviour:
   shootRange: 20
   shootInterval: 1
   shootAccuracy: 0.7
-  dropItems:
-  - {fileID: 0}
+  dropItems: []
   dropChance: 0.3
   attackSounds: []
   hurtSounds: []

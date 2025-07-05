@@ -42,7 +42,21 @@ public class ExplorationManager : Singleton<ExplorationManager>
     {
         SubscribeToEvents();
     }
+    protected override void OnSingletonApplicationQuit()
+    {
+        // 结束探索
+        explorationActive = false;
     
+        // 清理生成的对象列表（不销毁对象，让Unity处理）
+        spawnedObjects?.Clear();
+    
+        // 清理事件
+        onMapLoaded = null;
+        onExplorationStarted = null;
+        onPlayerReachedExit = null;
+    
+        Debug.Log("[ExplorationManager] Application quit cleanup completed");
+    }
     void SubscribeToEvents()
     {
         if (GameManager.Instance)

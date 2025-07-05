@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using UnityEngine.PlayerLoop;
 
 [RequireComponent(typeof(CharacterController))]
 public class PlayerController : MonoBehaviour
@@ -97,83 +98,221 @@ public class PlayerController : MonoBehaviour
     private Vector3 originalCameraPosition;
     private Quaternion originalCameraRotation;
     
+    // 组件初始化状态
+    private bool isInitialized = false;
+    
     void Start()
     {
         InitializeComponents();
-        InitializeSettings();
+        if (isInitialized)
+        {
+            InitializeSettings();
+        }
     }
-    
+
+  
     void InitializeComponents()
     {
-        controller = GetComponent<CharacterController>();
-        playerCamera = GetComponentInChildren<Camera>();
-        audioSource = GetComponent<AudioSource>();
-        weaponManager = GetComponent<WeaponManager>();
-        inventoryManager = InventoryManager.Instance;
-        
-        if (!audioSource)
+        try
         {
-            audioSource = gameObject.AddComponent<AudioSource>();
+            // 获取必需的组件
+            controller = GetComponent<CharacterController>();
+            if (controller == null)
+            {
+                Debug.LogError("[PlayerController] CharacterController component not found!");
+                return;
+            }
+            
+            // 查找或创建相机
+            playerCamera = GetComponentInChildren<Camera>();
+            if (playerCamera == null)
+            {
+                Debug.LogWarning("[PlayerController] No camera found in children, creating one...");
+                CreatePlayerCamera();
+            }
+            
+            // 确保相机有效
+            if (playerCamera == null)
+            {
+                Debug.LogError("[PlayerController] Failed to create or find player camera!");
+                return;
+            }
+            
+            // 获取或添加音频源
+            audioSource = GetComponent<AudioSource>();
+            if (audioSource == null)
+            {
+                audioSource = gameObject.AddComponent<AudioSource>();
+                audioSource.spatialBlend = 0f; // 2D音频
+            }
+            
+            // 获取其他组件（可以为null）
+            weaponManager = GetComponent<WeaponManager>();
+            
+            // 安全获取管理器实例
+            StartCoroutine(WaitForManagersAndInitialize());
+            
+            // 设置初始位置和旋转
+            originalCameraPosition = playerCamera.transform.localPosition;
+            originalCameraRotation = playerCamera.transform.localRotation;
+            currentCrouchHeight = standingHeight;
+            
+            // 确保有AudioListener
+            EnsureAudioListener();
+            
+            isInitialized = true;
+            Debug.Log("[PlayerController] Components initialized successfully");
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[PlayerController] Error during component initialization: {e.Message}");
+            isInitialized = false;
+        }
+    }
+    
+    System.Collections.IEnumerator WaitForManagersAndInitialize()
+    {
+        // 等待InventoryManager初始化
+        float timeout = 5f;
+        float elapsed = 0f;
+        
+        while (InventoryManager.Instance == null && elapsed < timeout)
+        {
+            elapsed += Time.deltaTime;
+            yield return null;
         }
         
-        originalCameraPosition = playerCamera.transform.localPosition;
-        originalCameraRotation = playerCamera.transform.localRotation;
+        if (InventoryManager.Instance != null)
+        {
+            inventoryManager = InventoryManager.Instance;
+            Debug.Log("[PlayerController] InventoryManager connected successfully");
+        }
+        else
+        {
+            Debug.LogWarning("[PlayerController] InventoryManager not found after timeout");
+        }
+    }
+    
+    void CreatePlayerCamera()
+    {
+        GameObject cameraObj = new GameObject("PlayerCamera");
+        cameraObj.transform.SetParent(transform);
+        cameraObj.transform.localPosition = new Vector3(0, standingHeight * 0.9f, 0);
+        cameraObj.transform.localRotation = Quaternion.identity;
         
-        currentCrouchHeight = standingHeight;
+        playerCamera = cameraObj.AddComponent<Camera>();
+        playerCamera.fieldOfView = normalFOV;
+        
+        Debug.Log("[PlayerController] Created new player camera");
+    }
+    
+    void EnsureAudioListener()
+    {
+        // 检查是否已有AudioListener
+        AudioListener existingListener = FindObjectOfType<AudioListener>();
+        if (existingListener == null)
+        {
+            // 在玩家相机上添加AudioListener
+            if (playerCamera != null)
+            {
+                playerCamera.gameObject.AddComponent<AudioListener>();
+                Debug.Log("[PlayerController] Added AudioListener to player camera");
+            }
+        }
     }
     
     void InitializeSettings()
     {
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+        if (!isInitialized) return;
         
-        controller.height = standingHeight;
-        controller.center = new Vector3(0, standingHeight / 2, 0);
-        
-        playerCamera.fieldOfView = normalFOV;
+        try
+        {
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+            
+            controller.height = standingHeight;
+            controller.center = new Vector3(0, standingHeight / 2, 0);
+            
+            if (playerCamera != null)
+            {
+                playerCamera.fieldOfView = normalFOV;
+            }
+            
+            Debug.Log("[PlayerController] Settings initialized successfully");
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[PlayerController] Error during settings initialization: {e.Message}");
+        }
     }
     
     void Update()
     {
-        HandleInput();
-        HandleMovement();
-        HandleRotation();
-        HandleCrouch();
-        HandleLean();
-        HandleAiming();
-        HandleWeaponSwitching();
-        HandleInteraction();
-        UpdateCameraEffects();
+        if (!isInitialized || playerCamera == null) return;
+        transform.position = new Vector3(transform.position.x, 1.1f, transform.position.z);
+        Debug.DrawRay(transform.position, Vector3.down * (controller.height / 2 + groundCheckDistance), Color.red);
+        Debug.Log($"[状态] isGrounded={isGrounded}, Velocity={velocity}, Controller.isGrounded={controller.isGrounded}");
+
+        try
+        {
+            HandleInput();
+            HandleMovement();
+            HandleRotation();
+            HandleCrouch();
+            HandleLean();
+            HandleAiming();
+            HandleWeaponSwitching();
+            HandleInteraction();
+            UpdateCameraEffects();
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[PlayerController] Error in Update: {e.Message}");
+        }
     }
     
     void HandleInput()
     {
-        // 移动输入
+        // 读取移动输入
         moveInput = new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical"));
         if (moveInput.magnitude > 1f) moveInput.Normalize();
-        
-        // 鼠标输入
+
+        // 读取鼠标输入
         mouseInput = new Vector2(Input.GetAxis("Mouse X"), Input.GetAxis("Mouse Y"));
-        
-        // 状态输入
+
+        // 状态判断
         isRunning = Input.GetKey(KeyCode.LeftShift) && !isCrouching && !isAiming;
-        
-        // 跳跃
+
+        // 缓冲跳跃判断
         if (Input.GetButtonDown("Jump") && isGrounded && !isCrouching)
         {
             Jump();
         }
     }
+
     
+    // 跳跃容错时间（Coyote Time）
+    private float groundedTimer = 0f;
+    private float coyoteTime = 0.2f;
+
     void HandleMovement()
     {
-        // 地面检测
-        isGrounded = Physics.Raycast(transform.position, Vector3.down, controller.height / 2 + groundCheckDistance);
-        
-        // 计算移动方向
+        // 更稳定的地面检测
+        if (controller.isGrounded)
+        {
+            isGrounded = true;
+            groundedTimer = coyoteTime;
+        }
+        else
+        {
+            groundedTimer -= Time.deltaTime;
+            isGrounded = groundedTimer > 0f;
+        }
+
+        // 计算移动方向（本地空间 → 世界空间）
         Vector3 moveDirection = transform.right * moveInput.x + transform.forward * moveInput.y;
-        
-        // 计算目标速度
+
+        // 选择目标速度
         if (isAiming)
             targetSpeed = aimSpeed;
         else if (isCrouching)
@@ -182,47 +321,45 @@ public class PlayerController : MonoBehaviour
             targetSpeed = runSpeed;
         else
             targetSpeed = walkSpeed;
-        
-        // 平滑速度过渡
+
+        // 平滑过渡速度
         if (moveDirection.magnitude > 0.1f)
-        {
             currentSpeed = Mathf.Lerp(currentSpeed, targetSpeed, acceleration * Time.deltaTime);
-        }
         else
-        {
             currentSpeed = Mathf.Lerp(currentSpeed, 0f, deceleration * Time.deltaTime);
-        }
-        
-        // 应用移动
-        Vector3 horizontalVelocity = moveDirection * currentSpeed;
-        
-        // 重力
-        if (isGrounded && velocity.y < 0)
-        {
-            velocity.y = -2f;
-        }
-        else
-        {
-            velocity.y -= gravity * Time.deltaTime;
-        }
-        
-        // 空中控制
+
+        // 最终水平速度
+        Vector3 targetVelocity = moveDirection * currentSpeed;
+
+        // 空中控制处理（只对 XZ）
         if (!isGrounded)
         {
-            horizontalVelocity = Vector3.Lerp(velocity, horizontalVelocity, airControl);
+            Vector3 prevHorizontal = new Vector3(velocity.x, 0f, velocity.z);
+            Vector3 blended = Vector3.Lerp(prevHorizontal, targetVelocity, airControl);
+            velocity.x = blended.x;
+            velocity.z = blended.z;
         }
-        
-        velocity.x = horizontalVelocity.x;
-        velocity.z = horizontalVelocity.z;
-        
+        else
+        {
+            velocity.x = targetVelocity.x;
+            velocity.z = targetVelocity.z;
+        }
+
+        // 重力处理
+        if (isGrounded && velocity.y < 0f)
+            velocity.y = -2f; // 稳定贴地
+        else
+            velocity.y -= gravity * Time.deltaTime;
+
+        // 最终移动应用
         controller.Move(velocity * Time.deltaTime);
-        
-        // 脚步声
+
+        // 脚步音效播放
         if (isGrounded && currentSpeed > 0.1f)
         {
             footstepTimer += Time.deltaTime;
             float interval = isRunning ? footstepInterval * 0.7f : footstepInterval;
-            
+
             if (footstepTimer >= interval)
             {
                 PlayFootstep();
@@ -230,18 +367,28 @@ public class PlayerController : MonoBehaviour
             }
         }
     }
+
     
     void HandleRotation()
     {
-        // 水平旋转（Y轴）
-        transform.Rotate(Vector3.up * mouseInput.x * mouseSensitivity);
+        if (playerCamera == null) return;
         
-        // 垂直旋转（X轴）
-        float mouseY = invertMouseY ? mouseInput.y : -mouseInput.y;
-        cameraRotationX += mouseY * mouseSensitivity;
-        cameraRotationX = Mathf.Clamp(cameraRotationX, -maxLookAngle, maxLookAngle);
-        
-        playerCamera.transform.localRotation = Quaternion.Euler(cameraRotationX, 0f, currentLeanAngle);
+        try
+        {
+            // 水平旋转（Y轴）
+            transform.Rotate(Vector3.up * mouseInput.x * mouseSensitivity);
+            
+            // 垂直旋转（X轴）
+            float mouseY = invertMouseY ? mouseInput.y : -mouseInput.y;
+            cameraRotationX += mouseY * mouseSensitivity;
+            cameraRotationX = Mathf.Clamp(cameraRotationX, -maxLookAngle, maxLookAngle);
+            
+            playerCamera.transform.localRotation = Quaternion.Euler(cameraRotationX, 0f, currentLeanAngle);
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[PlayerController] Error in HandleRotation: {e.Message}");
+        }
     }
     
     void HandleCrouch()
@@ -258,13 +405,18 @@ public class PlayerController : MonoBehaviour
         controller.center = new Vector3(0, currentCrouchHeight / 2, 0);
         
         // 更新相机高度
-        Vector3 cameraPos = originalCameraPosition;
-        cameraPos.y = currentCrouchHeight - 0.2f;
-        playerCamera.transform.localPosition = Vector3.Lerp(playerCamera.transform.localPosition, cameraPos, crouchTransitionSpeed * Time.deltaTime);
+        if (playerCamera != null)
+        {
+            Vector3 cameraPos = originalCameraPosition;
+            cameraPos.y = currentCrouchHeight - 0.2f;
+            playerCamera.transform.localPosition = Vector3.Lerp(playerCamera.transform.localPosition, cameraPos, crouchTransitionSpeed * Time.deltaTime);
+        }
     }
     
     void HandleLean()
     {
+        if (playerCamera == null) return;
+        
         float targetLean = 0f;
         Vector3 targetOffset = Vector3.zero;
         
@@ -282,19 +434,24 @@ public class PlayerController : MonoBehaviour
         currentLeanAngle = Mathf.Lerp(currentLeanAngle, targetLean, leanSpeed * Time.deltaTime);
         
         // 应用倾斜偏移
-        Vector3 currentOffset = playerCamera.transform.parent.localPosition;
-        playerCamera.transform.parent.localPosition = Vector3.Lerp(currentOffset, targetOffset, leanSpeed * Time.deltaTime);
+        if (playerCamera.transform.parent != null)
+        {
+            Vector3 currentOffset = playerCamera.transform.parent.localPosition;
+            playerCamera.transform.parent.localPosition = Vector3.Lerp(currentOffset, targetOffset, leanSpeed * Time.deltaTime);
+        }
     }
     
     void HandleAiming()
     {
+        if (playerCamera == null) return;
+        
         isAiming = Input.GetMouseButton(1);
         
         float targetFOV = isAiming ? aimFOV : normalFOV;
         playerCamera.fieldOfView = Mathf.Lerp(playerCamera.fieldOfView, targetFOV, aimTransitionSpeed * Time.deltaTime);
         
         // 通知武器管理器
-        if (weaponManager)
+        if (weaponManager != null)
         {
             weaponManager.SetAiming(isAiming);
         }
@@ -302,14 +459,16 @@ public class PlayerController : MonoBehaviour
     
     void HandleWeaponSwitching()
     {
+        if (weaponManager == null) return;
+        
         // 数字键切换
         if (Input.GetKeyDown(KeyCode.Alpha1))
         {
-            weaponManager?.SwitchWeapon(0);
+            weaponManager.SwitchWeapon(0);
         }
         else if (Input.GetKeyDown(KeyCode.Alpha2))
         {
-            weaponManager?.SwitchWeapon(1);
+            weaponManager.SwitchWeapon(1);
         }
         
         // 滚轮切换
@@ -317,13 +476,13 @@ public class PlayerController : MonoBehaviour
         if (scrollDelta != 0)
         {
             int direction = scrollDelta > 0 ? 1 : -1;
-            weaponManager?.CycleWeapon(direction);
+            weaponManager.CycleWeapon(direction);
         }
         
         // 换弹
         if (Input.GetKeyDown(KeyCode.R))
         {
-            weaponManager?.Reload();
+            weaponManager.Reload();
         }
     }
     
@@ -350,6 +509,8 @@ public class PlayerController : MonoBehaviour
     
     void UpdateCameraEffects()
     {
+        if (playerCamera == null) return;
+        
         // 相机摇晃
         if (isGrounded && currentSpeed > 0.1f)
         {
@@ -381,7 +542,7 @@ public class PlayerController : MonoBehaviour
         }
         
         // 手部/武器摇晃
-        if (weaponHolder)
+        if (weaponHolder != null)
         {
             UpdateWeaponSway();
         }
@@ -412,7 +573,7 @@ public class PlayerController : MonoBehaviour
     
     void PlayFootstep()
     {
-        if (footstepSounds.Length > 0)
+        if (footstepSounds != null && footstepSounds.Length > 0)
         {
             AudioClip clip = footstepSounds[Random.Range(0, footstepSounds.Length)];
             PlaySound(clip);
@@ -421,7 +582,7 @@ public class PlayerController : MonoBehaviour
     
     void PlaySound(AudioClip clip)
     {
-        if (audioSource && clip)
+        if (audioSource != null && clip != null)
         {
             audioSource.PlayOneShot(clip);
         }
@@ -429,23 +590,29 @@ public class PlayerController : MonoBehaviour
     
     void PerformInteraction()
     {
+        if (playerCamera == null) return;
+        
         RaycastHit hit;
         if (Physics.Raycast(playerCamera.transform.position, playerCamera.transform.forward, out hit, 3f))
         {
             IInteractable interactable = hit.collider.GetComponent<IInteractable>();
-            interactable?.Interact();
+            if (interactable != null)
+            {
+                interactable.Interact();
+            }
         }
     }
     
     void PerformPickup()
     {
+        if (playerCamera == null) return;
+        
         RaycastHit hit;
         if (Physics.Raycast(playerCamera.transform.position, playerCamera.transform.forward, out hit, 3f))
         {
             PickupItem pickup = hit.collider.GetComponent<PickupItem>();
-            if (pickup)
+            if (pickup != null)
             {
-                // 尝试拾取
                 Debug.Log($"Picked up: {pickup.itemData.itemName}");
             }
         }
@@ -453,7 +620,7 @@ public class PlayerController : MonoBehaviour
     
     void ToggleInventory()
     {
-        if (UIManager.Instance)
+        if (UIManager.Instance != null && UIManager.Instance.inventoryUI != null)
         {
             UIManager.Instance.ToggleInventory();
             
@@ -471,6 +638,7 @@ public class PlayerController : MonoBehaviour
     public bool IsCrouching() => isCrouching;
     public bool IsAiming() => isAiming;
     public Vector3 GetVelocity() => velocity;
+    public bool IsInitialized() => isInitialized;
 }
 
 // 交互接口

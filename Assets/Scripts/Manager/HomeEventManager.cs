@@ -75,7 +75,7 @@ public class HomeEventManager : Singleton<HomeEventManager>
         reminderEvent.minDay = day;
         reminderEvent.maxDay = day;
         reminderEvent.baseTriggerChance = 1.0f; // 必定触发
-        reminderEvent.priority = EventPriority.Critical;
+        reminderEvent.priority = GameEventPriority.Critical;
         reminderEvent.requiresChoice = false;
         
         // 添加触发条件：必须拥有无线电
@@ -90,7 +90,21 @@ public class HomeEventManager : Singleton<HomeEventManager>
         
         return reminderEvent;
     }
+    protected override void OnSingletonApplicationQuit()
+    {
+        // 停止事件处理
+        StopAllCoroutines();
     
+        // 清理事件队列
+        scheduledEvents?.Clear();
+        triggeredEvents?.Clear();
+    
+        // 清理事件
+        onEventTriggered = null;
+        onEventCompleted = null;
+    
+        Debug.Log("[HomeEventManager] Application quit cleanup completed");
+    }
     public void ProcessDailyEvents()
     {
         int currentDay = GameManager.Instance.CurrentDay;

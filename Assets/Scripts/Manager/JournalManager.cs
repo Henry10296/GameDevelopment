@@ -96,7 +96,27 @@ public class JournalManager : Singleton<JournalManager>
         // 添加初始日志条目
         AddEntry("游戏开始", "核战争爆发了。我们一家躲在地下室中，外面的世界变得危险而混乱。我必须保护好我的家人，寻找足够的物资来生存下去。", JournalEntryType.Important);
     }
+    protected override void OnSingletonApplicationQuit()
+    {
+        // 执行最后的保存
+        if (autoSave)
+        {
+            try
+            {
+                SaveJournalData();
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[JournalManager] Final save failed: {e.Message}");
+            }
+        }
     
+        // 清理事件
+        onEntryAdded = null;
+        onJournalUpdated = null;
+    
+        Debug.Log("[JournalManager] Application quit cleanup completed");
+    }
     public void AddEntry(string title, string content, JournalEntryType type = JournalEntryType.General)
     {
         var entry = new JournalEntry(title, content, type);

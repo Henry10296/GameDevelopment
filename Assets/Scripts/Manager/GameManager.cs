@@ -15,38 +15,36 @@ public enum GamePhase//用来管理游戏的全局状态
 }
 
 
-
 public class GameManager : Singleton<GameManager>
 {
     [Header("游戏配置")]
-    public GameConfig gameConfig;//游戏的配置
+    public GameConfig gameConfig;
     
     [Header("当前状态")]
     [SerializeField] private GamePhase currentPhase = GamePhase.MainMenu;
     [SerializeField] private int currentDay = 1;
     [SerializeField] private float phaseTimer = 0f;
     [SerializeField] private bool gameEnded = false;
-    [Header("ScriptableObject配置")] // 添加到现有字段后
+    
+    [Header("ScriptableObject配置")]
     public SceneSettings sceneSettings;
     public InputSettings inputSettings;
     public UITextSettings uiTextSettings;
     public GameValues gameValues;
     public ResourcePaths resourcePaths;
+    
     [Header("事件")]
     public GameEvent onPhaseChanged;
     public IntGameEvent onDayChanged;
     public GameEvent onGameEnd;
-    [Header("事件系统")]
     public IntGameEvent onDayChangedSO;
     
     private float systemUpdateInterval = 0.5f;
     private float lastSystemUpdate;
-    // 系统管理器引用
-    public UIManager UIManager => UIManager.Instance;
-    public AudioManager AudioManager => AudioManager.Instance;
-    public SaveManager SaveManager => SaveManager.Instance;
-    public FamilyManager FamilyManager => FamilyManager.Instance;
-    public InventoryManager InventoryManager => InventoryManager.Instance;
+    private bool isInitialized = false;
+    
+    // 销毁顺序：GameManager应该最后销毁
+    protected override int DestroyOrder => 1000;
     
     // 属性访问器
     public GamePhase CurrentPhase => currentPhase;
@@ -54,13 +52,91 @@ public class GameManager : Singleton<GameManager>
     public float PhaseTimer => phaseTimer;
     public bool GameEnded => gameEnded;
     public GameConfig Config => gameConfig;
+    public bool IsInitialized => isInitialized;
     
-    protected override void Awake()
+    protected override void OnSingletonAwake()
     {
-        base.Awake();
-    
+        // 确保音频监听器存在
+        EnsureAudioListener();
+        
+        // 加载默认配置
+        LoadDefaultConfigs();
+        
         // 等待所有管理器初始化完成
         StartCoroutine(WaitForManagersInitialization());
+    }
+    
+    private void EnsureAudioListener()
+    {
+        if (FindObjectOfType<AudioListener>() == null)
+        {
+            // 在主摄像机上添加AudioListener
+            Camera mainCamera = Camera.main;
+            if (mainCamera == null)
+            {
+                // 如果没有主摄像机，创建一个临时的
+                GameObject audioObj = new GameObject("AudioListener");
+                audioObj.AddComponent<AudioListener>();
+                DontDestroyOnLoad(audioObj);
+                Debug.Log("[GameManager] Created AudioListener");
+            }
+            else
+            {
+                mainCamera.gameObject.AddComponent<AudioListener>();
+                Debug.Log("[GameManager] Added AudioListener to main camera");
+            }
+        }
+    }
+    
+    private void LoadDefaultConfigs()
+    {
+        // 如果配置为空，尝试从Resources加载
+        if (gameConfig == null)
+        {
+            gameConfig = Resources.Load<GameConfig>("Configs/GameConfig");
+            if (gameConfig == null)
+            {
+                Debug.LogWarning("[GameManager] GameConfig not found in Resources, creating default config");
+                CreateDefaultGameConfig();
+            }
+            else
+            {
+                Debug.Log("[GameManager] Loaded GameConfig from Resources");
+            }
+        }
+        
+        // 加载其他配置
+        LoadOtherConfigs();
+    }
+    
+    private void CreateDefaultGameConfig()
+    {
+        // 创建运行时默认配置
+        gameConfig = ScriptableObject.CreateInstance<GameConfig>();
+        gameConfig.maxDays = 5;
+        gameConfig.explorationTimeLimit = 900f;
+        gameConfig.timeWarningThreshold = 150f;
+        gameConfig.currentDifficulty = DifficultyLevel.Normal;
+        
+        Debug.Log("[GameManager] Created default GameConfig");
+    }
+    
+    private void LoadOtherConfigs()
+    {
+        if (sceneSettings == null)
+            sceneSettings = Resources.Load<SceneSettings>("SceneSettings");
+            
+        if (inputSettings == null)
+            inputSettings = Resources.Load<InputSettings>("InputSettings");
+            
+        if (uiTextSettings == null)
+            uiTextSettings = Resources.Load<UITextSettings>("UITextSettings");
+            
+        if (gameValues == null)
+            gameValues = Resources.Load<GameValues>("GameValues");
+            
+        if (resourcePaths == null)
+            resourcePaths = Resources.Load<ResourcePaths>("ResourcePaths");
     }
 
     IEnumerator WaitForManagersInitialization()
@@ -68,41 +144,30 @@ public class GameManager : Singleton<GameManager>
         var singletonManager = FindObjectOfType<ImprovedSingletonManager>();
         if (singletonManager != null)
         {
-            // 等待所有管理器初始化完成
             while (!singletonManager.AreAllManagersInitialized())
             {
                 yield return null;
             }
         }
-    
-        // 确保配置有效
-        if (gameConfig == null)
+        else
         {
-            Debug.LogError("[GameManager] GameConfig not assigned!");
-            enabled = false;
-            yield break;
+            // 等待几帧让其他管理器初始化
+            yield return new WaitForSeconds(1f);
         }
-    
-        // 初始化系统
-        InitializeSystems();
-    }
-    void Start()
-    {
         
-        StartGame();
+        InitializeSystems();
+        isInitialized = true;
     }
     
     void Update()
     {
-        if (gameEnded) return;
+        if (!isInitialized || gameEnded) return;
         
-        // 只在探索阶段才每帧更新时间
         if (currentPhase == GamePhase.Exploration)
         {
             UpdatePhaseTimer();
         }
         
-        // 降低系统检查频率
         if (Time.time - lastSystemUpdate > systemUpdateInterval)
         {
             UpdateSystems();
@@ -110,57 +175,52 @@ public class GameManager : Singleton<GameManager>
         }
         
 #if UNITY_EDITOR
-        HandleDebugInput(); // 只在编辑器模式下执行
+        HandleDebugInput();
 #endif
     }
     
     void InitializeSystems()
     {
-        // 初始化音频系统
-        if (AudioManager)
+        if (AudioManager.Instance)
         {
-            AudioManager.SetMusicForGamePhase(currentPhase);
+            AudioManager.Instance.SetMusicForGamePhase(currentPhase);
         }
         
         Debug.Log("[GameManager] Systems initialized");
     }
     
-    public void StartGame()//开始游戏
+    public void StartGame()
     {
-        // 重置游戏状态
         currentDay = 1;
         phaseTimer = 0f;
         gameEnded = false;
         
-        // 切换到主菜单
         ChangePhase(GamePhase.MainMenu);
-        
         Debug.Log("[GameManager] Game started");
     }
     
-    public void StartNewGame()//开始新的存档
+    public void StartNewGame()
     {
-        // 重置所有数据
-        if (FamilyManager) FamilyManager.ResetFamily();
-        if (InventoryManager) InventoryManager.ClearInventory();
-        if (GameData.Instance) GameData.Instance.ResetData();
+        // 安全地重置所有数据
+        if (FamilyManager.HasInstance) FamilyManager.Instance.ResetFamily();
+        if (InventoryManager.HasInstance) InventoryManager.Instance.ClearInventory();
+        if (GameData.HasInstance) GameData.Instance.ResetData();
         
-        // 开始故事选择
         ChangePhase(GamePhase.Story);
         LoadScene("1_Home");
         
         Debug.Log("[GameManager] New game started");
     }
     
-    public void LoadGame()//读取
+    public void LoadGame()
     {
-        if (SaveManager)
+        if (SaveManager.HasInstance)
         {
-            SaveManager.LoadGame(0); // 默认存档槽
+            SaveManager.Instance.LoadGame(0);
         }
     }
     
-    public void ChangePhase(GamePhase newPhase)//切换状态
+    public void ChangePhase(GamePhase newPhase)
     {
         if (currentPhase == newPhase) return;
         
@@ -168,19 +228,16 @@ public class GameManager : Singleton<GameManager>
         currentPhase = newPhase;
         phaseTimer = 0f;
         
-        // 执行阶段切换逻辑
-        HandlePhaseTransition(previousPhase, newPhase);
+        HandlePhaseTransition(previousPhase, newPhase);//
         
-        // 通知UI系统
-        if (UIManager)
+        if (UIManager.HasInstance)
         {
-            UIManager.OnPhaseChanged(newPhase);
+            UIManager.Instance.OnPhaseChanged(newPhase);
         }
         
-        // 更新音乐
-        if (AudioManager)
+        if (AudioManager.HasInstance)
         {
-            AudioManager.SetMusicForGamePhase(newPhase);
+            AudioManager.Instance.SetMusicForGamePhase(newPhase);
         }
         
         onPhaseChanged?.Raise();
@@ -195,27 +252,21 @@ public class GameManager : Singleton<GameManager>
             case GamePhase.MainMenu:
                 HandleMainMenuPhase();
                 break;
-                
             case GamePhase.Story:
                 HandleStoryPhase();
                 break;
-                
             case GamePhase.Home:
                 HandleHomePhase();
                 break;
-                
             case GamePhase.MapSelection:
                 HandleMapSelectionPhase();
                 break;
-                
             case GamePhase.Exploration:
                 HandleExplorationPhase();
                 break;
-                
             case GamePhase.EventProcessing:
                 HandleEventPhase();
                 break;
-                
             case GamePhase.GameEnd:
                 HandleGameEndPhase();
                 break;
@@ -229,10 +280,9 @@ public class GameManager : Singleton<GameManager>
         Time.timeScale = 1f;
     }
     
-    void HandleStoryPhase()//故事这里还没做
+    void HandleStoryPhase()
     {
-        // 显示开局故事选择
-        phaseTimer = float.MaxValue; // 等待玩家选择
+        phaseTimer = float.MaxValue;
     }
     
     void HandleHomePhase()
@@ -248,25 +298,23 @@ public class GameManager : Singleton<GameManager>
     
     void HandleMapSelectionPhase()
     {
-        phaseTimer = float.MaxValue; // 等待玩家选择
+        phaseTimer = float.MaxValue;
     }
     
     void HandleExplorationPhase()
     {
-        float timeLimit = gameValues?.explorationTimeLimit ?? 900f;//TODO:xiugai 
+        float timeLimit = gameValues?.explorationTimeLimit ?? 900f;
         phaseTimer = timeLimit;
         StartCoroutine(ExplorationCountdown());
     }
     
     void HandleEventPhase()
     {
-        // 处理随机事件
-        if (HomeEventManager.Instance)
+        if (HomeEventManager.HasInstance)
         {
             HomeEventManager.Instance.ProcessDailyEvents();
         }
         
-        // 短暂延迟后推进到下一天
         StartCoroutine(ProcessEventPhaseDelay());
     }
     
@@ -275,35 +323,13 @@ public class GameManager : Singleton<GameManager>
         gameEnded = true;
         onGameEnd?.Raise();
         
-        // 计算结局
         bool goodEnding = CalculateGoodEnding();
-        if (EndGameManager.Instance)
+        if (EndGameManager.HasInstance)
         {
             EndGameManager.Instance.ShowEnding(goodEnding);
         }
     }
-    public void StartExploration(int mapIndex)
-    {
-        string sceneName = sceneSettings?.GetExplorationScene(mapIndex) ?? "";
-        
-        if (string.IsNullOrEmpty(sceneName))
-        {
-            Debug.LogError($"[GameManager] Invalid map index: {mapIndex}");
-            return;
-        }
-        
-        if (ExplorationManager.Instance)
-        {
-            ExplorationManager.Instance.SetSelectedMap(mapIndex);
-        }
-        
-        ChangePhase(GamePhase.Exploration);
-        LoadScene(sceneName);
-        
-        Debug.Log($"[GameManager] Starting exploration: {sceneName}");
-    }
     
-    // 修改现有ExplorationCountdown方法
     IEnumerator ExplorationCountdown()
     {
         float warningThreshold = gameValues?.timeWarningThreshold ?? 300f;
@@ -312,7 +338,7 @@ public class GameManager : Singleton<GameManager>
         {
             phaseTimer -= Time.deltaTime;
             
-            if (phaseTimer <= warningThreshold && UIManager.Instance)
+            if (phaseTimer <= warningThreshold && UIManager.HasInstance)
             {
                 UIManager.Instance.ShowTimeWarning();
             }
@@ -325,7 +351,6 @@ public class GameManager : Singleton<GameManager>
             ReturnHomeFromExploration(true);
         }
     }
-   
     
     IEnumerator ProcessEventPhaseDelay()
     {
@@ -335,54 +360,49 @@ public class GameManager : Singleton<GameManager>
     
     void ProcessDailyNeeds()
     {
-        if (FamilyManager)
+        if (FamilyManager.HasInstance)
         {
-            FamilyManager.ProcessDailyNeeds();
+            FamilyManager.Instance.ProcessDailyNeeds();
         }
     }
     
     bool CalculateGoodEnding()
     {
-        if (RadioManager.Instance)
+        if (RadioManager.HasInstance)
         {
             return RadioManager.Instance.GetGoodEndingAchieved();
         }
         return false;
     }
     
-    /*public void StartExploration(int mapIndex)
+    public void StartExploration(int mapIndex)
     {
-        if (mapIndex < 0 || mapIndex >= sceneNames.Length - 2)
+        string sceneName = sceneSettings?.GetExplorationScene(mapIndex) ?? "";
+        
+        if (string.IsNullOrEmpty(sceneName))
         {
             Debug.LogError($"[GameManager] Invalid map index: {mapIndex}");
             return;
         }
         
-        string sceneName = sceneNames[mapIndex + 2]; // +2 跳过主菜单和家
-        
-        // 设置选择的地图
-        if (ExplorationManager.Instance)
+        if (ExplorationManager.HasInstance)
         {
             ExplorationManager.Instance.SetSelectedMap(mapIndex);
         }
         
-        // 切换阶段和场景
         ChangePhase(GamePhase.Exploration);
         LoadScene(sceneName);
         
         Debug.Log($"[GameManager] Starting exploration: {sceneName}");
-    }*/
+    }
     
     public void ReturnHomeFromExploration(bool isTimeout = false)
     {
-        // 应用返回逻辑
-        if (isTimeout && InventoryManager)
+        if (isTimeout && InventoryManager.HasInstance)
         {
-            // 超时惩罚：丢失部分物品
-            //InventoryManager.ApplyOvertimeLoss(0.3f);
+            // 超时惩罚处理
         }
         
-        // 切换回家庭阶段
         LoadScene("1_Home");
         ChangePhase(GamePhase.EventProcessing);
     }
@@ -391,14 +411,13 @@ public class GameManager : Singleton<GameManager>
     {
         currentDay++;
         onDayChanged?.Raise(currentDay);
+        onDayChangedSO?.Raise(currentDay);
         
-        // 记录统计
-        if (GameData.Instance)
+        if (GameData.HasInstance)
         {
-            //GameData.Instance.SetDayCompleted(currentDay);
+            GameData.Instance.SetDayCompleted(currentDay);
         }
         
-        // 检查游戏结束
         if (currentDay > gameConfig.maxDays)
         {
             ChangePhase(GamePhase.GameEnd);
@@ -407,13 +426,13 @@ public class GameManager : Singleton<GameManager>
         {
             ChangePhase(GamePhase.Home);
         }
-        onDayChangedSO?.Raise(currentDay);
+        
         Debug.Log($"[GameManager] Advanced to day {currentDay}");
     }
     
-    public void LoadScene(string sceneName)//加载
+    public void LoadScene(string sceneName)
     {
-        if (SceneTransitionManager.Instance)
+        if (SceneTransitionManager.HasInstance)
         {
             SceneTransitionManager.Instance.LoadSceneWithFade(sceneName);
         }
@@ -423,7 +442,7 @@ public class GameManager : Singleton<GameManager>
         }
     }
     
-    void UpdatePhaseTimer()//放在exploration
+    void UpdatePhaseTimer()
     {
         if (phaseTimer == float.MaxValue) return;
         
@@ -445,9 +464,8 @@ public class GameManager : Singleton<GameManager>
         }
     }
     
-    void UpdateSystems()//杂糅
+    void UpdateSystems()
     {
-        // 检查游戏结束条件
         CheckGameEndConditions();
     }
     
@@ -455,18 +473,17 @@ public class GameManager : Singleton<GameManager>
     {
         if (gameEnded) return;
         
-        // 检查家庭成员全部死亡
-        if (FamilyManager && FamilyManager.AliveMembers == 0)
+        if (FamilyManager.HasInstance && FamilyManager.Instance.AliveMembers == 0)
         {
             ChangePhase(GamePhase.GameEnd);
         }
         
-        // 检查玩家死亡
-        if (PlayerHealth.Instance && !PlayerHealth.Instance.IsAlive())
+        if (PlayerHealth.HasInstance && !PlayerHealth.Instance.IsAlive())
         {
             ChangePhase(GamePhase.GameEnd);
         }
     }
+    
     public void ScheduleEvent(RandomEvent evt, float delayDays)
     {
         StartCoroutine(ScheduleEventCoroutine(evt, delayDays));
@@ -477,20 +494,12 @@ public class GameManager : Singleton<GameManager>
         int targetDay = CurrentDay + Mathf.RoundToInt(delayDays);
         yield return new WaitUntil(() => CurrentDay >= targetDay);
 
-        if (evt != null && evt.CanTrigger())
+        if (evt != null && evt.CanTrigger() && GameEventManager.HasInstance)
         {
-            GameEventManager.Instance?.TriggerEventExternally(evt); // 调用外部暴露接口
+            GameEventManager.Instance.TriggerEventExternally(evt);
         }
     }
 
-    private float GetPhaseTimeLimit(GamePhase phase)
-    {
-        return phase switch
-        {
-            GamePhase.Exploration => gameConfig.explorationTimeLimit,
-            _ => float.MaxValue
-        };
-    }
     void HandleDebugInput()
     {
         if (!Debug.isDebugBuild || inputSettings == null) return;
@@ -505,42 +514,41 @@ public class GameManager : Singleton<GameManager>
             ChangePhase(GamePhase.GameEnd);
         }
         
-        if (Input.GetKeyDown(inputSettings.debugAddResources) && FamilyManager.Instance)
+        if (Input.GetKeyDown(inputSettings.debugAddResources) && FamilyManager.HasInstance)
         {
             FamilyManager.Instance.DebugAddResources();
         }
         
-        if (Input.GetKeyDown(inputSettings.debugFindRadio) && RadioManager.Instance)
+        if (Input.GetKeyDown(inputSettings.debugFindRadio) && RadioManager.HasInstance)
         {
             RadioManager.Instance.FindRadio();
         }
     }
     
-    // 公共接口方法
-    public void CompleteStoryPhase()//故事之后
+    public void CompleteStoryPhase()
     {
         ChangePhase(GamePhase.Home);
     }
     
-    public void StartMapSelection()//地图选择
+    public void StartMapSelection()
     {
         ChangePhase(GamePhase.MapSelection);
     }
     
-    public void QuitToMainMenu()//返回菜单
+    public void QuitToMainMenu()
     {
         ChangePhase(GamePhase.MainMenu);
         LoadScene("0_MainMenu");
     }
     
-    public void QuitGame()//退游戏
+    public void QuitGame()
     {
         Debug.Log("[GameManager] Quitting game");
         
-        // 保存游戏
-        if (SaveManager)
+        // 安全保存游戏
+        if (SaveManager.HasInstance)
         {
-            SaveManager.SaveGame(0);
+            SaveManager.Instance.SaveGame(0);
         }
         
 #if UNITY_EDITOR
@@ -550,7 +558,6 @@ public class GameManager : Singleton<GameManager>
 #endif
     }
     
-    // 获取游戏状态信息
     public GameStateInfo GetGameState()
     {
         return new GameStateInfo
@@ -559,22 +566,61 @@ public class GameManager : Singleton<GameManager>
             currentDay = currentDay,
             phaseTimer = phaseTimer,
             gameEnded = gameEnded,
-            aliveMembers = FamilyManager?.AliveMembers ?? 0,
-            totalResources = FamilyManager ? FamilyManager.Food + FamilyManager.Water + FamilyManager.Medicine : 0
+            aliveMembers = FamilyManager.HasInstance ? FamilyManager.Instance.AliveMembers : 0,
+            totalResources = GetTotalResources()
         };
     }
     
-    protected override void OnDestroy()
+    private int GetTotalResources()
     {
-        // 保存游戏状态
-        if (SaveManager)
+        if (FamilyManager.HasInstance)
         {
-            SaveManager.SaveGame(0);
+            var fm = FamilyManager.Instance;
+            return fm.Food + fm.Water + fm.Medicine;
+        }
+        return 0;
+    }
+    
+    // 应用退出时的清理
+    protected override void OnSingletonApplicationQuit()
+    {
+        gameEnded = true;
+        
+        // 停止所有协程
+        StopAllCoroutines();
+        
+        // 安全保存（不依赖其他管理器）
+        try
+        {
+            if (SaveManager.HasInstance)
+            {
+                // 简化保存，避免依赖其他管理器
+                PlayerPrefs.SetInt("LastDay", currentDay);
+                PlayerPrefs.SetString("LastPhase", currentPhase.ToString());
+                PlayerPrefs.Save();
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[GameManager] Error during quit save: {e.Message}");
         }
         
-        base.OnDestroy();
+        Debug.Log("[GameManager] Application quit cleanup completed");
+    }
+    
+    protected override void OnSingletonDestroy()
+    {
+        // 清理事件订阅
+        if (onPhaseChanged != null) onPhaseChanged = null;
+        if (onDayChanged != null) onDayChanged = null;
+        if (onGameEnd != null) onGameEnd = null;
+        if (onDayChangedSO != null) onDayChangedSO = null;
+        
+        base.OnSingletonDestroy();
     }
 }
+
+
 
 [System.Serializable]
 public class GameStateInfo

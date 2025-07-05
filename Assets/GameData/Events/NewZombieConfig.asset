@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 16fe64ed86edac344bf8c2133a168ea4, type: 3}
   m_Name: NewZombieConfig
   m_EditorClassIdentifier: 
-  enemyName: "\u65B0\u50F5\u5C38"
+  enemyName: New Zombie
   enemyType: 0
   health: 50
   patrolSpeed: 2

@@ -209,7 +209,19 @@ public partial class FamilyManager : Singleton<FamilyManager>
     {
         SubscribeToEvents();
     }
+    protected override void OnSingletonApplicationQuit()
+    {
+        // 停止所有协程和更新
+        StopAllCoroutines();
     
+        // 清理事件订阅
+        onResourceChanged = null;
+        onMemberStatusChanged = null;
+        onFamilyDeath = null;
+        onResourceTypeChanged = null;
+    
+        Debug.Log("[FamilyManager] Application quit cleanup completed");
+    }
     void SubscribeToEvents()
     {
         if (GameManager.Instance)

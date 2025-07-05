@@ -1,0 +1,130 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 723530ff1b3db3443bf0f5efddbe5163, type: 3}
+  m_Name: PlayerConfig
+  m_EditorClassIdentifier: 
+  walkSpeed: 3.5
+  runSpeed: 7
+  crouchSpeed: 1.5
+  aimSpeed: 2
+  acceleration: 10
+  deceleration: 10
+  airControl: 0.3
+  slopeLimit: 1
+  jumpHeight: 1.5
+  gravity: 20
+  groundCheckDistance: 0.1
+  allowDoubleJump: 0
+  allowWallJump: 0
+  mouseSensitivity: 2
+  aimSensitivity: 1
+  maxLookAngle: 80
+  invertMouseY: 0
+  smoothMouseLook: 1
+  mouseSmoothTime: 10
+  crouchHeight: 1
+  standingHeight: 2
+  crouchTransitionSpeed: 10
+  holdToCrouch: 0
+  canCrouchInAir: 0
+  leanAngle: 15
+  leanSpeed: 5
+  leanOffset: 0.3
+  canLeanWhileMoving: 1
+  aimFOV: 40
+  normalFOV: 60
+  aimTransitionSpeed: 10
+  aimSwayAmount: 0.1
+  aimSwaySpeed: 2
+  holdToAim: 1
+  walkBobSpeed: 8
+  walkBobAmount: 0.05
+  runBobSpeed: 12
+  runBobAmount: 0.1
+  crouchBobMultiplier: 0.5
+  bobCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  idleSwayAmount: 0.02
+  idleSwaySpeed: 1
+  moveSwayAmount: 0.05
+  moveSwaySpeed: 2
+  enableBreathingSway: 1
+  weaponSwitchSpeed: 5
+  weaponDropHeight: 0.5
+  autoReload: 0
+  infiniteAmmo: 0
+  interactionRange: 3
+  interactionDot: 0.8
+  interactableLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  footstepSounds: []
+  footstepSoundsRun: []
+  footstepSoundsCrouch: []
+  jumpSound: {fileID: 0}
+  landSound: {fileID: 0}
+  landHardSound: {fileID: 0}
+  footstepInterval: 0.5
+  footstepVolume: 0.7
+  maxHealth: 100
+  maxArmor: 100
+  healthRegenRate: 0
+  healthRegenDelay: 5
+  armorAbsorption: 0.5
+  enableDamageShake: 1
+  enableDamageVignette: 1
+  enableDamageIndicators: 1
+  damageShakeIntensity: 0.5
+  damageVignetteColor: {r: 1, g: 0, b: 0, a: 0.5}
+  jumpKey: 32
+  crouchKey: 99
+  runKey: 304
+  leanLeftKey: 113
+  leanRightKey: 101
+  interactKey: 101
+  pickupKey: 102
+  reloadKey: 114
+  inventoryKey: 9
+  weapon1Key: 49
+  weapon2Key: 50
+  enableBunnyHopping: 0
+  enableSliding: 0
+  enableWallRunning: 0
+  enableMantling: 0
+  slideFriction: 0.3
+  wallRunSpeed: 5
+  showDebugInfo: 0
+  showMovementGizmos: 0
+  enableCheats: 0
+  enableDoubleJump: 0

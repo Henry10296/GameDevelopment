@@ -10,7 +10,7 @@ public class RandomEvent : ScriptableObject
     public string eventName;
     [TextArea(3, 5)] public string eventDescription;
     public Sprite eventIcon;
-    public EventPriority priority = EventPriority.Normal;
+    public GameEventPriority priority = GameEventPriority.Normal;
     
     [Header("触发条件")]
     public int minDay = 1;
@@ -19,7 +19,7 @@ public class RandomEvent : ScriptableObject
     public EventCondition[] triggerConditions;
     
     [Header("事件类型")]
-    public EventType eventType;
+    public GameEventType eventType;
     public bool requiresChoice = true;
     public bool canRepeat = false;
     
@@ -170,10 +170,10 @@ public class RandomEvent : ScriptableObject
         // 根据优先级调整
         chance *= priority switch
         {
-            EventPriority.Critical => 2.0f,
-            EventPriority.High => 1.5f,
-            EventPriority.Normal => 1.0f,
-            EventPriority.Low => 0.5f,
+            GameEventPriority.Critical => 2.0f,
+            GameEventPriority.High => 1.5f,
+            GameEventPriority.Normal => 1.0f,
+            GameEventPriority.Low => 0.5f,
             _ => 1.0f
         };
         

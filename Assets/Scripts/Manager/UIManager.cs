@@ -39,6 +39,17 @@ public class UIManager : Singleton<UIManager>
     public UITextSettings textSettings;
     public GameValues gameValues;
     public InputSettings inputSettings;
+    protected override void OnSingletonApplicationQuit()
+    {
+        // 停止所有UI协程
+        StopAllCoroutines();
+    
+        // 隐藏所有UI
+        if (enableAutoUpdate)
+            CancelInvoke(nameof(AutoUpdateUI));
+    
+        Debug.Log("[UIManager] Application quit cleanup completed");
+    }
     protected override void Awake()
     {
         base.Awake();

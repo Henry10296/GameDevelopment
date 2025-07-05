@@ -16,7 +16,19 @@ MonoBehaviour:
   explorationTimeLimit: 900
   timeWarningThreshold: 150
   currentDifficulty: 1
-  difficultyConfigs: []
+  difficultyConfigs:
+  - difficulty: 0
+    difficultyName: 
+    description: 
+    hungerMultiplier: 0
+    thirstMultiplier: 0
+    sicknessProbability: 0
+    enemyHealthMultiplier: 0
+    enemyDamageMultiplier: 0
+    enemySpawnChanceMultiplier: 0
+    lootSpawnMultiplier: 0
+    resourceConsumptionMultiplier: 0
+    explorationTimeMultiplier: 0
   familyConfig:
     dailyFoodConsumption: 3
     dailyWaterConsumption: 3
@@ -46,7 +58,7 @@ MonoBehaviour:
   itemConfig:
     allItems: []
     maxInventorySlots: 9
-    maxStackSize: 99
+    maxStackSize: 97
     pickupRange: 2
     pickupKey: 101
     pickupSound: {fileID: 0}
@@ -61,7 +73,11 @@ MonoBehaviour:
     minEnemySpawns: 1
     maxEnemySpawns: 5
     useMapUnlockSystem: 1
-    unlockRules: []
+    unlockRules:
+    - mapName: 
+      requiredDay: 0
+      requiredItems: []
+      requiredEvents: 
     tutorialMap: {fileID: 0}
     finalMap: {fileID: 0}
   eventConfig:
@@ -69,7 +85,9 @@ MonoBehaviour:
     baseEventChance: 0.3
     maxEventsPerDay: 2
     allowEventChaining: 1
-    eventTypeWeights: []
+    eventTypeWeights:
+    - eventType: 0
+      weight: 0
     eventDisplayDuration: 0.5
     eventSound: {fileID: 0}
     priorityColors: []

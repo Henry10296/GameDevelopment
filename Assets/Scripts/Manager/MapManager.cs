@@ -14,6 +14,7 @@ public class MapManager : Singleton<MapManager>
     public GameEvent onMapUnlocked;
     public GameEvent onMapDataChanged;
     
+    
     protected override void Awake()
     {
         base.Awake();
@@ -89,6 +90,24 @@ public class MapManager : Singleton<MapManager>
         return null;
     }
     
+    protected override void OnSingletonApplicationQuit()
+    {
+        // 保存解锁状态
+        try
+        {
+            SaveUnlockStates();
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[MapManager] Failed to save unlock states: {e.Message}");
+        }
+    
+        // 清理事件
+        onMapUnlocked = null;
+        onMapDataChanged = null;
+    
+        Debug.Log("[MapManager] Application quit cleanup completed");
+    }
     public bool IsMapUnlocked(string mapName)//判断地图解锁
     {
         return unlockedMapNames.Contains(mapName);

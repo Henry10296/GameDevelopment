@@ -57,7 +57,17 @@ public class SceneTransitionManager : Singleton<SceneTransitionManager>
             StopCoroutine(currentTransition);
         currentTransition = StartCoroutine(FadeOutCoroutine());
     }
+    protected override void OnSingletonApplicationQuit()
+    {
+        // 停止所有转换协程
+        if (currentTransition != null)
+        {
+            StopCoroutine(currentTransition);
+            currentTransition = null;
+        }
     
+        Debug.Log("[SceneTransitionManager] Application quit cleanup completed");
+    }
     IEnumerator FadeInCoroutine()
     {
         if (fadeImage == null) yield break;

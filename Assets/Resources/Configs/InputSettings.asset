@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ce8358b51c90b1340b45af6e96eb320e, type: 3}
+  m_Name: InputSettings
+  m_EditorClassIdentifier: 
+  interactionKey: 101
+  pickupKey: 101
+  useItemKey: 101
+  inventoryKey: 9
+  journalKey: 106
+  pauseKey: 27
+  reloadKey: 114
+  weapon1Key: 49
+  weapon2Key: 50
+  fireKey: 323
+  aimKey: 324
+  runKey: 304
+  crouchKey: 99
+  jumpKey: 32
+  debugNextDay: 282
+  debugEndGame: 283
+  debugAddResources: 284
+  debugFindRadio: 285

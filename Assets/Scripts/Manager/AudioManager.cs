@@ -27,6 +27,7 @@ public class AudioManager : Singleton<AudioManager>
     private string currentMusicTrack;
     private float musicVolume = 1f;
     private float sfxVolume = 1f;
+    private float masterVolume = 1f;
     
     protected override void Awake()
     {
@@ -42,12 +43,21 @@ public class AudioManager : Singleton<AudioManager>
     
     void InitializeAudioSystem()
     {
-        // 创建音频源对象池
-        audioSourcePool = new ObjectPool<AudioSource>(CreatePooledAudioSource, audioSourcePoolSize);
-        
-        // 创建专用音频源
-        musicSource = CreateDedicatedAudioSource("MusicSource", musicMixer);
-        ambientSource = CreateDedicatedAudioSource("AmbientSource", sfxMixer);
+        try
+        {
+            // 创建音频源对象池
+            audioSourcePool = new ObjectPool<AudioSource>(CreatePooledAudioSource, audioSourcePoolSize);
+            
+            // 创建专用音频源
+            musicSource = CreateDedicatedAudioSource("MusicSource", musicMixer);
+            ambientSource = CreateDedicatedAudioSource("AmbientSource", sfxMixer);
+            
+            Debug.Log("[AudioManager] Audio system initialized successfully");
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[AudioManager] Failed to initialize audio system: {e.Message}");
+        }
     }
     
     AudioSource CreatePooledAudioSource()
@@ -70,6 +80,7 @@ public class AudioManager : Singleton<AudioManager>
         AudioSource source = audioObj.AddComponent<AudioSource>();
         source.outputAudioMixerGroup = mixerGroup;
         source.playOnAwake = false;
+        source.loop = true; // 音乐通常需要循环
         
         return source;
     }
@@ -91,30 +102,24 @@ public class AudioManager : Singleton<AudioManager>
     {
         musicVolume = PlayerPrefs.GetFloat("MusicVolume", 0.7f);
         sfxVolume = PlayerPrefs.GetFloat("SFXVolume", 1f);
+        masterVolume = PlayerPrefs.GetFloat("MasterVolume", 1f);
         
-        SetMusicVolume(musicVolume);
-        SetSFXVolume(sfxVolume);
+        // 安全地设置音量
+        SetMasterVolumeSafe(masterVolume);
+        SetMusicVolumeSafe(musicVolume);
+        SetSFXVolumeSafe(sfxVolume);
     }
     
     // 音效播放方法
     public void PlaySFX(string clipName, Vector3 position = default, float volume = 1f)
     {
+        if (audioSourcePool == null)
+        {
+            Debug.LogWarning("[AudioManager] Audio pool not initialized");
+            return;
+        }
+        
         AudioClip clip = GetAudioClip(clipName);
-        if (clip == null) return;
-        
-        AudioSource source = audioSourcePool.Get();
-        source.clip = clip;
-        source.volume = volume * sfxVolume;
-        source.transform.position = position;
-        source.pitch = Random.Range(0.95f, 1.05f); // 轻微音调变化
-        
-        source.Play();
-        
-        StartCoroutine(ReturnAudioSourceAfterPlay(source, clip.length));
-    }
-    
-    public void PlaySFX(AudioClip clip, Vector3 position = default, float volume = 1f)
-    {
         if (clip == null) return;
         
         AudioSource source = audioSourcePool.Get();
@@ -128,11 +133,21 @@ public class AudioManager : Singleton<AudioManager>
         StartCoroutine(ReturnAudioSourceAfterPlay(source, clip.length));
     }
     
-    // 音乐播放方法
+    // 音乐播放方法 - 修复版本
     public void PlayMusic(string clipName, bool loop = true, float fadeTime = 2f)
     {
+        if (musicSource == null)
+        {
+            Debug.LogWarning("[AudioManager] Music source not initialized");
+            return;
+        }
+        
         AudioClip clip = GetAudioClip(clipName);
-        if (clip == null) return;
+        if (clip == null) 
+        {
+            Debug.LogWarning($"[AudioManager] Music clip '{clipName}' not found, skipping");
+            return;
+        }
         
         StartCoroutine(FadeToNewMusic(clip, loop, fadeTime));
         currentMusicTrack = clipName;
@@ -183,93 +198,71 @@ public class AudioManager : Singleton<AudioManager>
         musicSource.volume = targetVolume;
     }
     
-    // 环境音效
-    public void PlayAmbientSound(string clipName, bool loop = true, float volume = 0.5f)
+    // 音量控制方法 - 安全版本
+    public void SetMasterVolumeSafe(float volume)
     {
-        AudioClip clip = GetAudioClip(clipName);
-        if (clip == null) return;
+        masterVolume = Mathf.Clamp01(volume);
         
-        ambientSource.clip = clip;
-        ambientSource.loop = loop;
-        ambientSource.volume = volume * sfxVolume;
-        ambientSource.Play();
-    }
-    
-    public void StopAmbientSound(float fadeTime = 1f)
-    {
-        if (ambientSource.isPlaying)
+        if (masterMixer?.audioMixer != null)
         {
-            StartCoroutine(FadeOutAmbient(fadeTime));
+            masterMixer.audioMixer.SetFloat("MasterVolume", LinearToDecibel(volume));
         }
-    }
-    
-    IEnumerator FadeOutAmbient(float fadeTime)
-    {
-        float startVolume = ambientSource.volume;
-        
-        while (ambientSource.volume > 0)
+        else
         {
-            ambientSource.volume -= startVolume * Time.deltaTime / fadeTime;
-            yield return null;
+            AudioListener.volume = masterVolume;
         }
         
-        ambientSource.volume = 0f;
-        ambientSource.Stop();
-    }
-    
-    // 3D音效播放
-    public void Play3DSFX(string clipName, Vector3 position, float maxDistance = 20f, float volume = 1f)
-    {
-        AudioClip clip = GetAudioClip(clipName);
-        if (clip == null) return;
-        
-        AudioSource source = audioSourcePool.Get();
-        source.clip = clip;
-        source.volume = volume * sfxVolume;
-        source.transform.position = position;
-        
-        // 3D音频设置
-        source.spatialBlend = 1f; // 完全3D
-        source.rolloffMode = AudioRolloffMode.Linear;
-        source.maxDistance = maxDistance;
-        source.minDistance = 1f;
-        
-        source.Play();
-        
-        StartCoroutine(ReturnAudioSourceAfterPlay(source, clip.length));
-    }
-    
-    // 音量控制方法
-    public void SetMasterVolume(float volume)
-    {
-        volume = Mathf.Clamp01(volume);
-        masterMixer.audioMixer.SetFloat("MasterVolume", LinearToDecibel(volume));
         PlayerPrefs.SetFloat("MasterVolume", volume);
     }
     
-    public void SetMusicVolume(float volume)
+    public void SetMusicVolumeSafe(float volume)
     {
         musicVolume = Mathf.Clamp01(volume);
-        musicSource.volume = musicVolume;
-        musicMixer.audioMixer.SetFloat("MusicVolume", LinearToDecibel(volume));
+        
+        if (musicSource != null)
+        {
+            musicSource.volume = musicVolume;
+        }
+        
+        if (musicMixer?.audioMixer != null)
+        {
+            musicMixer.audioMixer.SetFloat("MusicVolume", LinearToDecibel(volume));
+        }
+        
         PlayerPrefs.SetFloat("MusicVolume", volume);
     }
     
-    public void SetSFXVolume(float volume)
+    public void SetSFXVolumeSafe(float volume)
     {
         sfxVolume = Mathf.Clamp01(volume);
-        sfxMixer.audioMixer.SetFloat("SFXVolume", LinearToDecibel(volume));
+        
+        if (sfxMixer?.audioMixer != null)
+        {
+            sfxMixer.audioMixer.SetFloat("SFXVolume", LinearToDecibel(volume));
+        }
+        
         PlayerPrefs.SetFloat("SFXVolume", volume);
     }
+    
+    // 旧方法保持兼容性
+    public void SetMasterVolume(float volume) => SetMasterVolumeSafe(volume);
+    public void SetMusicVolume(float volume) => SetMusicVolumeSafe(volume);
+    public void SetSFXVolume(float volume) => SetSFXVolumeSafe(volume);
     
     float LinearToDecibel(float linear)
     {
         return linear > 0 ? 20f * Mathf.Log10(linear) : -80f;
     }
     
-    // 获取音频剪辑
+    // 获取音频剪辑 - 改进版本
     AudioClip GetAudioClip(string clipName)
     {
+        if (string.IsNullOrEmpty(clipName))
+        {
+            Debug.LogWarning("[AudioManager] Empty clip name provided");
+            return null;
+        }
+        
         if (audioCache.TryGetValue(clipName, out AudioClip cachedClip))
         {
             return cachedClip;
@@ -291,24 +284,27 @@ public class AudioManager : Singleton<AudioManager>
     {
         yield return new WaitForSeconds(duration);
         
-        source.Stop();
-        source.clip = null;
-        source.volume = 1f;
-        source.pitch = 1f;
-        source.spatialBlend = 0f; // 重置为2D
-        
-        //audioSourcePool.Return(source);
+        if (source != null)
+        {
+            source.Stop();
+            source.clip = null;
+            source.volume = 1f;
+            source.pitch = 1f;
+            source.spatialBlend = 0f;
+            
+            audioSourcePool?.Return(source);
+        }
     }
     
-    // 动态音乐系统
+    // 动态音乐系统 - 安全版本
     public void SetMusicForGamePhase(GamePhase phase)
     {
         string musicTrack = phase switch
         {
-            GamePhase.Home => "HomeBGM",//家庭的BGM
-            GamePhase.Exploration => "ExplorationBGM",//探索
-            GamePhase.EventProcessing => "EventBGM",//事件
-            GamePhase.GameEnd => "EndingBGM",//游戏结束
+            GamePhase.Home => "HomeBGM",
+            GamePhase.Exploration => "ExplorationBGM",
+            GamePhase.EventProcessing => "EventBGM",
+            GamePhase.GameEnd => "EndingBGM",
             _ => "MenuBGM"
         };
         
@@ -318,39 +314,10 @@ public class AudioManager : Singleton<AudioManager>
         }
     }
     
-    // 紧张度系统
-    public void SetTensionLevel(float tensionLevel)
-    {
-        tensionLevel = Mathf.Clamp01(tensionLevel);
-        
-        // 根据紧张度调整音乐
-        if (tensionLevel > 0.8f)
-        {
-            PlayMusic("HighTensionBGM");
-        }
-        else if (tensionLevel > 0.5f)
-        {
-            PlayMusic("MediumTensionBGM");
-        }
-        else
-        {
-            PlayMusic("LowTensionBGM");
-        }
-    }
-    
-    // 调试方法
-    [ContextMenu("Test All Audio")]
-    public void DebugTestAllAudio()
-    {
-        foreach (var clip in audioCache.Values)
-        {
-            PlaySFX(clip, transform.position, 0.5f);
-        }
-    }
-    
-    protected override void OnDestroy()
+    // 应用退出时清理
+    protected override void OnSingletonApplicationQuit()
     {
         PlayerPrefs.Save();
-        base.OnDestroy();
+        base.OnSingletonApplicationQuit();
     }
 }

@@ -35,9 +35,9 @@ public class EventEditorWindow : EditorWindow
     
     // 过滤和搜索
     private string eventSearchFilter = "";
-    private EventType eventTypeFilter = EventType.ResourceGain;
+    private GameEventType eventTypeFilter = GameEventType.ResourceGain;
     private bool useEventTypeFilter = false;
-    private EventPriority eventPriorityFilter = EventPriority.Normal;
+    private GameEventPriority eventPriorityFilter = GameEventPriority.Normal;
     private bool useEventPriorityFilter = false;
     
     // UI状态
@@ -65,18 +65,21 @@ public class EventEditorWindow : EditorWindow
     private GUIStyle nodeStyle;
     private GUIStyle selectedNodeStyle;
     
+    // 保存纹理引用，防止被垃圾回收
+    private Dictionary<string, Texture2D> cachedTextures = new Dictionary<string, Texture2D>();
+    
     // 专业配色方案
-    private static readonly Color Primary = new Color(0.26f, 0.54f, 0.96f);      // 主色调 - 蓝色
-    private static readonly Color PrimaryDark = new Color(0.21f, 0.43f, 0.77f);  // 主色调深色
-    private static readonly Color Secondary = new Color(0.45f, 0.55f, 0.60f);    // 次要色
-    private static readonly Color Success = new Color(0.30f, 0.69f, 0.31f);      // 成功色
-    private static readonly Color Warning = new Color(0.96f, 0.61f, 0.07f);      // 警告色
-    private static readonly Color Danger = new Color(0.86f, 0.21f, 0.27f);       // 危险色
-    private static readonly Color Background = new Color(0.94f, 0.94f, 0.96f);   // 背景色
-    private static readonly Color Surface = new Color(1f, 1f, 1f);               // 表面色
-    private static readonly Color Border = new Color(0.86f, 0.86f, 0.88f);       // 边框色
-    private static readonly Color TextPrimary = new Color(0.13f, 0.13f, 0.13f);  // 主文本
-    private static readonly Color TextSecondary = new Color(0.46f, 0.46f, 0.46f); // 次要文本
+    private static readonly Color Primary = new Color(0.26f, 0.54f, 0.96f);
+    private static readonly Color PrimaryDark = new Color(0.21f, 0.43f, 0.77f);
+    private static readonly Color Secondary = new Color(0.45f, 0.55f, 0.60f);
+    private static readonly Color Success = new Color(0.30f, 0.69f, 0.31f);
+    private static readonly Color Warning = new Color(0.96f, 0.61f, 0.07f);
+    private static readonly Color Danger = new Color(0.86f, 0.21f, 0.27f);
+    private static readonly Color Background = new Color(0.94f, 0.94f, 0.96f);
+    private static readonly Color Surface = new Color(1f, 1f, 1f);
+    private static readonly Color Border = new Color(0.86f, 0.86f, 0.88f);
+    private static readonly Color TextPrimary = new Color(0.13f, 0.13f, 0.13f);
+    private static readonly Color TextSecondary = new Color(0.46f, 0.46f, 0.46f);
 
     [MenuItem("Game Tools/Event Editor")]
     public static void OpenWindow()
@@ -90,6 +93,17 @@ public class EventEditorWindow : EditorWindow
     {
         LoadAllEvents();
         InitializeProfessionalStyles();
+    }
+    
+    void OnDisable()
+    {
+        // 清理缓存的纹理
+        foreach (var texture in cachedTextures.Values)
+        {
+            if (texture != null)
+                DestroyImmediate(texture);
+        }
+        cachedTextures.Clear();
     }
     
     void InitializeProfessionalStyles()
@@ -109,33 +123,33 @@ public class EventEditorWindow : EditorWindow
         
         // 卡片样式
         cardStyle = new GUIStyle();
-        cardStyle.normal.background = CreateSolidTexture(Surface);
+        cardStyle.normal.background = GetOrCreateSolidTexture("card_surface", Surface);
         cardStyle.border = new RectOffset(1, 1, 1, 1);
         cardStyle.padding = new RectOffset(16, 16, 12, 12);
         cardStyle.margin = new RectOffset(0, 0, 0, 8);
         
         // 选中卡片样式
         selectedCardStyle = new GUIStyle(cardStyle);
-        selectedCardStyle.normal.background = CreateBorderedTexture(Surface, Primary, 2);
+        selectedCardStyle.normal.background = GetOrCreateBorderedTexture("card_selected", Surface, Primary, 2);
         
         // 工具栏样式
         toolbarStyle = new GUIStyle();
-        toolbarStyle.normal.background = CreateSolidTexture(Surface);
+        toolbarStyle.normal.background = GetOrCreateSolidTexture("toolbar", Surface);
         toolbarStyle.border = new RectOffset(0, 0, 0, 1);
         toolbarStyle.padding = new RectOffset(16, 16, 12, 12);
         
         // 主按钮样式
-        buttonPrimaryStyle = CreateButtonStyle(Primary, Color.white);
+        buttonPrimaryStyle = CreateButtonStyle("primary", Primary, Color.white);
         
         // 次要按钮样式  
-        buttonSecondaryStyle = CreateButtonStyle(Secondary, Color.white);
+        buttonSecondaryStyle = CreateButtonStyle("secondary", Secondary, Color.white);
         
         // 危险按钮样式
-        buttonDangerStyle = CreateButtonStyle(Danger, Color.white);
+        buttonDangerStyle = CreateButtonStyle("danger", Danger, Color.white);
         
         // 活动标签样式
         tabActiveStyle = new GUIStyle();
-        tabActiveStyle.normal.background = CreateSolidTexture(Primary);
+        tabActiveStyle.normal.background = GetOrCreateSolidTexture("tab_active", Primary);
         tabActiveStyle.normal.textColor = Color.white;
         tabActiveStyle.padding = new RectOffset(16, 16, 8, 8);
         tabActiveStyle.margin = new RectOffset(0, 1, 0, 0);
@@ -144,7 +158,7 @@ public class EventEditorWindow : EditorWindow
         
         // 非活动标签样式
         tabInactiveStyle = new GUIStyle();
-        tabInactiveStyle.normal.background = CreateSolidTexture(Background);
+        tabInactiveStyle.normal.background = GetOrCreateSolidTexture("tab_inactive", Background);
         tabInactiveStyle.normal.textColor = TextSecondary;
         tabInactiveStyle.padding = new RectOffset(16, 16, 8, 8);
         tabInactiveStyle.margin = new RectOffset(0, 1, 0, 0);
@@ -152,7 +166,7 @@ public class EventEditorWindow : EditorWindow
         
         // 区域样式
         sectionStyle = new GUIStyle();
-        sectionStyle.normal.background = CreateSolidTexture(Background);
+        sectionStyle.normal.background = GetOrCreateSolidTexture("section", Background);
         sectionStyle.padding = new RectOffset(16, 16, 16, 16);
         
         // 标签样式
@@ -165,7 +179,7 @@ public class EventEditorWindow : EditorWindow
         
         // 节点样式
         nodeStyle = new GUIStyle();
-        nodeStyle.normal.background = CreateSolidTexture(Surface);
+        nodeStyle.normal.background = GetOrCreateSolidTexture("node", Surface);
         nodeStyle.border = new RectOffset(1, 1, 1, 1);
         nodeStyle.padding = new RectOffset(12, 12, 12, 12);
         nodeStyle.normal.textColor = TextPrimary;
@@ -173,15 +187,15 @@ public class EventEditorWindow : EditorWindow
         nodeStyle.fontSize = 11;
         
         selectedNodeStyle = new GUIStyle(nodeStyle);
-        selectedNodeStyle.normal.background = CreateBorderedTexture(Surface, Primary, 2);
+        selectedNodeStyle.normal.background = GetOrCreateBorderedTexture("node_selected", Surface, Primary, 2);
     }
     
-    GUIStyle CreateButtonStyle(Color bgColor, Color textColor)
+    GUIStyle CreateButtonStyle(string key, Color bgColor, Color textColor)
     {
         var style = new GUIStyle();
-        style.normal.background = CreateSolidTexture(bgColor);
-        style.hover.background = CreateSolidTexture(AdjustBrightness(bgColor, 1.1f));
-        style.active.background = CreateSolidTexture(AdjustBrightness(bgColor, 0.9f));
+        style.normal.background = GetOrCreateSolidTexture($"btn_{key}_normal", bgColor);
+        style.hover.background = GetOrCreateSolidTexture($"btn_{key}_hover", AdjustBrightness(bgColor, 1.1f));
+        style.active.background = GetOrCreateSolidTexture($"btn_{key}_active", AdjustBrightness(bgColor, 0.9f));
         style.normal.textColor = textColor;
         style.hover.textColor = textColor;
         style.active.textColor = textColor;
@@ -192,16 +206,29 @@ public class EventEditorWindow : EditorWindow
         return style;
     }
     
-    Texture2D CreateSolidTexture(Color color)
+    Texture2D GetOrCreateSolidTexture(string key, Color color)
     {
+        string fullKey = $"{key}_{ColorUtility.ToHtmlStringRGBA(color)}";
+        
+        if (cachedTextures.TryGetValue(fullKey, out Texture2D cached) && cached != null)
+            return cached;
+        
         Texture2D texture = new Texture2D(1, 1);
         texture.SetPixel(0, 0, color);
         texture.Apply();
+        texture.hideFlags = HideFlags.HideAndDontSave;
+        
+        cachedTextures[fullKey] = texture;
         return texture;
     }
     
-    Texture2D CreateBorderedTexture(Color fillColor, Color borderColor, int borderWidth)
+    Texture2D GetOrCreateBorderedTexture(string key, Color fillColor, Color borderColor, int borderWidth)
     {
+        string fullKey = $"{key}_{ColorUtility.ToHtmlStringRGBA(fillColor)}_{ColorUtility.ToHtmlStringRGBA(borderColor)}_{borderWidth}";
+        
+        if (cachedTextures.TryGetValue(fullKey, out Texture2D cached) && cached != null)
+            return cached;
+        
         int size = 20;
         Texture2D texture = new Texture2D(size, size);
         
@@ -215,6 +242,9 @@ public class EventEditorWindow : EditorWindow
             }
         }
         texture.Apply();
+        texture.hideFlags = HideFlags.HideAndDontSave;
+        
+        cachedTextures[fullKey] = texture;
         return texture;
     }
     
@@ -244,6 +274,8 @@ public class EventEditorWindow : EditorWindow
         }
         
         LoadEventNodes();
+        
+        Debug.Log($"[EventEditor] Loaded {allEvents.Count} events");
     }
     
     void LoadEventNodes()
@@ -275,7 +307,8 @@ public class EventEditorWindow : EditorWindow
     
     void OnGUI()
     {
-        if (cardStyle == null) InitializeProfessionalStyles();
+        if (cardStyle == null || cachedTextures.Count == 0) 
+            InitializeProfessionalStyles();
         
         // 设置背景色
         EditorGUI.DrawRect(new Rect(0, 0, position.width, position.height), Background);
@@ -513,7 +546,7 @@ public class EventEditorWindow : EditorWindow
         useEventTypeFilter = EditorGUILayout.Toggle(useEventTypeFilter, GUILayout.Width(20));
         GUI.enabled = useEventTypeFilter;
         GUILayout.Label("Type:", GUILayout.Width(40));
-        eventTypeFilter = (EventType)EditorGUILayout.EnumPopup(eventTypeFilter);
+        eventTypeFilter = (GameEventType)EditorGUILayout.EnumPopup(eventTypeFilter);
         GUI.enabled = true;
         EditorGUILayout.EndHorizontal();
         
@@ -522,7 +555,7 @@ public class EventEditorWindow : EditorWindow
         useEventPriorityFilter = EditorGUILayout.Toggle(useEventPriorityFilter, GUILayout.Width(20));
         GUI.enabled = useEventPriorityFilter;
         GUILayout.Label("Priority:", GUILayout.Width(40));
-        eventPriorityFilter = (EventPriority)EditorGUILayout.EnumPopup(eventPriorityFilter);
+        eventPriorityFilter = (GameEventPriority)EditorGUILayout.EnumPopup(eventPriorityFilter);
         GUI.enabled = true;
         EditorGUILayout.EndHorizontal();
         
@@ -694,8 +727,8 @@ public class EventEditorWindow : EditorWindow
         EditorGUI.BeginChangeCheck();
         
         selectedEvent.eventName = EditorGUILayout.TextField("Event Name", selectedEvent.eventName);
-        selectedEvent.eventType = (EventType)EditorGUILayout.EnumPopup("Event Type", selectedEvent.eventType);
-        selectedEvent.priority = (EventPriority)EditorGUILayout.EnumPopup("Priority", selectedEvent.priority);
+        selectedEvent.eventType = (GameEventType)EditorGUILayout.EnumPopup("Event Type", selectedEvent.eventType);
+        selectedEvent.priority = (GameEventPriority)EditorGUILayout.EnumPopup("Priority", selectedEvent.priority);
         
         GUILayout.Space(4);
         
@@ -1071,27 +1104,27 @@ public class EventEditorWindow : EditorWindow
     }
     
     // 辅助方法
-    Color GetPriorityColor(EventPriority priority)
+    Color GetPriorityColor(GameEventPriority priority)
     {
         return priority switch
         {
-            EventPriority.Critical => Danger,
-            EventPriority.High => Warning,
-            EventPriority.Normal => Success,
-            EventPriority.Low => Secondary,
+            GameEventPriority.Critical => Danger,
+            GameEventPriority.High => Warning,
+            GameEventPriority.Normal => Success,
+            GameEventPriority.Low => Secondary,
             _ => TextSecondary
         };
     }
     
-    Color GetEventTypeColor(EventType type)
+    Color GetEventTypeColor(GameEventType type)
     {
         return type switch
         {
-            EventType.ResourceGain => Success,
-            EventType.ResourceLoss => Danger,
-            EventType.HealthEvent => Warning,
-            EventType.Discovery => Primary,
-            EventType.Encounter => new Color(0.6f, 0.4f, 0.8f),
+            GameEventType.ResourceGain => Success,
+            GameEventType.ResourceLoss => Danger,
+            GameEventType.HealthEvent => Warning,
+            GameEventType.Discovery => Primary,
+            GameEventType.Encounter => new Color(0.6f, 0.4f, 0.8f),
             _ => TextSecondary
         };
     }
@@ -1184,8 +1217,8 @@ public class EventEditorWindow : EditorWindow
         newEvent.eventName = eventName;
         
         newEvent.eventDescription = "Enter event description";
-        newEvent.eventType = EventType.ResourceGain;
-        newEvent.priority = EventPriority.Normal;
+        newEvent.eventType = GameEventType.ResourceGain;
+        newEvent.priority = GameEventPriority.Normal;
         newEvent.minDay = 1;
         newEvent.maxDay = 5;
         newEvent.baseTriggerChance = 0.3f;
@@ -1233,7 +1266,6 @@ public class EventEditorWindow : EditorWindow
         Debug.Log($"[EventEditor] Created new event: {fileName}");
     }
     
-    // 保持所有原有功能方法...
     void SaveAllEvents()
     {
         foreach (var eventData in allEvents)
@@ -1490,37 +1522,37 @@ public class EventEditorWindow : EditorWindow
         string helpText = @"Event Editor Help:
 
 Keyboard Shortcuts:
-• F2: Rename selected event
-• Delete: Delete selected event  
-• Ctrl+D: Duplicate selected event
-• Esc: Cancel rename
-• Enter: Confirm rename
+- F2: Rename selected event
+- Delete: Delete selected event  
+- Ctrl+D: Duplicate selected event
+- Esc: Cancel rename
+- Enter: Confirm rename
 
 Search & Filter:
-• Search by name, description, type
-• Use type and priority filters
-• Real-time filtering results
+- Search by name, description, type
+- Use type and priority filters
+- Real-time filtering results
 
 Right-click Menu:
-• Rename, duplicate, delete events
-• Show file in project
+- Rename, duplicate, delete events
+- Show file in project
 
 Node Graph Operations:
-• Drag to move nodes
-• Right-click to create new events
-• Connection lines show event relationships
-• Visual event flow representation
+- Drag to move nodes
+- Right-click to create new events
+- Connection lines show event relationships
+- Visual event flow representation
 
 Testing Features:
-• Trigger events in play mode
-• Event validation checking
-• Real-time statistics";
+- Trigger events in play mode
+- Event validation checking
+- Real-time statistics";
         
         EditorUtility.DisplayDialog("Help", helpText, "OK");
     }
 }
 
-// 现代化事件选择编辑器
+// 保留原有的 EventChoiceEditor 类
 public class EventChoiceEditor : EditorWindow
 {
     private RandomEvent targetEvent;
@@ -1588,6 +1620,7 @@ public class EventChoiceEditor : EditorWindow
         Texture2D texture = new Texture2D(1, 1);
         texture.SetPixel(0, 0, color);
         texture.Apply();
+        texture.hideFlags = HideFlags.HideAndDontSave;
         return texture;
     }
     
@@ -1763,7 +1796,6 @@ public class EventChoiceEditor : EditorWindow
         EditorGUILayout.EndVertical();
     }
     
-    // 保持所有原有的功能方法...
     void AddRequirement(int choiceIndex)
     {
         var choice = targetEvent.choices[choiceIndex];
