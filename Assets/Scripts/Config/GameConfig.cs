@@ -27,6 +27,7 @@ public enum DifficultyLevel{
     Difficult = 2,
 
 }
+
 [CreateAssetMenu(fileName = "GameConfig", menuName = "Game/Game Config")]
 public class GameConfig : ScriptableObject
 {
@@ -37,9 +38,26 @@ public class GameConfig : ScriptableObject
     public DifficultyLevel currentDifficulty = DifficultyLevel.Normal;
     
     [Header("配置引用 - 主要配置文件")]
-    [SerializeField] private BaseGameConfig[] configModules; // 所有配置模块
+    [SerializeField] private BaseGameConfig[] configModules;
+    
+    // 添加内联配置实例
+    [Header("内联配置")]
+    [SerializeField] private DifficultyConfig difficultyConfig ;
+    [SerializeField] private FamilyConfig familyConfig ;
+    [SerializeField] private WeaponConfig weaponConfig;
+    [SerializeField] private ItemSystemConfig itemConfig;
+    [SerializeField] private AudioSystemConfig audioConfig ;
+    [SerializeField] private UISystemConfig uiConfig ;
     
     private Dictionary<System.Type, BaseGameConfig> configRegistry;
+    
+    // 添加属性访问器
+    public DifficultyConfig DifficultyConfig => difficultyConfig;
+    public FamilyConfig FamilyConfig => familyConfig;
+    public WeaponConfig WeaponConfig => weaponConfig;
+    public ItemSystemConfig ItemConfig => itemConfig;
+    public AudioSystemConfig AudioConfig => audioConfig;
+    public UISystemConfig UIConfig => uiConfig;
     
     protected virtual void OnEnable()
     {
@@ -51,7 +69,15 @@ public class GameConfig : ScriptableObject
     {
         configRegistry = new Dictionary<System.Type, BaseGameConfig>();
         
-        // 自动收集配置模块
+        // 注册内联配置
+        if (difficultyConfig != null) configRegistry[typeof(DifficultyConfig)] = difficultyConfig;
+        if (familyConfig != null) configRegistry[typeof(FamilyConfig)] = familyConfig;
+        if (weaponConfig != null) configRegistry[typeof(WeaponConfig)] = weaponConfig;
+        if (itemConfig != null) configRegistry[typeof(ItemSystemConfig)] = itemConfig;
+        if (audioConfig != null) configRegistry[typeof(AudioSystemConfig)] = audioConfig;
+        if (uiConfig != null) configRegistry[typeof(UISystemConfig)] = uiConfig;
+        
+        // 处理配置模块数组
         if (configModules != null)
         {
             foreach (var config in configModules)
@@ -63,19 +89,19 @@ public class GameConfig : ScriptableObject
             }
         }
         
-        // 从Resources自动加载缺失的配置
         AutoLoadMissingConfigs();
     }
-    
+    public void RebuildConfigRegistry()
+    {
+        BuildConfigRegistry();
+        ValidateConfigs();
+    }
+
     void AutoLoadMissingConfigs()
     {
-        // 自动加载标准配置类型
-        TryLoadConfig<DifficultyConfig>("Configs/DifficultyConfig");
-        TryLoadConfig<FamilyConfig>("Configs/FamilyConfig");
+        // 尝试从Resources加载缺失的配置
         TryLoadConfig<WeaponConfig>("Configs/WeaponConfig");
-        TryLoadConfig<ItemSystemConfig>("Configs/ItemConfig");
-        TryLoadConfig<AudioSystemConfig>("Configs/AudioConfig");
-        TryLoadConfig<UISystemConfig>("Configs/UIConfig");
+        // 可以添加更多自动加载...
     }
     
     void TryLoadConfig<T>(string resourcePath) where T : BaseGameConfig
@@ -86,6 +112,10 @@ public class GameConfig : ScriptableObject
             if (config != null)
             {
                 configRegistry[typeof(T)] = config;
+                
+                // 更新对应的字段
+                if (config is WeaponConfig weaponConf)
+                    weaponConfig = weaponConf;
             }
         }
     }
@@ -93,17 +123,30 @@ public class GameConfig : ScriptableObject
     // 泛型配置获取方法
     public T GetConfig<T>() where T : BaseGameConfig
     {
+        if (configRegistry == null) BuildConfigRegistry();
+        
         configRegistry.TryGetValue(typeof(T), out BaseGameConfig config);
         return config as T;
     }
-    
+    public BaseGameConfig GetConfig(System.Type configType)
+    {
+        if (configRegistry == null) BuildConfigRegistry();
+        
+        if (configRegistry.TryGetValue(configType, out BaseGameConfig config))
+        {
+            return config;
+        }
+        
+        Debug.LogWarning($"[GameConfig] Config of type {configType.Name} not found");
+        return null;
+    }
     // 兼容性方法 - 保持现有代码工作
-    public DifficultyConfig GetCurrentDifficulty() => GetConfig<DifficultyConfig>();
-    public FamilyConfig Family => GetConfig<FamilyConfig>();
-    public WeaponConfig Weapon => GetConfig<WeaponConfig>();
-    public ItemSystemConfig Item => GetConfig<ItemSystemConfig>();
-    public AudioSystemConfig Audio => GetConfig<AudioSystemConfig>();
-    public UISystemConfig UI => GetConfig<UISystemConfig>();
+    public DifficultyConfig GetCurrentDifficulty() => GetConfig<DifficultyConfig>() ?? difficultyConfig;
+    public FamilyConfig Family => GetConfig<FamilyConfig>() ?? familyConfig;
+    public WeaponConfig Weapon => GetConfig<WeaponConfig>() ?? weaponConfig;
+    public ItemSystemConfig Item => GetConfig<ItemSystemConfig>() ?? itemConfig;
+    public AudioSystemConfig Audio => GetConfig<AudioSystemConfig>() ?? audioConfig;
+    public UISystemConfig UI => GetConfig<UISystemConfig>() ?? uiConfig;
     
     void ValidateConfigs()
     {
@@ -122,6 +165,29 @@ public class GameConfig : ScriptableObject
         if (config != null)
         {
             configRegistry[typeof(T)] = config;
+            
+            // 更新对应的字段
+            switch (config)
+            {
+                case DifficultyConfig diff:
+                    difficultyConfig = diff;
+                    break;
+                case FamilyConfig fam:
+                    familyConfig = fam;
+                    break;
+                case WeaponConfig weap:
+                    weaponConfig = weap;
+                    break;
+                case ItemSystemConfig item:
+                    itemConfig = item;
+                    break;
+                case AudioSystemConfig audio:
+                    audioConfig = audio;
+                    break;
+                case UISystemConfig ui:
+                    uiConfig = ui;
+                    break;
+            }
         }
     }
 }

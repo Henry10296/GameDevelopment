@@ -235,6 +235,7 @@ public partial class FamilyManager : Singleton<FamilyManager>
     {
         if (familyMembers.Count == 0)
         {
+            // 创建默认家庭成员...
             familyMembers = new List<FamilyMember>
             {
                 new FamilyMember 
@@ -267,7 +268,7 @@ public partial class FamilyManager : Singleton<FamilyManager>
             };
         }
         
-        var familyConfig = GameManager.Instance?.Config?.familyConfig;
+        var familyConfig = GameManager.Instance?.Config?.FamilyConfig;
         if (familyConfig != null)
         {
             food = familyConfig.initialFood;
@@ -285,7 +286,7 @@ public partial class FamilyManager : Singleton<FamilyManager>
     
     public void ProcessDailyNeeds()
     {
-        var config = GameManager.Instance?.Config?.familyConfig;
+        var config = GameManager.Instance?.Config?.FamilyConfig;
         
         // 消耗每日资源
         ConsumeResources(config.dailyFoodConsumption, config.dailyWaterConsumption);

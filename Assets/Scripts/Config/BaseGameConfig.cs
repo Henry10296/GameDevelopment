@@ -28,4 +28,5 @@ public abstract class BaseGameConfig : ScriptableObject
     {
         return $"{configName} v{configVersion}";
     }
+    
 }

@@ -57,6 +57,24 @@ public class ConfigManager : Singleton<ConfigManager>
         return config;
     }
     
+    public BaseGameConfig GetConfig(System.Type configType)
+    {
+        if (enableConfigCaching && configCache.TryGetValue(configType, out BaseGameConfig cached))
+        {
+            return cached;
+        }
+        
+        // 使用反射调用泛型方法
+        var method = typeof(GameConfig).GetMethod("GetConfig", new System.Type[0]).MakeGenericMethod(configType);
+        var config = method.Invoke(gameConfig, null) as BaseGameConfig;
+        
+        if (enableConfigCaching && config != null)
+        {
+            configCache[configType] = config;
+        }
+        
+        return config;
+    }
     // 兼容性属性 - 保持现有代码工作
     public GameConfig Config => gameConfig;
     public DifficultyConfig Difficulty => GetConfig<DifficultyConfig>();
@@ -114,11 +132,21 @@ public class ConfigManager : Singleton<ConfigManager>
     public void ReloadConfigs()
     {
         ClearConfigCache();
-        gameConfig.OnEnable(); // 重新构建配置注册表
-        
-        if (autoValidateOnLoad)
+    
+        // 使用公共方法替代直接调用 OnEnable
+        if (gameConfig != null)
         {
-            ValidateAllConfigs();
+            gameConfig.RebuildConfigRegistry(); // 替代 gameConfig.OnEnable()
+        
+            if (autoValidateOnLoad)
+            {
+                ValidateAllConfigs();
+            }
+        }
+        else
+        {
+            Debug.LogError("[ConfigManager] gameConfig is null, cannot reload configs");
         }
     }
+    
 }
