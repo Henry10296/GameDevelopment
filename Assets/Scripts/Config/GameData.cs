@@ -208,6 +208,7 @@ public class GameData : Singleton<GameData>
     
     // 数据重置
     public void ResetData()
+    
     {
         statistics = new GameStatistics();
         totalPlayTime = 0f;

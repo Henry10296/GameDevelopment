@@ -8,7 +8,7 @@ public class PickupItem : BaseInteractable
     
     [Header("UI提示")] 
     public GameObject pickupPrompt; // 保留原有的提示对象
-    public KeyCode pickupKey = KeyCode.E; // 保留设置，但使用基类的交互键
+    public KeyCode pickupKey = KeyCode.F; // 保留设置，但使用基类的交互键
     
     [Header("配置引用")]
     public InputSettings inputSettings;

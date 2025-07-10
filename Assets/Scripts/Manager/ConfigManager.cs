@@ -1,94 +1,124 @@
+// 修改后的ConfigManager.cs
 using UnityEngine;
+using System.Collections.Generic;
 
 public class ConfigManager : Singleton<ConfigManager>
 {
-    [Header("配置文件")]
+    [Header("主配置文件")]
     public GameConfig gameConfig;
     
-    // 便捷访问属性
-    public GameConfig Config => gameConfig;
-    public DifficultyConfig Difficulty => gameConfig?.GetCurrentDifficulty();
-    public FamilyConfig Family => gameConfig?.familyConfig;
-    public WeaponSystemConfig Weapon => gameConfig?.weaponConfig;
-    public ItemSystemConfig Item => gameConfig?.itemConfig;
-    public MapSystemConfig Map => gameConfig?.mapConfig;
-    public EventSystemConfig Event => gameConfig?.eventConfig;
-    public AudioSystemConfig Audio => gameConfig?.audioConfig;
-    public UISystemConfig UI => gameConfig?.uiConfig;
+    [Header("配置缓存设置")]
+    public bool enableConfigCaching = true;
+    public bool autoValidateOnLoad = true;
+    
+    private Dictionary<System.Type, BaseGameConfig> configCache;
     
     protected override void Awake()
     {
         base.Awake();
-        
+        InitializeConfigSystem();
+    }
+    
+    void InitializeConfigSystem()
+    {
         if (gameConfig == null)
         {
             Debug.LogError("[ConfigManager] GameConfig not assigned!");
             enabled = false;
+            return;
+        }
+        
+        if (enableConfigCaching)
+        {
+            configCache = new Dictionary<System.Type, BaseGameConfig>();
+        }
+        
+        if (autoValidateOnLoad)
+        {
+            ValidateAllConfigs();
         }
     }
     
-    // 动态配置修改方法
-    public void SetDifficulty(DifficultyLevel difficulty)
+    // 泛型配置获取 - 带缓存
+    public T GetConfig<T>() where T : BaseGameConfig
     {
-        if (gameConfig != null)
+        if (enableConfigCaching && configCache.TryGetValue(typeof(T), out BaseGameConfig cached))
         {
-            gameConfig.currentDifficulty = difficulty;
-            ApplyDifficultySettings();
+            return cached as T;
+        }
+        
+        var config = gameConfig.GetConfig<T>();
+        
+        if (enableConfigCaching && config != null)
+        {
+            configCache[typeof(T)] = config;
+        }
+        
+        return config;
+    }
+    
+    // 兼容性属性 - 保持现有代码工作
+    public GameConfig Config => gameConfig;
+    public DifficultyConfig Difficulty => GetConfig<DifficultyConfig>();
+    public FamilyConfig Family => GetConfig<FamilyConfig>();
+    public WeaponConfig Weapon => GetConfig<WeaponConfig>();
+    public ItemSystemConfig Item => GetConfig<ItemSystemConfig>();
+    public AudioSystemConfig Audio => GetConfig<AudioSystemConfig>();
+    public UISystemConfig UI => GetConfig<UISystemConfig>();
+    public InputSettings Input => GetConfig<InputSettings>();
+    
+    public void ValidateAllConfigs()
+    {
+        bool allValid = true;
+        
+        // 验证所有已注册的配置
+        var configTypes = new System.Type[]
+        {
+            typeof(DifficultyConfig),
+            typeof(FamilyConfig), 
+            typeof(WeaponConfig),
+            typeof(ItemSystemConfig),
+            typeof(AudioSystemConfig),
+            typeof(UISystemConfig),
+            typeof(InputSettings)
+        };
+        
+        foreach (var configType in configTypes)
+        {
+            var config = gameConfig.GetConfig(configType) as BaseGameConfig;
+            if (config != null)
+            {
+                if (!config.ValidateConfig())
+                {
+                    allValid = false;
+                    Debug.LogError($"[ConfigManager] Validation failed for {configType.Name}");
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"[ConfigManager] Missing config: {configType.Name}");
+            }
+        }
+        
+        if (allValid)
+        {
+            Debug.Log("[ConfigManager] All configs validated successfully");
         }
     }
     
-    void ApplyDifficultySettings()
+    public void ClearConfigCache()
     {
-        var difficulty = Difficulty;
-        if (difficulty == null) return;
-        
-        // 应用难度设置到各个系统
-        Debug.Log($"[ConfigManager] Applied difficulty: {difficulty.difficultyName}");
+        configCache?.Clear();
     }
     
-    // 配置验证
-    public bool ValidateConfig()
+    public void ReloadConfigs()
     {
-        if (gameConfig == null) return false;
+        ClearConfigCache();
+        gameConfig.OnEnable(); // 重新构建配置注册表
         
-        bool isValid = true;
-        
-        // 验证基础设置
-        if (gameConfig.maxDays <= 0)
+        if (autoValidateOnLoad)
         {
-            Debug.LogError("[ConfigManager] maxDays must be greater than 0");
-            isValid = false;
-        }
-        
-        if (gameConfig.explorationTimeLimit <= 0)
-        {
-            Debug.LogError("[ConfigManager] explorationTimeLimit must be greater than 0");
-            isValid = false;
-        }
-        
-        // 验证配置完整性
-        if (gameConfig.enemyConfigs == null || gameConfig.enemyConfigs.Length == 0)
-        {
-            Debug.LogWarning("[ConfigManager] No enemy configs found");
-        }
-        
-        if (gameConfig.weaponConfig?.pistol == null)
-        {
-            Debug.LogError("[ConfigManager] Pistol weapon data missing");
-            isValid = false;
-        }
-        
-        return isValid;
-    }
-    
-    // 配置重载
-    public void ReloadConfig()
-    {
-        if (gameConfig != null)
-        {
-            // 重新应用配置
-            ApplyDifficultySettings();
-            Debug.Log("[ConfigManager] Config reloaded");
+            ValidateAllConfigs();
         }
     }
 }

@@ -254,7 +254,7 @@ public class WeaponDisplay : MonoBehaviour
     
     void CheckInteractionInput()
     {
-        if (Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(KeyCode.F))
+        if (Input.GetKeyDown(KeyCode.F))
         {
             if (isEmptyHands)
             {

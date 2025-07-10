@@ -191,38 +191,6 @@ public class PlayerController : MonoBehaviour
             Debug.LogWarning("[PlayerController] InventoryManager not found after timeout");
         }
     }
-    
-    /*void HandleWeaponSwitching()
-    {
-        if (weaponManager == null) return;
-    
-        // 保持你现有的武器切换逻辑
-        if (Input.GetKeyDown(KeyCode.Alpha1))
-        {
-            weaponManager.SwitchWeapon(0);
-            NotifyWeaponDisplay(); // 新增：通知2D显示系统
-        }
-        else if (Input.GetKeyDown(KeyCode.Alpha2))
-        {
-            weaponManager.SwitchWeapon(1);
-            NotifyWeaponDisplay(); // 新增：通知2D显示系统
-        }
-    
-        // 滚轮切换（保持原有逻辑）
-        float scrollDelta = Input.GetAxis("Mouse ScrollWheel");
-        if (scrollDelta != 0)
-        {
-            int direction = scrollDelta > 0 ? 1 : -1;
-            weaponManager.CycleWeapon(direction);
-            NotifyWeaponDisplay(); // 新增：通知2D显示系统
-        }
-    
-        // 换弹（保持原有逻辑）
-        if (Input.GetKeyDown(KeyCode.R))
-        {
-            weaponManager.Reload();
-        }
-    }*/
 void HandleWeaponSwitching()
 {
     if (weaponManager == null) return;
@@ -332,14 +300,12 @@ void NotifyWeaponDisplayEmptyHands()
     {
         GameObject cameraObj = new GameObject("PlayerCamera");
         cameraObj.transform.SetParent(transform);
-        // 修复：设置更贴近第一人称的相机位置
-        cameraObj.transform.localPosition = new Vector3(0, 1.6f, 0.1f); // 稍微前移一点
+        // Doom风格：相机位置应该在角色眼睛高度
+        cameraObj.transform.localPosition = new Vector3(0, 1.7f, 0); // 不要太往前
         cameraObj.transform.localRotation = Quaternion.identity;
-        
+    
         playerCamera = cameraObj.AddComponent<Camera>();
         playerCamera.fieldOfView = normalFOV;
-        
-        Debug.Log("[PlayerController] Created new player camera");
     }
     
     void EnsureAudioListener()
@@ -620,36 +586,6 @@ void NotifyWeaponDisplayEmptyHands()
             weaponManager.SetAiming(isAiming);
         }
     }
-    
-    /*void HandleWeaponSwitching()
-    {
-        if (weaponManager == null) return;
-        
-        // 数字键切换
-        if (Input.GetKeyDown(KeyCode.Alpha1))
-        {
-            weaponManager.SwitchWeapon(0);
-        }
-        else if (Input.GetKeyDown(KeyCode.Alpha2))
-        {
-            weaponManager.SwitchWeapon(1);
-        }
-        
-        // 滚轮切换
-        float scrollDelta = Input.GetAxis("Mouse ScrollWheel");
-        if (scrollDelta != 0)
-        {
-            int direction = scrollDelta > 0 ? 1 : -1;
-            weaponManager.CycleWeapon(direction);
-        }
-        
-        // 换弹
-        if (Input.GetKeyDown(KeyCode.R))
-        {
-            weaponManager.Reload();
-        }
-    }*/
-    
     void HandleInteraction()
     {
         // 交互

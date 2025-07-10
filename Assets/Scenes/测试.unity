@@ -540,6 +540,7 @@ MonoBehaviour:
   currentWeaponIndex: 0
   weaponHolder: {fileID: 0}
   weaponCamera: {fileID: 0}
+  allowEmptyHands: 1
   switchSpeed: 5
   dropDistance: 0.5
   switchCurve:
@@ -933,6 +934,64 @@ Transform:
   m_Father: {fileID: 948002924}
   m_RootOrder: -1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1302188853
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1302188855}
+  - component: {fileID: 1302188854}
+  m_Layer: 0
+  m_Name: GameObject
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1302188854
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1302188853}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 045ad8169b013d74995e34e4a54b3175, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  gameConfig: {fileID: 0}
+  currentPhase: 0
+  currentDay: 1
+  phaseTimer: 0
+  gameEnded: 0
+  sceneSettings: {fileID: 0}
+  inputSettings: {fileID: 0}
+  uiTextSettings: {fileID: 0}
+  gameValues: {fileID: 0}
+  resourcePaths: {fileID: 0}
+  onPhaseChanged: {fileID: 0}
+  onDayChanged: {fileID: 0}
+  onGameEnd: {fileID: 0}
+  onDayChangedSO: {fileID: 0}
+--- !u!4 &1302188855
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1302188853}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 339.56805, y: -161.53001, z: -5.2249317}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 5
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1728363849
 GameObject:
   m_ObjectHideFlags: 0
@@ -988,16 +1047,23 @@ MonoBehaviour:
   weaponRect: {fileID: 1728363850}
   weaponSprites:
   - weaponType: 1
+    isMeleeWeapon: 0
     idleFrames:
     - {fileID: 21300000, guid: 78012c191c40b334d8ed63cf5d384958, type: 3}
+    raiseFrames: []
+    lowerFrames: []
     fireFrames:
     - {fileID: 21300000, guid: 78012c191c40b334d8ed63cf5d384958, type: 3}
     reloadFrames:
     - {fileID: 21300000, guid: 78012c191c40b334d8ed63cf5d384958, type: 3}
     aimSprite: {fileID: 21300000, guid: fe06804589d8deb4b8155b89e2f8438d, type: 3}
+    meleeFrames: []
+    meleeChargeFrames: []
   handSprites:
     emptyHandsIdle:
     - {fileID: 21300000, guid: 78012c191c40b334d8ed63cf5d384958, type: 3}
+    emptyHandsLower: []
+    emptyHandsRaise: []
     interactionFrames:
     - {fileID: 21300000, guid: a5d940231f2ff9b4ca2c6a1a33bd6c09, type: 3}
     runningFrames:
@@ -1005,12 +1071,19 @@ MonoBehaviour:
   idleFrameRate: 8
   fireFrameRate: 20
   reloadFrameRate: 10
+  switchFrameRate: 15
+  meleeFrameRate: 25
   interactionFrameRate: 15
+  switchLowerTime: 0.3
+  switchRaiseTime: 0.4
+  switchHoldTime: 0.1
   mouseSwayAmount: 15
   breathSwayAmount: 8
   walkBobAmount: 12
   runBobMultiplier: 1.5
   recoilKickback: 25
+  meleeReachDistance: 2
+  meleeSwingAmount: 40
   enableRunSmoothing: 1
   runSmoothingFactor: 0.3
   maxRunBob: 100

@@ -98,20 +98,6 @@ public class PlayerConfig : ScriptableObject
     public bool enableDamageIndicators = true;
     [Range(0f, 1f)] public float damageShakeIntensity = 0.5f;
     public Color damageVignetteColor = new Color(1f, 0f, 0f, 0.5f);
-    
-    [Header("控制设置")]
-    public KeyCode jumpKey = KeyCode.Space;
-    public KeyCode crouchKey = KeyCode.C;
-    public KeyCode runKey = KeyCode.LeftShift;
-    public KeyCode leanLeftKey = KeyCode.Q;
-    public KeyCode leanRightKey = KeyCode.E;
-    public KeyCode interactKey = KeyCode.E;
-    public KeyCode pickupKey = KeyCode.F;
-    public KeyCode reloadKey = KeyCode.R;
-    public KeyCode inventoryKey = KeyCode.Tab;
-    public KeyCode weapon1Key = KeyCode.Alpha1;
-    public KeyCode weapon2Key = KeyCode.Alpha2;
-    
     [Header("高级设置")]
     public bool enableBunnyHopping = false;
     public bool enableSliding = false;

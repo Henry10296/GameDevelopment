@@ -18,6 +18,9 @@ using System.Collections.Generic;
 #endregion
 
 
+/// <summary>
+/// 游戏配置：
+/// </summary>
 public enum DifficultyLevel{
     Easy = 0,
     Normal = 1,
@@ -27,83 +30,104 @@ public enum DifficultyLevel{
 [CreateAssetMenu(fileName = "GameConfig", menuName = "Game/Game Config")]
 public class GameConfig : ScriptableObject
 {
-    [Header("游戏基础设置")]
+    [Header("核心游戏设置")]
     public int maxDays = 5;
-    public float explorationTimeLimit = 900f; // 15分钟
-    public float timeWarningThreshold = 150f;  // 5分钟警告
-    
-    [Header("难度设置")]
+    public float explorationTimeLimit = 900f;
+    public float timeWarningThreshold = 150f;
     public DifficultyLevel currentDifficulty = DifficultyLevel.Normal;
-    public DifficultyConfig[] difficultyConfigs;
     
-    [Header("家庭系统配置")]
-    public FamilyConfig familyConfig;
+    [Header("配置引用 - 主要配置文件")]
+    [SerializeField] private BaseGameConfig[] configModules; // 所有配置模块
     
-    [Header("敌人配置")]
-    public EnemyConfig[] enemyConfigs;
+    private Dictionary<System.Type, BaseGameConfig> configRegistry;
     
-    [Header("武器配置")]
-    public WeaponSystemConfig weaponConfig;
-    
-    [Header("物品配置")]
-    public ItemSystemConfig itemConfig;
-    
-    [Header("地图配置")]
-    public MapSystemConfig mapConfig;
-    
-    [Header("事件配置")]
-    public EventSystemConfig eventConfig;
-    
-    [Header("音频配置")]
-    public AudioSystemConfig audioConfig;
-    
-    [Header("UI配置")]
-    public UISystemConfig uiConfig;
-    
-    // 便捷访问方法
-    public DifficultyConfig GetCurrentDifficulty()
+    protected virtual void OnEnable()
     {
-        foreach (var config in difficultyConfigs)
-        {
-            if (config.difficulty == currentDifficulty)
-                return config;
-        }
-        return difficultyConfigs[0]; // 默认返回第一个
+        BuildConfigRegistry();
+        ValidateConfigs();
     }
     
-    public EnemyConfig GetEnemyConfig(EnemyType enemyType)
+    void BuildConfigRegistry()
     {
-        foreach (var config in enemyConfigs)
+        configRegistry = new Dictionary<System.Type, BaseGameConfig>();
+        
+        // 自动收集配置模块
+        if (configModules != null)
         {
-            if (config.enemyType == enemyType)
-                return config;
+            foreach (var config in configModules)
+            {
+                if (config != null)
+                {
+                    configRegistry[config.GetType()] = config;
+                }
+            }
         }
-        return null;
+        
+        // 从Resources自动加载缺失的配置
+        AutoLoadMissingConfigs();
     }
     
-    public WeaponData GetWeaponData(WeaponType weaponType)
+    void AutoLoadMissingConfigs()
     {
-        return weaponType switch
-        {
-            WeaponType.Pistol => weaponConfig.pistol,
-            WeaponType.Rifle => weaponConfig.rifle,
-            _ => weaponConfig.pistol
-        };
+        // 自动加载标准配置类型
+        TryLoadConfig<DifficultyConfig>("Configs/DifficultyConfig");
+        TryLoadConfig<FamilyConfig>("Configs/FamilyConfig");
+        TryLoadConfig<WeaponConfig>("Configs/WeaponConfig");
+        TryLoadConfig<ItemSystemConfig>("Configs/ItemConfig");
+        TryLoadConfig<AudioSystemConfig>("Configs/AudioConfig");
+        TryLoadConfig<UISystemConfig>("Configs/UIConfig");
     }
     
-    public MapData GetMapData(string mapName)
+    void TryLoadConfig<T>(string resourcePath) where T : BaseGameConfig
     {
-        foreach (var map in mapConfig.availableMaps)
+        if (!configRegistry.ContainsKey(typeof(T)))
         {
-            if (map.mapName == mapName)
-                return map;
+            var config = Resources.Load<T>(resourcePath);
+            if (config != null)
+            {
+                configRegistry[typeof(T)] = config;
+            }
         }
-        return null;
+    }
+    
+    // 泛型配置获取方法
+    public T GetConfig<T>() where T : BaseGameConfig
+    {
+        configRegistry.TryGetValue(typeof(T), out BaseGameConfig config);
+        return config as T;
+    }
+    
+    // 兼容性方法 - 保持现有代码工作
+    public DifficultyConfig GetCurrentDifficulty() => GetConfig<DifficultyConfig>();
+    public FamilyConfig Family => GetConfig<FamilyConfig>();
+    public WeaponConfig Weapon => GetConfig<WeaponConfig>();
+    public ItemSystemConfig Item => GetConfig<ItemSystemConfig>();
+    public AudioSystemConfig Audio => GetConfig<AudioSystemConfig>();
+    public UISystemConfig UI => GetConfig<UISystemConfig>();
+    
+    void ValidateConfigs()
+    {
+        foreach (var config in configRegistry.Values)
+        {
+            if (config != null)
+            {
+                config.ValidateConfig();
+            }
+        }
+    }
+    
+    // 设置配置
+    public void SetConfig<T>(T config) where T : BaseGameConfig
+    {
+        if (config != null)
+        {
+            configRegistry[typeof(T)] = config;
+        }
     }
 }
 
 [System.Serializable]
-public class DifficultyConfig
+public class DifficultyConfig: BaseGameConfig
 {
     [Header("难度信息")]
     public DifficultyLevel difficulty;
@@ -129,7 +153,7 @@ public class DifficultyConfig
 }
 
 [System.Serializable]
-public class FamilyConfig
+public class FamilyConfig: BaseGameConfig
 {
     [Header("基础消耗")]
     public int dailyFoodConsumption = 3;
@@ -156,7 +180,7 @@ public enum WeaponType
     Rifle=2,
     Knife
 }
-[System.Serializable]
+/*[System.Serializable]
 public class WeaponSystemConfig
 {
     [Header("武器数据")]
@@ -188,10 +212,10 @@ public class WeaponSystemConfig
         if (gunSounds == null || gunSounds.Length == 0) return null;
         return gunSounds[Random.Range(0, gunSounds.Length)];
     }
-}
+}*/
 
 [System.Serializable]
-public class ItemSystemConfig
+public class ItemSystemConfig: BaseGameConfig  
 {
     [Header("物品数据")]
     public ItemData[] allItems;
@@ -202,7 +226,7 @@ public class ItemSystemConfig
     
     [Header("拾取设置")]
     public float pickupRange = 2f;
-    public KeyCode pickupKey = KeyCode.E;
+    public KeyCode pickupKey = KeyCode.F;
     public AudioClip pickupSound;
     
     [Header("使用设置")]
@@ -241,9 +265,9 @@ public class MapSystemConfig
     [Header("可用地图")]
     public MapData[] availableMaps;
     
-    [Header("地图生成设置")]
+    [Header("地图生成设置")]//给探索用的
     public int minLootSpawns = 30;
-    public int maxLootSpawns = 200;
+    public int maxLootSpawns = 90;
     public int minEnemySpawns = 1;
     public int maxEnemySpawns = 5;
     
@@ -341,7 +365,7 @@ public class EventTypeWeight//事件权重
 }
 
 [System.Serializable]
-public class AudioSystemConfig//MUSIC
+public class AudioSystemConfig:BaseGameConfig//TODO:音乐配置的话可以读取
 {
     [Header("主音乐")]
     public AudioClip menuMusic;
@@ -377,7 +401,7 @@ public class AudioSystemConfig//MUSIC
 }
 
 [System.Serializable]
-public class UISystemConfig//UI
+public class UISystemConfig:BaseGameConfig//UI
 {
     [Header("界面切换")]
     public float fadeSpeed = 2f;//消失时间

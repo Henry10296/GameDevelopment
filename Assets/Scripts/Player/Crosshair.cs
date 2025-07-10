@@ -36,7 +36,7 @@ public class SimpleMouseCrosshair : MonoBehaviour
             var gameConfig = GameManager.Instance.gameConfig;
             if (gameConfig != null)
             {
-                var weaponConfig = gameConfig.weaponConfig;
+                var weaponConfig = gameConfig.WeaponConfig;
                 if (weaponConfig != null && weaponConfig.crosshairDefault != null)
                 {
                     crosshairImage.sprite = weaponConfig.crosshairDefault;

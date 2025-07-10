@@ -3,6 +3,10 @@ using UnityEngine;
 [CreateAssetMenu(fileName = "EnemyConfig", menuName = "Game/Enemy Config")]
 public class EnemyConfig : ScriptableObject
 {
+    
+    /// <summary>
+    /// 怪物的配置：数值、掉落物品、音效行为
+    /// </summary>
     [Header("基础属性")]
     public string enemyName;
     public EnemyType enemyType;
@@ -29,6 +33,7 @@ public class EnemyConfig : ScriptableObject
     public float shootAccuracy = 0.7f;
     
     [Header("掉落物品")]
+    //TODO：敌人掉落的物品要等到实际的道具做完
     public GameObject[] dropItems;
     [Range(0f, 1f)] public float dropChance = 0.3f;
     

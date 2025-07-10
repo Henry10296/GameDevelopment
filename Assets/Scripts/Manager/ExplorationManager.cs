@@ -14,7 +14,7 @@ public class ExplorationManager : Singleton<ExplorationManager>
     public Transform playerSpawnPoint;
     public Transform exitPoint;
     
-    [Header("预制体")]
+    [Header("预制体")]//TODO:随机生成的敌人和物品，需要特定的生成和做好的敌人预制体和物品
     public GameObject lootItemPrefab;
     public GameObject[] enemyPrefabs;
     
@@ -25,7 +25,7 @@ public class ExplorationManager : Singleton<ExplorationManager>
     
     private List<GameObject> spawnedObjects = new();
     private bool explorationActive = false;
-    private int selectedMapIndex = -1;
+    private int selectedMapIndex = -1;//TODO:绑定到地图按钮
     
     // 属性访问器
     public MapData CurrentMap => currentMap;
@@ -66,7 +66,7 @@ public class ExplorationManager : Singleton<ExplorationManager>
         }
     }
     
-    void ValidateConfiguration()
+    void ValidateConfiguration()//验证配置的
     {
         if (availableMaps.Length == 0)
         {
@@ -84,7 +84,7 @@ public class ExplorationManager : Singleton<ExplorationManager>
         }
     }
     
-    public void SetSelectedMap(int mapIndex)
+    public void SetSelectedMap(int mapIndex)//选中地图
     {
         if (mapIndex >= 0 && mapIndex < availableMaps.Length)
         {
@@ -99,7 +99,7 @@ public class ExplorationManager : Singleton<ExplorationManager>
         }
     }
     
-    public void InitializeExploration()
+    public void InitializeExploration()//TODO：加载界面，生成随即物品和敌人
     {
         if (currentMap == null)
         {
@@ -125,7 +125,7 @@ public class ExplorationManager : Singleton<ExplorationManager>
         Debug.Log($"[ExplorationManager] Exploration initialized for {currentMap.mapName}");
     }
     
-    void ClearPreviousSpawns()
+    void ClearPreviousSpawns()//只清楚原来的
     {
         foreach (var obj in spawnedObjects)
         {
@@ -135,7 +135,7 @@ public class ExplorationManager : Singleton<ExplorationManager>
         spawnedObjects.Clear();
     }
     
-    void SpawnLoot()
+    void SpawnLoot()//TODO:每个不一样
     {
         SpawnLootFromTable(currentMap.commonLoot, "普通");
         SpawnLootFromTable(currentMap.rareLoot, "稀有");
@@ -202,7 +202,7 @@ public class ExplorationManager : Singleton<ExplorationManager>
         return lootObj;
     }
     
-    void SpawnSpecialItem(string itemType)
+    void SpawnSpecialItem(string itemType)//TODO:
     {
         if (lootSpawnPoints.Length == 0) return;
         
@@ -273,7 +273,7 @@ public class ExplorationManager : Singleton<ExplorationManager>
         }
     }
     
-    void SetupExit()
+    void SetupExit()//退出功能
     {
         if (exitPoint == null)
         {
@@ -285,7 +285,7 @@ public class ExplorationManager : Singleton<ExplorationManager>
         // 例如发光效果、UI指示器等
     }
     
-    public void OnPlayerReachedExit()
+    public void OnPlayerReachedExit()//返回
     {
         if (!explorationActive) return;
         
@@ -299,7 +299,7 @@ public class ExplorationManager : Singleton<ExplorationManager>
         Debug.Log("[ExplorationManager] Player reached exit, returning home");
     }
     
-    public void EndExploration()
+    public void EndExploration()//刷新状态
     {
         explorationActive = false;
         currentMap = null;
@@ -325,10 +325,6 @@ public class ExplorationManager : Singleton<ExplorationManager>
         return spawnedObjects.Count(obj => obj != null && obj.GetComponent<EnemyAI>() != null);
     }
     
-    protected override void OnDestroy()
-    {
-        base.OnDestroy();
-    }
 }
 
 [System.Serializable]
