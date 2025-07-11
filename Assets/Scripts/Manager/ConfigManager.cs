@@ -72,7 +72,6 @@ public class ConfigManager : Singleton<ConfigManager>
         {
             configCache[configType] = config;
         }
-        
         return config;
     }
     // 兼容性属性 - 保持现有代码工作

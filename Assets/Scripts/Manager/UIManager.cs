@@ -151,9 +151,9 @@ public class UIManager : Singleton<UIManager>
     void UpdateCommonUI()//游戏内嵌UI
     {
         // 更新生命值显示
-        if (explorationUI && PlayerHealth.Instance && currentPhase == GamePhase.Exploration)
+        if (explorationUI && Player.Instance && currentPhase == GamePhase.Exploration)
         {
-            explorationUI.UpdateHealth(PlayerHealth.Instance.currentHealth, PlayerHealth.Instance.maxHealth);
+            explorationUI.UpdateHealth(Player.Instance.currentHealth, Player.Instance.maxHealth);
         }
         
         // 更新时间显示

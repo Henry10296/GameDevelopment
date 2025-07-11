@@ -4,7 +4,7 @@ public abstract class BaseInteractable : MonoBehaviour
 {
     [Header("交互设置")]
     public float interactionRange = 2f;
-    public KeyCode interactionKey = KeyCode.E;
+    public KeyCode interactionKey = KeyCode.F;
     public GameObject interactionPrompt;
     
     protected Transform player;

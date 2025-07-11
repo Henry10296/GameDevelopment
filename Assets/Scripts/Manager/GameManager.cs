@@ -481,7 +481,7 @@ public class GameManager : Singleton<GameManager>
             ChangePhase(GamePhase.GameEnd);
         }
         
-        if (PlayerHealth.HasInstance && !PlayerHealth.Instance.IsAlive())
+        if (Player.HasInstance && !Player.Instance.IsAlive())
         {
             ChangePhase(GamePhase.GameEnd);
         }

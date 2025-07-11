@@ -497,7 +497,7 @@ public partial class SaveManager : Singleton<SaveManager>
             dynamicData.playerPosition = player.transform.position;
             dynamicData.playerRotation = player.transform.rotation;
             
-            if (player.TryGetComponent<PlayerHealth>(out var health))
+            if (player.TryGetComponent<Player>(out var health))
             {
                 dynamicData.playerHealth = health.currentHealth;
             }
@@ -581,7 +581,7 @@ public partial class SaveManager : Singleton<SaveManager>
             player.transform.position = dynamicData.playerPosition;
             player.transform.rotation = dynamicData.playerRotation;
             
-            if (player.TryGetComponent<PlayerHealth>(out var health))
+            if (player.TryGetComponent<Player>(out var health))
             {
                 health.currentHealth = dynamicData.playerHealth;
             }

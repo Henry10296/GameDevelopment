@@ -170,9 +170,9 @@ public class BugDetectionSystem : Singleton<BugDetectionSystem>
             ReportBug("Negative timer", $"计时器为负数: {gameState.phaseTimer}", BugSeverity.Warning, BugCategory.Logic);
         
         // 检查玩家状态
-        if (PlayerHealth.Instance != null)
+        if (Player.Instance != null)
         {
-            if (PlayerHealth.Instance.currentHealth < 0)
+            if (Player.Instance.currentHealth < 0)
                 ReportBug("Player health negative", "玩家血量为负数", BugSeverity.Critical, BugCategory.Logic);
         }
     }
@@ -235,9 +235,9 @@ public class BugDetectionSystem : Singleton<BugDetectionSystem>
                 
             case "Player health negative":
                 // 重置玩家血量
-                if (PlayerHealth.Instance != null)
+                if (Player.Instance != null)
                 {
-                    PlayerHealth.Instance.Heal(100f);
+                    Player.Instance.Heal(100f);
                     Debug.Log("[BugDetection] Auto-fixed: Player health restored");
                 }
                 break;

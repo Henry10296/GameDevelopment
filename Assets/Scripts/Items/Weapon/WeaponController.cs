@@ -10,7 +10,8 @@ public abstract class WeaponController : MonoBehaviour
     public string weaponName = "Weapon";
     public WeaponType weaponType;
     public GameObject weaponModel;
-    
+    [Header("武器数据配置")]
+    public WeaponData weaponData;
     [Header("射击设置")]
     public float fireRate = 0.1f;
     public float damage = 25f;
@@ -63,6 +64,7 @@ public abstract class WeaponController : MonoBehaviour
     
 
     
+ 
     public virtual void Initialize(WeaponManager manager)
     {
         weaponManager = manager;
@@ -72,11 +74,24 @@ public abstract class WeaponController : MonoBehaviour
             audioSource = gameObject.AddComponent<AudioSource>();
         }
         
+        // 从WeaponData读取配置
+        if (weaponData != null)
+        {
+            weaponName = weaponData.weaponName;
+            damage = weaponData.damage;
+            range = weaponData.range;
+            fireRate = weaponData.fireRate;
+            maxAmmo = weaponData.maxAmmo;
+            isAutomatic = weaponData.isAutomatic;
+            
+            // 设置音效
+            shootSound = weaponData.fireSound;
+        }
+        
         originalPosition = transform.localPosition;
         currentAmmo = maxAmmo;
         currentSpread = baseSpread;
     }
-    
     public virtual void TryShoot()
     {
         if (Time.time < nextFireTime || isReloading)
@@ -128,6 +143,9 @@ public abstract class WeaponController : MonoBehaviour
         
         // 应用后坐力
         ApplyRecoil();
+        Shooting enhancer = GetComponent<Shooting>();
+        if (enhancer)
+            enhancer.PerformShoot();
     }
     
     protected virtual void PerformRaycast()
@@ -266,7 +284,7 @@ public abstract class WeaponController : MonoBehaviour
     public int MaxAmmo => maxAmmo;
     public bool IsReloading => isReloading;
     public bool HasAmmo() => currentAmmo > 0 || infiniteAmmo;
-    public float GetCurrentSpread() => currentSpread;
+    public virtual float GetCurrentSpread() => currentSpread;
     public Vector2 GetRecoil() => currentRecoil;
 }
 internal interface IDamageable
