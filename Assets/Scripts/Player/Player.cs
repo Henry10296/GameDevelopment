@@ -62,7 +62,7 @@ public class Player : Singleton<Player>, IDamageable
     // 事件
     public System.Action<float> OnHealthChanged;
     public System.Action OnPlayerDeath;
-    public System.Action<float, Vector3> OnDamaged;
+    public System.Action<float> OnDamaged;
     
     protected override void Awake()
     {
@@ -194,9 +194,7 @@ public class Player : Singleton<Player>, IDamageable
     void HandleWeapons()
     {
         // 武器切换
-        if (Input.GetKeyDown(KeyCode.Alpha1)) weaponManager?.SwitchWeapon(0);
-        if (Input.GetKeyDown(KeyCode.Alpha2)) weaponManager?.SwitchWeapon(1);
-        if (Input.GetKeyDown(KeyCode.Alpha3)) weaponManager?.SwitchWeapon(2);
+
         
         // 滚轮切换
         float scroll = Input.GetAxis("Mouse ScrollWheel");
@@ -296,7 +294,7 @@ public class Player : Singleton<Player>, IDamageable
         
         // 触发事件
         OnHealthChanged?.Invoke(currentHealth);
-        OnDamaged?.Invoke(damage, Vector3.zero);
+        OnDamaged?.Invoke(damage);
         
         // 通知UI
         if (playerUI != null)

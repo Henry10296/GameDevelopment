@@ -1,279 +1,220 @@
+// PlayerUI.cs - 专门处理玩家相关的UI显示
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
 public class PlayerUI : MonoBehaviour
 {
-    [Header("血量显示")]
-    public Image healthBar;
+    [Header("生命值显示")]
+    public Slider healthSlider;
+    public Image healthFill;
     public TextMeshProUGUI healthText;
-    public Image healthBackground;
     
-    [Header("弹药显示")]
-    public TextMeshProUGUI ammoText;
+    [Header("护甲显示")]
+    public Slider armorSlider;
+    public Image armorFill;
+    public TextMeshProUGUI armorText;
+    
+    [Header("武器显示")]
     public TextMeshProUGUI weaponNameText;
+    public TextMeshProUGUI ammoText;
     public Image weaponIcon;
     
-    [Header("交互提示")]
-    public GameObject interactionPrompt;
-    public TextMeshProUGUI interactionText;
-    
     [Header("准星")]
-    public Image crosshair;
-    public RectTransform crosshairRect;
+    public SimpleMouseCrosshair crosshair;
     
-    [Header("颜色设置")]
+    [Header("受伤效果")]
+    public Image damageOverlay;
+    public CanvasGroup damageEffect;
+    
+    [Header("击中反馈")]
+    public Image hitMarker;
+    
+    [Header("颜色配置")]
     public Color healthyColor = Color.green;
-    public Color lowHealthColor = Color.yellow;
-    public Color criticalHealthColor = Color.red;
-    public Color normalCrosshairColor = Color.white;
-    public Color enemyCrosshairColor = Color.red;
+    public Color lowHealthColor = Color.red;
+    public Color armorColor = Color.blue;
     
-    private Player playerHealth;
+    private Player player;
     private WeaponManager weaponManager;
-    private bool isInitialized = false;
+    private Coroutine damageEffectCoroutine;
+    private Coroutine hitMarkerCoroutine;
     
     void Start()
     {
-        InitializeReferences();
-        SetupUI();
-    }
-    
-    void InitializeReferences()
-    {
-        // 查找玩家组件
-        var player = GameObject.FindGameObjectWithTag("Player");
+        // 获取玩家引用
+        player = Player.Instance;
         if (player != null)
         {
-            playerHealth = player.GetComponent<Player>();
-            weaponManager = player.GetComponent<WeaponManager>();
+            weaponManager = player.GetWeaponManager();
         }
         
-        // 如果没找到，尝试通过单例获取
-        if (playerHealth == null)
-        {
-            playerHealth = Player.Instance;
-        }
-        
-        isInitialized = (playerHealth != null);
-        
-        if (!isInitialized)
-        {
-            Debug.LogWarning("[SimplePlayerUI] PlayerHealth not found!");
-        }
+        // 初始化UI
+        InitializeUI();
     }
     
-    void SetupUI()
+    void InitializeUI()
     {
-        // 隐藏交互提示
-        if (interactionPrompt != null)
-        {
-            interactionPrompt.SetActive(false);
-        }
+        if (damageOverlay) damageOverlay.color = new Color(1, 0, 0, 0);
+        if (hitMarker) hitMarker.gameObject.SetActive(false);
         
-        // 设置初始准星颜色
-        if (crosshair != null)
+        // 订阅玩家事件
+        if (player != null)
         {
-            crosshair.color = normalCrosshairColor;
+            player.OnHealthChanged += UpdateHealth;
+            player.OnDamaged += OnPlayerDamaged;
         }
     }
     
     void Update()
     {
-        if (!isInitialized) return;
+        if (player == null) return;
         
         UpdateHealthDisplay();
-        UpdateAmmoDisplay();
-        UpdateCrosshair();
+        UpdateArmorDisplay();
+        UpdateWeaponDisplay();
     }
     
     void UpdateHealthDisplay()
     {
-        if (playerHealth == null) return;
+        if (player == null) return;
         
-        float healthPercent = playerHealth.GetHealthPercentage();
+        float healthPercent = player.GetHealthPercentage();
         
-        // 更新血条
-        if (healthBar != null)
+        if (healthSlider) healthSlider.value = healthPercent;
+        if (healthText) healthText.text = $"{player.currentHealth:F0}/{player.maxHealth:F0}";
+        
+        if (healthFill)
         {
-            healthBar.fillAmount = healthPercent;
-            
-            // 根据血量改变颜色
-            Color healthColor = healthPercent switch
-            {
-                >= 0.6f => healthyColor,
-                >= 0.3f => lowHealthColor,
-                _ => criticalHealthColor
-            };
-            
-            healthBar.color = healthColor;
-        }
-        
-        // 更新血量文字
-        if (healthText != null)
-        {
-            int currentHealth = Mathf.RoundToInt(playerHealth.currentHealth);
-            int maxHealth = Mathf.RoundToInt(playerHealth.maxHealth);
-            healthText.text = $"{currentHealth}/{maxHealth}";
+            healthFill.color = Color.Lerp(lowHealthColor, healthyColor, healthPercent);
         }
     }
     
-    void UpdateAmmoDisplay()
+    void UpdateArmorDisplay()
+    {
+        if (player == null) return;
+        
+        float armorPercent = player.GetArmorPercentage();
+        
+        if (armorSlider) 
+        {
+            armorSlider.value = armorPercent;
+            armorSlider.gameObject.SetActive(player.currentArmor > 0);
+        }
+        
+        if (armorText) armorText.text = $"{player.currentArmor:F0}/{player.maxArmor:F0}";
+        if (armorFill) armorFill.color = armorColor;
+    }
+    
+    void UpdateWeaponDisplay()
     {
         if (weaponManager == null) return;
         
         var currentWeapon = weaponManager.GetCurrentWeapon();
         
-        if (currentWeapon != null && !weaponManager.IsEmptyHands())
+        if (currentWeapon != null)
         {
-            // 显示弹药
-            if (ammoText != null)
-            {
-                ammoText.text = $"{currentWeapon.CurrentAmmo}/{currentWeapon.MaxAmmo}";
-                ammoText.gameObject.SetActive(true);
-            }
+            if (weaponNameText) weaponNameText.text = currentWeapon.weaponName;
+            if (ammoText) ammoText.text = $"{currentWeapon.CurrentAmmo}/{currentWeapon.MaxAmmo}";
             
-            // 显示武器名称
-            if (weaponNameText != null)
+            // 更新武器图标
+            if (weaponIcon && currentWeapon.weaponData?.weaponIcon)
             {
-                weaponNameText.text = currentWeapon.weaponName;
-                weaponNameText.gameObject.SetActive(true);
-            }
-            
-            // 显示武器图标（如果有WeaponData）
-            if (weaponIcon != null)
-            {
-                // 这里需要从武器获取图标，可能需要在WeaponController中添加
+                weaponIcon.sprite = currentWeapon.weaponData.weaponIcon;
                 weaponIcon.gameObject.SetActive(true);
             }
         }
         else
         {
-            // 空手状态，隐藏武器UI
-            if (ammoText != null) ammoText.gameObject.SetActive(false);
-            if (weaponNameText != null) weaponNameText.gameObject.SetActive(false);
-            if (weaponIcon != null) weaponIcon.gameObject.SetActive(false);
+            // 空手状态
+            if (weaponNameText) weaponNameText.text = "空手";
+            if (ammoText) ammoText.text = "";
+            if (weaponIcon) weaponIcon.gameObject.SetActive(false);
         }
     }
     
-    void UpdateCrosshair()
+    public void UpdateHealth(float newHealth)
     {
-        if (crosshair == null) return;
-        
-        // 检测是否瞄准敌人
-        bool aimingAtEnemy = CheckAimingAtEnemy();
-        
-        Color targetColor = aimingAtEnemy ? enemyCrosshairColor : normalCrosshairColor;
-        crosshair.color = Color.Lerp(crosshair.color, targetColor, Time.deltaTime * 10f);
-        
-        // 根据武器散布调整准星大小
-        if (weaponManager != null && crosshairRect != null)
-        {
-            var currentWeapon = weaponManager.GetCurrentWeapon();
-            if (currentWeapon != null)
-            {
-                float spread = currentWeapon.GetCurrentSpread();
-                float targetSize = 20f + spread * 300f; // 基础大小 + 散布影响
-                
-                Vector2 currentSize = crosshairRect.sizeDelta;
-                Vector2 targetSizeVec = Vector2.one * targetSize;
-                crosshairRect.sizeDelta = Vector2.Lerp(currentSize, targetSizeVec, Time.deltaTime * 8f);
-            }
-        }
+        // 这个方法由Player的事件系统调用
+        UpdateHealthDisplay();
     }
     
-    bool CheckAimingAtEnemy()
-    {
-        Camera cam = Camera.main;
-        if (cam == null) return false;
-        
-        Vector3 screenCenter = new Vector3(Screen.width / 2f, Screen.height / 2f, 0);
-        Ray ray = cam.ScreenPointToRay(screenCenter);
-        
-        if (Physics.Raycast(ray, out RaycastHit hit, 100f))
-        {
-            return hit.collider.CompareTag("Enemy");
-        }
-        
-        return false;
-    }
-    
-    // 显示交互提示
-    public void ShowInteractionPrompt(string text)
-    {
-        if (interactionPrompt != null)
-        {
-            interactionPrompt.SetActive(true);
-            if (interactionText != null)
-            {
-                interactionText.text = text;
-            }
-        }
-    }
-    
-    // 隐藏交互提示
-    public void HideInteractionPrompt()
-    {
-        if (interactionPrompt != null)
-        {
-            interactionPrompt.SetActive(false);
-        }
-    }
-    
-    // 显示拾取提示
-    public void ShowPickupPrompt(string itemName, int quantity = 1)
-    {
-        string promptText = quantity > 1 ? 
-            $"按 F 拾取 {itemName} x{quantity}" : 
-            $"按 F 拾取 {itemName}";
-        ShowInteractionPrompt(promptText);
-    }
-    
-    // 武器击中反馈
-    public void OnWeaponHit()
-    {
-        if (crosshair != null)
-        {
-            // 简单的击中反馈 - 短暂变绿
-            StartCoroutine(HitFeedbackCoroutine());
-        }
-    }
-    
-    System.Collections.IEnumerator HitFeedbackCoroutine()
-    {
-        Color originalColor = crosshair.color;
-        crosshair.color = Color.green;
-        
-        yield return new WaitForSeconds(0.1f);
-        
-        crosshair.color = originalColor;
-    }
-    
-    // 伤害反馈
     public void OnPlayerDamaged(float damage)
     {
-        // 可以添加屏幕边缘红色闪烁等效果
-        StartCoroutine(DamageFlashCoroutine());
+        ShowDamageEffect();
     }
     
-    System.Collections.IEnumerator DamageFlashCoroutine()
+    public void OnWeaponHit()
     {
-        if (healthBackground != null)
+        ShowHitMarker();
+        
+        // 通知准星
+        if (crosshair) crosshair.OnTargetHit();
+    }
+    
+    void ShowDamageEffect()
+    {
+        if (damageEffectCoroutine != null)
+            StopCoroutine(damageEffectCoroutine);
+        damageEffectCoroutine = StartCoroutine(DamageEffectCoroutine());
+    }
+    
+    System.Collections.IEnumerator DamageEffectCoroutine()
+    {
+        // 红色闪烁效果
+        if (damageOverlay)
         {
-            Color originalColor = healthBackground.color;
-            healthBackground.color = Color.red;
+            damageOverlay.color = new Color(1, 0, 0, 0.5f);
             
-            yield return new WaitForSeconds(0.1f);
-            
-            float elapsed = 0f;
-            while (elapsed < 0.5f)
+            float timer = 0f;
+            while (timer < 0.5f)
             {
-                elapsed += Time.deltaTime;
-                healthBackground.color = Color.Lerp(Color.red, originalColor, elapsed / 0.5f);
+                timer += Time.deltaTime;
+                float alpha = Mathf.Lerp(0.5f, 0f, timer / 0.5f);
+                damageOverlay.color = new Color(1, 0, 0, alpha);
                 yield return null;
             }
             
-            healthBackground.color = originalColor;
+            damageOverlay.color = new Color(1, 0, 0, 0);
+        }
+    }
+    
+    void ShowHitMarker()
+    {
+        if (hitMarkerCoroutine != null)
+            StopCoroutine(hitMarkerCoroutine);
+        hitMarkerCoroutine = StartCoroutine(HitMarkerCoroutine());
+    }
+    
+    System.Collections.IEnumerator HitMarkerCoroutine()
+    {
+        if (hitMarker)
+        {
+            hitMarker.gameObject.SetActive(true);
+            hitMarker.color = Color.white;
+            
+            yield return new WaitForSeconds(0.1f);
+            
+            float timer = 0f;
+            while (timer < 0.2f)
+            {
+                timer += Time.deltaTime;
+                float alpha = Mathf.Lerp(1f, 0f, timer / 0.2f);
+                hitMarker.color = new Color(1, 1, 1, alpha);
+                yield return null;
+            }
+            
+            hitMarker.gameObject.SetActive(false);
+        }
+    }
+    
+    void OnDestroy()
+    {
+        // 取消订阅事件
+        if (player != null)
+        {
+            player.OnHealthChanged -= UpdateHealth;
+            player.OnDamaged -= OnPlayerDamaged;
         }
     }
 }

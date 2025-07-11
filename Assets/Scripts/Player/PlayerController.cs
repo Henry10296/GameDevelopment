@@ -191,12 +191,12 @@ public class PlayerController : MonoBehaviour
             Debug.LogWarning("[PlayerController] InventoryManager not found after timeout");
         }
     }
-void HandleWeaponSwitching()
+void HandleWeaponSwitching()//TODO:武器切换
 {
     if (weaponManager == null) return;
     
     // 保持你现有的武器切换逻辑
-    if (Input.GetKeyDown(KeyCode.Alpha1))
+    /*if (Input.GetKeyDown(KeyCode.Alpha1))
     {
         weaponManager.SwitchWeapon(0);
         NotifyWeaponDisplay(0); // 修改：传入武器索引
@@ -210,7 +210,7 @@ void HandleWeaponSwitching()
     {
         weaponManager.SwitchWeapon(2);
         NotifyWeaponDisplay(2);
-    }
+    }*/
     
     // 滚轮切换
     float scrollDelta = Input.GetAxis("Mouse ScrollWheel");

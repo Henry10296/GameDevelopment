@@ -17,13 +17,13 @@ public class AutoRifleController : WeaponController
     private bool isBursting = false;
     private int currentBurstCount = 0;
     private float currentRecoil = 0f;
-    
+    [Header("数据配置")] public WeaponConfig config;
     public override void Initialize(WeaponManager manager)
     {
         base.Initialize(manager);
         
         // 自动步枪特殊设置
-        weaponName = "自动步枪";
+        weaponName = config.name;
         weaponType = WeaponType.Rifle;
         isAutomatic = true;
         fireRate = 0.12f;
