@@ -1,7 +1,7 @@
-// PlayerUI.cs - 专门处理玩家相关的UI显示
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using System.Collections;
 
 public class PlayerUI : MonoBehaviour
 {
@@ -19,6 +19,7 @@ public class PlayerUI : MonoBehaviour
     public TextMeshProUGUI weaponNameText;
     public TextMeshProUGUI ammoText;
     public Image weaponIcon;
+    public GameObject weaponUI; // 武器UI容器
     
     [Header("准星")]
     public SimpleMouseCrosshair crosshair;
@@ -30,6 +31,10 @@ public class PlayerUI : MonoBehaviour
     [Header("击中反馈")]
     public Image hitMarker;
     
+    [Header("HUD容器")] // 新增：按阶段显示/隐藏
+    public GameObject explorationHUD;
+    public GameObject homeHUD;
+    
     [Header("颜色配置")]
     public Color healthyColor = Color.green;
     public Color lowHealthColor = Color.red;
@@ -39,17 +44,30 @@ public class PlayerUI : MonoBehaviour
     private WeaponManager weaponManager;
     private Coroutine damageEffectCoroutine;
     private Coroutine hitMarkerCoroutine;
+    private GamePhase currentPhase;
     
-    void Start()
+    public void Initialize()
     {
         // 获取玩家引用
         player = Player.Instance;
         if (player != null)
         {
             weaponManager = player.GetWeaponManager();
+            
+            // 订阅玩家事件
+            player.OnHealthChanged += UpdateHealth;
+            player.OnDamaged += OnPlayerDamaged;
+        }
+        else
+        {
+            // 如果没有Player实例，尝试查找PlayerController
+            var playerController = FindObjectOfType<PlayerController>();
+            if (playerController != null)
+            {
+                weaponManager = playerController.GetComponent<WeaponManager>();
+            }
         }
         
-        // 初始化UI
         InitializeUI();
     }
     
@@ -58,21 +76,37 @@ public class PlayerUI : MonoBehaviour
         if (damageOverlay) damageOverlay.color = new Color(1, 0, 0, 0);
         if (hitMarker) hitMarker.gameObject.SetActive(false);
         
-        // 订阅玩家事件
-        if (player != null)
-        {
-            player.OnHealthChanged += UpdateHealth;
-            player.OnDamaged += OnPlayerDamaged;
-        }
+        // 默认隐藏所有HUD
+        SetHUDVisibility(false);
     }
     
     void Update()
     {
-        if (player == null) return;
+        // 只在探索阶段更新HUD
+        if (currentPhase == GamePhase.Exploration)
+        {
+            UpdateHealthDisplay();
+            UpdateArmorDisplay();
+            UpdateWeaponDisplay();
+        }
+    }
+    
+    public void OnPhaseChanged(GamePhase newPhase)
+    {
+        currentPhase = newPhase;
         
-        UpdateHealthDisplay();
-        UpdateArmorDisplay();
-        UpdateWeaponDisplay();
+        // 根据阶段显示/隐藏HUD
+        bool showHUD = (newPhase == GamePhase.Exploration);
+        SetHUDVisibility(showHUD);
+    }
+    
+    void SetHUDVisibility(bool show)
+    {
+        if (explorationHUD) explorationHUD.SetActive(show);
+        if (homeHUD) homeHUD.SetActive(false); // 暂时不用
+        
+        // 准星只在探索时显示
+        if (crosshair) crosshair.gameObject.SetActive(show);
     }
     
     void UpdateHealthDisplay()
@@ -111,8 +145,12 @@ public class PlayerUI : MonoBehaviour
         if (weaponManager == null) return;
         
         var currentWeapon = weaponManager.GetCurrentWeapon();
+        bool hasWeapon = currentWeapon != null && !weaponManager.IsEmptyHands();
         
-        if (currentWeapon != null)
+        // 武器UI容器显示/隐藏
+        if (weaponUI) weaponUI.SetActive(hasWeapon);
+        
+        if (hasWeapon)
         {
             if (weaponNameText) weaponNameText.text = currentWeapon.weaponName;
             if (ammoText) ammoText.text = $"{currentWeapon.CurrentAmmo}/{currentWeapon.MaxAmmo}";
@@ -121,21 +159,32 @@ public class PlayerUI : MonoBehaviour
             if (weaponIcon && currentWeapon.weaponData?.weaponIcon)
             {
                 weaponIcon.sprite = currentWeapon.weaponData.weaponIcon;
-                weaponIcon.gameObject.SetActive(true);
+                weaponIcon.enabled = true;
             }
         }
         else
         {
             // 空手状态
-            if (weaponNameText) weaponNameText.text = "空手";
+            if (weaponNameText) weaponNameText.text = "";
             if (ammoText) ammoText.text = "";
-            if (weaponIcon) weaponIcon.gameObject.SetActive(false);
+            if (weaponIcon) weaponIcon.enabled = false;
         }
+    }
+    
+    // 外部调用接口 - 保持与UIManager的兼容性
+    public void UpdateAmmoDisplay(int current, int max)
+    {
+        if (ammoText) ammoText.text = $"{current}/{max}";
+    }
+    
+    public void UpdateHealthDisplay(float current, float max)
+    {
+        if (healthSlider) healthSlider.value = current / max;
+        if (healthText) healthText.text = $"{current:F0}/{max:F0}";
     }
     
     public void UpdateHealth(float newHealth)
     {
-        // 这个方法由Player的事件系统调用
         UpdateHealthDisplay();
     }
     
@@ -152,6 +201,12 @@ public class PlayerUI : MonoBehaviour
         if (crosshair) crosshair.OnTargetHit();
     }
     
+    public void OnWeaponFired()
+    {
+        // 武器开火时的UI反馈
+        if (crosshair) crosshair.ShowHitFeedback();
+    }
+    
     void ShowDamageEffect()
     {
         if (damageEffectCoroutine != null)
@@ -161,7 +216,6 @@ public class PlayerUI : MonoBehaviour
     
     System.Collections.IEnumerator DamageEffectCoroutine()
     {
-        // 红色闪烁效果
         if (damageOverlay)
         {
             damageOverlay.color = new Color(1, 0, 0, 0.5f);

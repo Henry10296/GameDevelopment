@@ -7,7 +7,6 @@ using System.Collections.Generic;
 public class UIManager : Singleton<UIManager>
 {
     [Header("UI界面面板")]
-    //public MainMenuUI mainMenuUI;
     public HomeUI homeUI;
     public ExplorationUI explorationUI;
     public InventoryUI inventoryUI;
@@ -16,6 +15,8 @@ public class UIManager : Singleton<UIManager>
     public SettingsUI settingsUI;
     public PauseMenuUI pauseMenuUI;
     
+    [Header("游戏内HUD")] // 新增：整合PlayerUI
+    public PlayerUI playerHUD;
     
     [Header("通用UI组件")]
     public MessageDisplay messageDisplay;
@@ -35,21 +36,19 @@ public class UIManager : Singleton<UIManager>
     [Header("自动更新设置")] 
     public bool enableAutoUpdate = true;
     public float updateInterval = 0.1f;
-    [Header("文本配置")] // 添加到现有字段后
+    [Header("文本配置")]
     public UITextSettings textSettings;
     public GameValues gameValues;
     public InputSettings inputSettings;
+    
     protected override void OnSingletonApplicationQuit()
     {
-        // 停止所有UI协程
         StopAllCoroutines();
-    
-        // 隐藏所有UI
         if (enableAutoUpdate)
             CancelInvoke(nameof(AutoUpdateUI));
-    
         Debug.Log("[UIManager] Application quit cleanup completed");
     }
+    
     protected override void Awake()
     {
         base.Awake();
@@ -58,15 +57,29 @@ public class UIManager : Singleton<UIManager>
     
     void Start()
     {
-        // 初始化UI状态
         HideAllPanels();
         OnPhaseChanged(GamePhase.MainMenu);
-        
-        // 订阅输入事件
         SubscribeToInputs();
+        
         if (enableAutoUpdate)
         {
             InvokeRepeating(nameof(AutoUpdateUI), 0f, updateInterval);
+        }
+        
+        // 初始化PlayerHUD
+        InitializePlayerHUD();
+    }
+    
+    void InitializePlayerHUD()
+    {
+        if (playerHUD == null)
+        {
+            playerHUD = FindObjectOfType<PlayerUI>();
+        }
+        
+        if (playerHUD != null)
+        {
+            playerHUD.Initialize();
         }
     }
     
@@ -75,6 +88,7 @@ public class UIManager : Singleton<UIManager>
         HandleInput();
         UpdateDynamicUI();
     }
+    
     private void AutoUpdateUI()
     {
         if (currentPhase == GamePhase.Home && homeUI != null)
@@ -83,23 +97,20 @@ public class UIManager : Singleton<UIManager>
         }
         else if (currentPhase == GamePhase.Exploration && explorationUI != null)
         {
-            UpdateCommonUI(); // 调用现有方法
+            UpdateCommonUI();
         }
     }
+    
     void InitializeUIPanels()
     {
-        // 初始化UI面板字典
-        //if (mainMenuUI) uiPanels[GamePhase.MainMenu] = mainMenuUI;
         if (homeUI) uiPanels[GamePhase.Home] = homeUI;
         if (explorationUI) uiPanels[GamePhase.Exploration] = explorationUI;
         
-        // 初始化各个UI面板
         InitializeAllPanels();
     }
     
     void InitializeAllPanels()
     {
-        //mainMenuUI?.Initialize();
         homeUI?.Initialize();
         explorationUI?.Initialize();
         inventoryUI?.Initialize();
@@ -148,15 +159,9 @@ public class UIManager : Singleton<UIManager>
         UpdateCommonUI();
     }
     
-    void UpdateCommonUI()//游戏内嵌UI
+    void UpdateCommonUI()
     {
-        // 更新生命值显示
-        if (explorationUI && Player.Instance && currentPhase == GamePhase.Exploration)
-        {
-            explorationUI.UpdateHealth(Player.Instance.currentHealth, Player.Instance.maxHealth);
-        }
-        
-        // 更新时间显示
+        // 只负责通用UI，玩家HUD由PlayerUI自己处理
         if (GameManager.Instance)
         {
             UpdateTimeDisplay();
@@ -176,17 +181,16 @@ public class UIManager : Singleton<UIManager>
     {
         if (currentPhase == newPhase) return;
         
-        // 隐藏当前UI
         HideCurrentPanel();
-        
-        // 更新当前阶段
         currentPhase = newPhase;
-        
-        // 显示新阶段UI
         ShowCurrentPanel();
-        
-        // 设置鼠标状态
         SetCursorState(GetCursorVisibilityForPhase(newPhase));
+        
+        // 通知PlayerHUD阶段变化
+        if (playerHUD != null)
+        {
+            playerHUD.OnPhaseChanged(newPhase);
+        }
         
         Debug.Log($"[UIManager] UI phase changed to: {newPhase}");
     }
@@ -198,7 +202,6 @@ public class UIManager : Singleton<UIManager>
             panel?.Hide();
         }
         
-        // 隐藏弹出式UI
         inventoryUI?.Hide();
         eventChoiceUI?.Hide();
         journalUI?.Hide();
@@ -403,20 +406,20 @@ public class UIManager : Singleton<UIManager>
         }
     }
     
-    // UI数据更新方法
+    // PlayerUI委托方法 - 保持向后兼容
     public void UpdateAmmoDisplay(int current, int max)
     {
-        if (explorationUI)
+        if (playerHUD)
         {
-            explorationUI.UpdateAmmo(current, max);
+            playerHUD.UpdateAmmoDisplay(current, max);
         }
     }
     
     public void UpdateHealthDisplay(float current, float max)
     {
-        if (explorationUI)
+        if (playerHUD)
         {
-            explorationUI.UpdateHealth(current, max);
+            playerHUD.UpdateHealthDisplay(current, max);
         }
     }
     
@@ -435,6 +438,7 @@ public class UIManager : Singleton<UIManager>
             inventoryUI.RefreshInventory();
         }
     }
+    
     public string GetText(string key, params object[] args)
     {
         return textSettings?.GetText(key, args) ?? key;

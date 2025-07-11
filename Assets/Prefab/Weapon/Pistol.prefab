@@ -1,0 +1,86 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &3164115971617923049
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8075563927918264585}
+  - component: {fileID: 980881571109977794}
+  m_Layer: 0
+  m_Name: Pistol
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8075563927918264585
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3164115971617923049}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 7
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &980881571109977794
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3164115971617923049}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1ddc2f4631bdc484187631b912be7862, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  weaponName: Weapon
+  weaponType: 1
+  weaponModel: {fileID: 0}
+  weaponData: {fileID: 0}
+  fireRate: 0.1
+  damage: 25
+  range: 100
+  isAutomatic: 1
+  maxAmmo: 30
+  currentAmmo: 30
+  reloadTime: 2
+  infiniteAmmo: 0
+  baseSpread: 0.01
+  maxSpread: 0.1
+  spreadIncrease: 0.02
+  spreadDecrease: 0.1
+  aimSpreadMultiplier: 0.3
+  recoilAmount: {x: 0.5, y: 1}
+  recoilSpeed: 10
+  recoilRecovery: 5
+  aimPosition: {fileID: 0}
+  aimSpeed: 10
+  aimFOVMultiplier: 0.8
+  muzzleFlash: {fileID: 0}
+  muzzlePoint: {fileID: 0}
+  bulletTrail: {fileID: 0}
+  impactEffect: {fileID: 0}
+  shootSound: {fileID: 0}
+  reloadSound: {fileID: 0}
+  emptySound: {fileID: 0}
+  originalPosition: {x: 0, y: 0, z: 0}
+  semiAutoFireRate: 0.15
+  quickDrawBonus: 0.8
+  accuracyBonus: 0.9
+  enableRapidFire: 0
+  rapidFireThreshold: 0.1
+  pistolRecoilMultiplier: 0.7
+  recoilRecoverySpeed: 8
+  pistolAimSpeed: 12
+  aimAccuracyBonus: 0.5
