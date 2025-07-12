@@ -47,7 +47,7 @@ MonoBehaviour:
   weaponName: Weapon
   weaponType: 1
   weaponModel: {fileID: 0}
-  weaponData: {fileID: 0}
+  weaponData: {fileID: 11400000, guid: 01ac9c885afcab24bac13322f8c91154, type: 2}
   fireRate: 0.1
   damage: 25
   range: 100

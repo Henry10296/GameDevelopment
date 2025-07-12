@@ -96,14 +96,15 @@ public abstract class WeaponController : MonoBehaviour
     {
         if (Time.time < nextFireTime || isReloading)
             return;
-        
+    
+        // 检查武器弹药
         if (currentAmmo <= 0)
         {
-            if (emptySound && !audioSource.isPlaying)
-                audioSource.PlayOneShot(emptySound);
+            // 武器没弹了，检查背包
+            CheckBackpackAmmo();
             return;
         }
-        
+    
         // 单发或自动射击
         if (!isShooting || isAutomatic)
         {
@@ -111,7 +112,7 @@ public abstract class WeaponController : MonoBehaviour
             isShooting = true;
         }
     }
-    
+    // 获取武器弹药类型
     public virtual void StopShooting()
     {
         isShooting = false;
@@ -120,29 +121,34 @@ public abstract class WeaponController : MonoBehaviour
     protected virtual void Shoot()
     {
         nextFireTime = Time.time + fireRate;
-        
+    
         if (!infiniteAmmo)
             currentAmmo--;
-        
+    
         // 播放音效
         if (shootSound)
             audioSource.PlayOneShot(shootSound);
-        
+    
         // 枪口火焰
         if (muzzleFlash && muzzlePoint)
         {
             GameObject flash = Instantiate(muzzleFlash, muzzlePoint.position, muzzlePoint.rotation);
             Destroy(flash, 0.1f);
         }
-        
+    
         // 执行射击逻辑
         PerformRaycast();
-        
+    
         // 增加散布
         currentSpread = Mathf.Min(currentSpread + spreadIncrease, maxSpread);
-        
+    
         // 应用后坐力
         ApplyRecoil();
+    
+        // 通知弹药变化 (新增)
+        NotifyAmmoChanged();
+    
+        // 增强射击效果
         Shooting enhancer = GetComponent<Shooting>();
         if (enhancer)
             enhancer.PerformShoot();
@@ -152,47 +158,157 @@ public abstract class WeaponController : MonoBehaviour
     {
         Camera cam = Camera.main;
         Vector3 direction = cam.transform.forward;
-        
+    
         // 应用散布
         float spread = isAiming ? currentSpread * aimSpreadMultiplier : currentSpread;
         direction += cam.transform.right * Random.Range(-spread, spread);
         direction += cam.transform.up * Random.Range(-spread, spread);
-        
-        RaycastHit hit;
-        if (Physics.Raycast(cam.transform.position, direction, out hit, range))
+    
+        Vector3 startPos = cam.transform.position;
+    
+        // 发射子弹轨迹（视觉效果）
+        CreateBulletTrail(startPos, direction);
+    
+        // 射线检测伤害
+        if (Physics.Raycast(startPos, direction, out RaycastHit hit, range))
         {
-            // 伤害处理
-            IDamageable damageable = hit.collider.GetComponent<IDamageable>();
-            if (damageable != null)
-            {
-                damageable.TakeDamage(damage);
-            }
-            
-            // 击中效果
-            if (impactEffect)
-            {
-                GameObject impact = Instantiate(impactEffect, hit.point, Quaternion.LookRotation(hit.normal));
-                Destroy(impact, 2f);
-            }
-            
-            // 子弹轨迹
-            if (bulletTrail && muzzlePoint)
-            {
-                CreateBulletTrail(muzzlePoint.position, hit.point);
-            }
+            ProcessHit(hit);
         }
     }
-    
-    protected virtual void CreateBulletTrail(Vector3 start, Vector3 end)
+    protected virtual void ProcessHit(RaycastHit hit)
+{
+    // 伤害处理
+    IDamageable damageable = hit.collider.GetComponent<IDamageable>();
+    if (damageable != null)
     {
-        GameObject trail = Instantiate(bulletTrail, start, Quaternion.identity);
-        LineRenderer line = trail.GetComponent<LineRenderer>();
-        if (line)
+        float finalDamage = CalculateDamage(hit);
+        damageable.TakeDamage(finalDamage);
+        
+        Debug.Log($"[WeaponController] 击中目标: {hit.collider.name}, 伤害: {finalDamage}");
+        
+        // 通知准星击中
+        NotifyCrosshairHit();
+    }
+    
+    // 击中效果
+    CreateHitEffect(hit.point, hit.normal);
+    
+    // 弹孔效果（可选）
+    CreateBulletHole(hit.point, hit.normal, hit.collider);
+}
+
+/// <summary>
+/// 计算伤害值
+/// </summary>
+protected virtual float CalculateDamage(RaycastHit hit)
+{
+    float baseDamage = damage;
+    
+    // 距离伤害衰减
+    float distance = hit.distance;
+    float damageMultiplier = 1f;
+    
+    if (distance > range * 0.7f)
+    {
+        // 远距离伤害衰减
+        damageMultiplier = Mathf.Lerp(1f, 0.6f, (distance - range * 0.7f) / (range * 0.3f));
+    }
+    
+    // 部位伤害倍数
+    if (hit.collider.CompareTag("Head"))
+    {
+        damageMultiplier *= 2f; // 头部暴击
+    }
+    else if (hit.collider.CompareTag("Torso"))
+    {
+        damageMultiplier *= 1.2f; // 躯干伤害
+    }
+    
+    return baseDamage * damageMultiplier;
+}
+
+/// <summary>
+/// 创建击中特效
+/// </summary>
+protected virtual void CreateHitEffect(Vector3 position, Vector3 normal)
+{
+    if (impactEffect)
+    {
+        GameObject effect = Instantiate(impactEffect, position, Quaternion.LookRotation(normal));
+        Destroy(effect, 2f);
+    }
+}
+
+/// <summary>
+/// 创建弹孔效果
+/// </summary>
+protected virtual void CreateBulletHole(Vector3 position, Vector3 normal, Collider hitCollider)
+{
+    // 只在非敌人表面创建弹孔
+    if (hitCollider.gameObject.layer != LayerMask.NameToLayer("Enemy"))
+    {
+        Vector3 holePosition = position + normal * 0.01f;
+        // 这里可以创建弹孔预制体
+        Debug.Log($"[WeaponController] 创建弹孔: {holePosition}");
+    }
+}
+
+/// <summary>
+/// 通知准星击中目标
+/// </summary>
+protected virtual void NotifyCrosshairHit()
+{
+    // 通知准星显示击中反馈
+    SimpleMouseCrosshair crosshair = FindObjectOfType<SimpleMouseCrosshair>();
+    if (crosshair)
+    {
+        crosshair.OnTargetHit();
+    }
+    
+    // 通知PlayerUI显示击中标记
+    PlayerUI playerUI = FindObjectOfType<PlayerUI>();
+    if (playerUI)
+    {
+        playerUI.OnWeaponHit();
+    }
+}
+
+/// <summary>
+/// 更新弹药显示（兼容旧方法）
+/// </summary>
+protected virtual void UpdateAmmoDisplay()
+{
+    // 这个方法和NotifyAmmoChanged()功能相同，为了兼容性保留
+    NotifyAmmoChanged();
+    
+    // 额外更新背包弹药显示
+    if (InventoryManager.Instance)
+    {
+        string ammoType = GetAmmoType();
+        int backpackAmmo = InventoryManager.Instance.GetAmmoCount(ammoType);
+        Debug.Log($"[WeaponController] 背包弹药: {ammoType} x{backpackAmmo}");
+    }
+}
+    void CreateBulletTrail(Vector3 start, Vector3 direction)
+    {
+        Vector3 endPos = start + direction * range;
+    
+        // 如果击中了什么，调整终点
+        if (Physics.Raycast(start, direction, out RaycastHit hit, range))
         {
-            line.SetPosition(0, start);
-            line.SetPosition(1, end);
+            endPos = hit.point;
         }
-        Destroy(trail, 0.1f);
+    
+        // 使用你现有的BulletTrail
+        if (bulletTrail)
+        {
+            GameObject trail = Instantiate(bulletTrail);
+            BulletTrail trailComponent = trail.GetComponent<BulletTrail>();
+            if (trailComponent)
+            {
+                trailComponent.InitializeTrail(start, endPos);
+            }
+        }
     }
     
     protected virtual void ApplyRecoil()
@@ -207,23 +323,159 @@ public abstract class WeaponController : MonoBehaviour
     {
         if (isReloading || currentAmmo == maxAmmo)
             return;
-        
-        StartCoroutine(ReloadCoroutine());
+    
+        if (!InventoryManager.Instance)
+        {
+            Debug.LogWarning("[WeaponController] InventoryManager not found!");
+            return;
+        }
+    
+        string ammoType = GetAmmoType();
+    
+        if (!InventoryManager.Instance.HasAmmo(ammoType, 1))
+        {
+            ShowNoAmmoMessage();
+            return;
+        }
+    
+        StartCoroutine(ReloadFromBackpack(ammoType));
     }
     
-    protected virtual IEnumerator ReloadCoroutine()
+    protected virtual IEnumerator ReloadFromBackpack(string ammoType)
     {
         isReloading = true;
-        
+        Debug.Log($"[WeaponController] 开始换弹: {ammoType}");
+    
         if (reloadSound)
             audioSource.PlayOneShot(reloadSound);
-        
+    
         // 播放换弹动画
         yield return PlayReloadAnimation();
+    
+        // 计算需要的弹药数量
+        int needAmmo = maxAmmo - currentAmmo;
+        int availableAmmo = InventoryManager.Instance.GetAmmoCount(ammoType);
+        int actualReload = Mathf.Min(needAmmo, availableAmmo);
+    
+        Debug.Log($"[WeaponController] 需要弹药:{needAmmo}, 可用弹药:{availableAmmo}, 实际装弹:{actualReload}");
+    
+        // 从背包消耗弹药并装入武器
+        if (InventoryManager.Instance.ConsumeAmmo(ammoType, actualReload))
+        {
+            currentAmmo += actualReload;
         
-        currentAmmo = maxAmmo;
+            if (UIManager.Instance)
+            {
+                UIManager.Instance.ShowMessage($"装弹完成 {currentAmmo}/{maxAmmo}", 2f);
+            }
+        
+            Debug.Log($"[WeaponController] 换弹成功: {currentAmmo}/{maxAmmo}");
+        }
+        else
+        {
+            Debug.LogError("[WeaponController] 换弹失败: 无法消耗弹药");
+        }
+    
         isReloading = false;
+    
+        // 通知UI更新弹药显示
+        NotifyAmmoChanged();
     }
+
+    #region 弹药
+    /// <summary>
+    /// 获取武器使用的弹药类型
+    /// </summary>
+    protected virtual string GetAmmoType()
+    {
+        if (weaponData != null && !string.IsNullOrEmpty(weaponData.ammoType))
+        {
+            return weaponData.ammoType;
+        }
+        return "9mm"; // 默认弹药类型
+    }
+
+    /// <summary>
+    /// 检查背包弹药状态
+    /// </summary>
+    protected virtual void CheckBackpackAmmo()
+    {
+        if (!InventoryManager.Instance)
+        {
+            PlayEmptySound();
+            return;
+        }
+    
+        string ammoType = GetAmmoType();
+        if (InventoryManager.Instance.HasAmmo(ammoType, 1))
+        {
+            // 有弹药，提示换弹
+            ShowReloadPrompt();
+        }
+        else
+        {
+            // 没有弹药
+            ShowNoAmmoMessage();
+        }
+    
+        PlayEmptySound();
+    }
+
+    /// <summary>
+    /// 显示换弹提示
+    /// </summary>
+    protected virtual void ShowReloadPrompt()
+    {
+        if (UIManager.Instance)
+        {
+            UIManager.Instance.ShowMessage("按 R 键换弹", 2f);
+        }
+        Debug.Log("[WeaponController] 提示换弹");
+    }
+
+    /// <summary>
+    /// 显示没有弹药提示
+    /// </summary>
+    protected virtual void ShowNoAmmoMessage()
+    {
+        string ammoType = GetAmmoType();
+        if (UIManager.Instance)
+        {
+            string displayName = InventoryManager.Instance?.GetAmmoDisplayName(ammoType) ?? ammoType;
+            UIManager.Instance.ShowMessage($"没有{displayName}!", 3f);
+        }
+        Debug.Log($"[WeaponController] 没有弹药: {ammoType}");
+    }
+
+    /// <summary>
+    /// 通知弹药变化
+    /// </summary>
+    protected virtual void NotifyAmmoChanged()
+    {
+        if (UIManager.Instance)
+        {
+            UIManager.Instance.UpdateAmmoDisplay(currentAmmo, maxAmmo);
+        }
+    
+        Debug.Log($"[WeaponController] 弹药变化: {currentAmmo}/{maxAmmo}");
+    }
+
+    /// <summary>
+    /// 播放空弹夹音效
+    /// </summary>
+    protected virtual void PlayEmptySound()
+    {
+        if (emptySound && audioSource && !audioSource.isPlaying)
+        {
+            audioSource.PlayOneShot(emptySound);
+        }
+    }
+    
+    #endregion
+    
+    
+    
+  
     
     protected virtual IEnumerator PlayReloadAnimation()
     {

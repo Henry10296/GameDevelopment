@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0663c50675ee7df4599ed21bd7b08cfa, type: 3}
+  m_Name: WeaponConfig
+  m_EditorClassIdentifier: 
+  configName: WeaponConfig
+  configVersion: 1.0
+  description: 
+  pistol: {fileID: 11400000, guid: 01ac9c885afcab24bac13322f8c91154, type: 2}
+  rifle: {fileID: 0}
+  reloadTime: 2
+  weaponSwitchTime: 1
+  aimSensitivity: 0.5
+  aimFOV: 40
+  normalFOV: 60
+  reloadSound: {fileID: 0}
+  emptyclipSound: {fileID: 0}
+  weaponSwitchSound: {fileID: 0}
+  gunSounds: []
+  muzzleFlashPrefab: {fileID: 279074146562400613, guid: 084e89be5cf1d894886bd84c75590ad3, type: 3}
+  bulletTrailPrefab: {fileID: 8253197545722996207, guid: bed17e8e876ba804cbea723dfe4c1052, type: 3}
+  hitEffectPrefab: {fileID: 889364750871298343, guid: 6f5441557eaf6ca41bd1ab1a7ac4f0d4, type: 3}
+  bulletHolePrefab: {fileID: 0}
+  crosshairDefault: {fileID: 0}
+  crosshairAiming: {fileID: 0}
+  crosshairColor: {r: 1, g: 1, b: 1, a: 1}

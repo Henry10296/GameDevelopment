@@ -20,6 +20,7 @@ public class Player : Singleton<Player>, IDamageable
     public AudioClip deathSound;
     public AudioClip healSound;
     
+    
     // 组件引用
     private PlayerController playerController;
     private WeaponManager weaponManager;

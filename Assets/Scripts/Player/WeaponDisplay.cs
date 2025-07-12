@@ -313,33 +313,62 @@ public class WeaponDisplay : MonoBehaviour
     IEnumerator WeaponSwitchCoroutine(WeaponSpriteSet newWeaponSet)
     {
         isSwitching = true;
-        
-        // 第一阶段：收起当前武器
-        if (isEmptyHands && handSprites.emptyHandsLower.Length > 0)
+    
+        // 第一阶段：当前武器快速下降
+        if (!isEmptyHands)
         {
-            yield return StartCoroutine(PlayAnimationCoroutine(handSprites.emptyHandsLower, switchFrameRate, false));
+            yield return StartCoroutine(WeaponSlideDown());
         }
-        else if (!isEmptyHands)
-        {
-            WeaponSpriteSet currentSet = GetCurrentSpriteSet();
-            if (currentSet != null && currentSet.lowerFrames.Length > 0)
-            {
-                yield return StartCoroutine(PlayAnimationCoroutine(currentSet.lowerFrames, switchFrameRate, false));
-            }
-        }
-        
+    
         yield return new WaitForSeconds(switchHoldTime);
-        
-        // 第二阶段：抬起新武器
-        if (newWeaponSet.raiseFrames.Length > 0)
-        {
-            yield return StartCoroutine(PlayAnimationCoroutine(newWeaponSet.raiseFrames, switchFrameRate, false));
-        }
-        
-        // 第三阶段：开始待机动画
+    
+        // 第二阶段：新武器从下方滑入
+        yield return StartCoroutine(WeaponSlideUp(newWeaponSet));
+    
         isSwitching = false;
         StartWeaponIdle(newWeaponSet);
     }
+    IEnumerator WeaponSlideDown()
+    {
+        Vector2 startPos = weaponRect.anchoredPosition;
+        Vector2 endPos = startPos + Vector2.down * 200f; // 向下200像素
+    
+        float elapsed = 0f;
+        while (elapsed < 0.2f)
+        {
+            elapsed += Time.deltaTime;
+            float t = elapsed / 0.2f;
+            weaponRect.anchoredPosition = Vector2.Lerp(startPos, endPos, t);
+            yield return null;
+        }
+    }
+    IEnumerator WeaponSlideUp(WeaponSpriteSet weaponSet)
+    {
+        Vector2 endPos = originalPosition;
+        Vector2 startPos = endPos + Vector2.down * 200f;
+    
+        weaponRect.anchoredPosition = startPos;
+    
+        // 设置新武器图片
+        if (weaponSet.idleFrames.Length > 0)
+        {
+            weaponImage.sprite = weaponSet.idleFrames[0];
+        }
+    
+        float elapsed = 0f;
+        while (elapsed < 0.3f)
+        {
+            elapsed += Time.deltaTime;
+            float t = elapsed / 0.3f;
+            // 使用缓动曲线让动画更smooth
+            float smoothT = Mathf.SmoothStep(0, 1, t);
+            weaponRect.anchoredPosition = Vector2.Lerp(startPos, endPos, smoothT);
+            yield return null;
+        }
+    
+        weaponRect.anchoredPosition = endPos;
+    }
+    
     
     IEnumerator EmptyHandsSwitchCoroutine()
     {

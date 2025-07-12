@@ -49,8 +49,11 @@ public class PistolController : WeaponController
         
         Debug.Log($"[PistolController] Initialized: {weaponName}");
     }
-    
-    public override void TryShoot()
+    protected override string GetAmmoType()
+    {
+        return weaponData?.ammoType ?? "9mm";
+    }
+    /*public override void TryShoot()
     {
         // 检查基本射击条件
         if (Time.time < nextFireTime || isReloading)
@@ -81,68 +84,145 @@ public class PistolController : WeaponController
         {
             ExecutePistolShot();
         }
-    }
+    }*/
+    public override void TryShoot()
+    {
+        if (Time.time < nextFireTime || isReloading)
+            return;
     
+        // 手枪单发射击检查
+        if (Input.GetMouseButtonDown(0)) // 只响应按键按下，不是持续按住
+        {
+            if (currentAmmo > 0)
+            {
+                ExecutePistolShot();
+            }
+            else
+            {
+                // 检查背包弹药
+                CheckBackpackAmmo();
+            }
+        }
+    }
+
+    void CheckAmmoStatus()
+    {
+        if (!InventoryManager.Instance) return;
+        
+        string ammoType = GetAmmoType();
+        if (InventoryManager.Instance.HasAmmo(ammoType, 1))
+        {
+            ShowReloadPrompt();
+        }
+        else
+        {
+            ShowNoAmmoMessage();
+        }
+        
+        PlayEmptySound();
+    }
     void ExecutePistolShot()
     {
         nextFireTime = Time.time + fireRate;
         lastShotTime = Time.time;
-        
+    
         if (!infiniteAmmo)
             currentAmmo--;
-        
+    
         // 播放射击音效
         PlayShootSound();
-        
-        // 枪口火焰
-        ShowMuzzleFlash();
-        
+    
         // 执行射击
         PerformPistolRaycast();
-        
+    
         // 后坐力效果
         ApplyPistolRecoil();
-        
-        // 记录快速射击
-        if (enableRapidFire)
-        {
-            rapidFireCount++;
-            StartCoroutine(ResetRapidFireCount());
-        }
-        
-        // 通知其他系统
-        NotifyWeaponFired();
-        
-        Debug.Log($"[PistolController] Shot fired! Ammo: {currentAmmo}/{maxAmmo}");
-    }
     
+        // 通知其他系统
+        NotifyAmmoChanged();
+    
+        Debug.Log($"[PistolController] 手枪射击! 弹药: {currentAmmo}/{maxAmmo}");
+    }
     void PerformPistolRaycast()
     {
         Camera cam = Camera.main;
         if (cam == null) return;
-        
+    
         Vector3 direction = cam.transform.forward;
-        
-        // 计算散布 - 手枪精度较高
+    
+        // 手枪精度较高
         float currentAccuracy = GetCurrentAccuracy();
         direction += GetSpreadDirection(currentAccuracy);
-        
+    
         // 射线检测
         if (Physics.Raycast(cam.transform.position, direction, out RaycastHit hit, range))
         {
             ProcessHit(hit);
-            
-            // 子弹轨迹到击中点
             CreateBulletTrail(GetMuzzlePosition(), hit.point);
         }
         else
         {
-            // 子弹轨迹到最远距离
             Vector3 endPoint = cam.transform.position + direction * range;
             CreateBulletTrail(GetMuzzlePosition(), endPoint);
         }
     }
     
+    float GetCurrentAccuracy()
+    {
+        float accuracy = baseSpread;
+    
+        // 瞄准时精度提升
+        if (isAiming)
+        {
+            accuracy *= aimSpreadMultiplier;
+        }
+    
+        return Mathf.Clamp(accuracy, baseSpread, maxSpread);
+    }
+
+    Vector3 GetSpreadDirection(float spreadAmount)
+    {
+        return new Vector3(
+            Random.Range(-spreadAmount, spreadAmount),
+            Random.Range(-spreadAmount, spreadAmount),
+            0f
+        );
+    }
+
+    Vector3 GetMuzzlePosition()
+    {
+        return muzzlePoint != null ? muzzlePoint.position : transform.position;
+    }
+
+    void PlayShootSound()
+    {
+        if (shootSound && audioSource)
+        {
+            audioSource.pitch = Random.Range(0.95f, 1.05f); // 轻微变调
+            audioSource.PlayOneShot(shootSound);
+        }
+    }
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    /*
     float GetCurrentAccuracy()
     {
         float accuracy = baseSpread;
@@ -182,7 +262,7 @@ public class PistolController : WeaponController
             Random.Range(-spreadAmount, spreadAmount),
             0f
         );
-    }
+    }*/
     
     void ProcessHit(RaycastHit hit)
     {
@@ -288,7 +368,7 @@ public class PistolController : WeaponController
         }
     }
     
-    Vector3 GetMuzzlePosition()
+    /*Vector3 GetMuzzlePosition()
     {
         return muzzlePoint != null ? muzzlePoint.position : transform.position;
     }
@@ -300,7 +380,7 @@ public class PistolController : WeaponController
             audioSource.pitch = Random.Range(0.95f, 1.05f); // 轻微变调
             audioSource.PlayOneShot(shootSound);
         }
-    }
+    }*/
     
     void PlayEmptySound()
     {

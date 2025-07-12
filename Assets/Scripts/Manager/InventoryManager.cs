@@ -198,6 +198,65 @@ public class InventoryManager : Singleton<InventoryManager>
         items.Clear();
         UpdateUI();
     }
+
+    #region 弹药
+
+    public int GetAmmoCount(string ammoType)
+    {
+        int totalAmmo = 0;
+        foreach (var item in items)
+        {
+            if (item.itemData.itemType == ItemType.Ammo && 
+                item.itemData.itemName.Contains(ammoType))
+            {
+                totalAmmo += item.quantity;
+            }
+        }
+        return totalAmmo;
+    }
+    public bool ConsumeAmmo(string ammoType, int amount = 1)
+    {
+        if (GetAmmoCount(ammoType) < amount) return false;
+    
+        int remainingToConsume = amount;
+        for (int i = items.Count - 1; i >= 0 && remainingToConsume > 0; i--)
+        {
+            var item = items[i];
+            if (item.itemData.itemType == ItemType.Ammo && 
+                item.itemData.itemName.Contains(ammoType))
+            {
+                int consumeFromThis = Mathf.Min(remainingToConsume, item.quantity);
+                item.quantity -= consumeFromThis;
+                remainingToConsume -= consumeFromThis;
+            
+                if (item.quantity <= 0)
+                {
+                    items.RemoveAt(i);
+                }
+            }
+        }
+    
+        UpdateUI();
+        return remainingToConsume == 0;
+    }
+    public bool HasAmmo(string ammoType, int amount = 1)
+    {
+        return GetAmmoCount(ammoType) >= amount;
+    }
+    public string GetAmmoDisplayName(string ammoType)
+    {
+        foreach (var item in items)
+        {
+            if (item.itemData.itemType == ItemType.Ammo && 
+                item.itemData.itemName.Contains(ammoType))
+            {
+                return item.itemData.itemName;
+            }
+        }
+        return ammoType + "弹药";
+    }
+
+    #endregion
 }
 
 [System.Serializable]
