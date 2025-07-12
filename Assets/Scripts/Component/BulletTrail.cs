@@ -34,7 +34,13 @@ public class BulletTrail : MonoBehaviour
             if (trailMaterial == null)
             {
                 Debug.LogWarning($"[BulletTrail] Material not found at path: {materialPath}. Using default material.");
+                // 创建一个简单的默认材质
+                trailMaterial = CreateDefaultMaterial();
             }
+        }
+        else
+        {
+            trailMaterial = CreateDefaultMaterial();
         }
         
         // 配置LineRenderer
@@ -47,8 +53,18 @@ public class BulletTrail : MonoBehaviour
         
         // 设置其他默认属性
         lineRenderer.sortingOrder = 100; // 确保在前景
+        lineRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        lineRenderer.receiveShadows = false;
         
         isInitialized = true;
+    }
+    
+    Material CreateDefaultMaterial()
+    {
+        // 创建一个简单的默认材质
+        Material defaultMaterial = new Material(Shader.Find("Sprites/Default"));
+        defaultMaterial.color = Color.yellow;
+        return defaultMaterial;
     }
     
     public void InitializeTrail(Vector3 start, Vector3 end)
@@ -73,6 +89,8 @@ public class BulletTrail : MonoBehaviour
         
         // 开始淡出
         fadeCoroutine = StartCoroutine(FadeOutCoroutine());
+        
+        Debug.Log($"[BulletTrail] Created trail from {start} to {end}");
     }
     
     IEnumerator FadeOutCoroutine()
@@ -86,6 +104,9 @@ public class BulletTrail : MonoBehaviour
         }
         
         fadeCoroutine = null;
+        
+        // 可选：销毁对象
+        Destroy(gameObject, 0.1f);
     }
     
     public void ResetTrail()

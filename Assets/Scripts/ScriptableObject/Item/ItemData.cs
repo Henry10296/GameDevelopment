@@ -45,6 +45,13 @@ public class ItemData : ScriptableObject
     public bool hasGlow = false;
     public Color glowColor = Color.yellow;
     
+    
+    [Header("通用数值配置")]
+    public int value1 = 0;  // 万能数值1（弹药数量、治疗量等）
+    public int value2 = 0;  // 万能数值2（伤害、容量等）
+    public string stringValue = "";  // 万能字符串（弹药类型等）
+    [Header("显示配置")]
+    public float worldSize = 1f;  // 世界中的大小倍数
     [Header("描述")]
     [TextArea(3, 5)]
     public string description;
@@ -53,6 +60,44 @@ public class ItemData : ScriptableObject
     public bool IsWeapon => itemType == ItemType.Weapon && weaponData != null;
     public bool IsAmmo => isAmmo && !string.IsNullOrEmpty(ammoType);
     public int GetPickupAmount() => IsAmmo ? defaultPickupAmount : 1;
+    public float GetWorldSize()
+    {
+        if (worldSize != 1f) return worldSize;
+    
+        // 自动大小
+        return itemType switch
+        {
+            ItemType.Weapon => 1.5f,  // 武器大一些
+            ItemType.Ammo => 0.8f,    // 弹药小一些
+            ItemType.Medicine => 1.2f, // 医疗包大一些
+            _ => 1f
+        };
+    }
+
+// 简单的使用方法
+    public void UseItem()
+    {
+        switch (itemType)
+        {
+            case ItemType.Food:
+                if (FamilyManager.Instance)
+                    FamilyManager.Instance.AddResource("food", value1 > 0 ? value1 : 1);
+                break;
+            
+            case ItemType.Water:
+                if (FamilyManager.Instance)
+                    FamilyManager.Instance.AddResource("water", value1 > 0 ? value1 : 1);
+                break;
+            
+            case ItemType.Medicine:
+                if (FamilyManager.Instance)
+                    FamilyManager.Instance.AddResource("medicine", value1 > 0 ? value1 : 1);
+                // 如果有玩家，直接治疗
+                if (Player.Instance && value2 > 0)
+                    Player.Instance.Heal(value2);
+                break;
+        }
+    }
 }
 
 // 物品配置数据库

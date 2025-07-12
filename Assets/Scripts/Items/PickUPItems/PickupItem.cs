@@ -147,19 +147,7 @@ public class PickupItem : BaseInteractable
         if (spriteRenderer) spriteRenderer.enabled = false;
     }
     
-    float GetItemScale()
-    {
-        // 根据物品类型调整大小
-        return itemData.itemType switch
-        {
-            ItemType.Weapon => 1.5f,    // 武器稍大
-            ItemType.Ammo => 1.2f,      // 弹药中等
-            ItemType.Food => 1.0f,      // 食物正常
-            ItemType.Water => 1.0f,     // 水正常
-            ItemType.Medicine => 1.1f,  // 药品稍大
-            _ => 1.0f
-        };
-    }
+
     
     void SetItemColor()
     {
@@ -184,7 +172,19 @@ public class PickupItem : BaseInteractable
             spriteRenderer.color = targetColor;
         }
     }
-    
+    float GetItemScale()
+    {
+        // 根据物品类型调整大小
+        return itemData.itemType switch
+        {
+            ItemType.Weapon => 1.5f,    // 武器稍大
+            ItemType.Ammo => 1.2f,      // 弹药中等
+            ItemType.Food => 1.0f,      // 食物正常
+            ItemType.Water => 1.0f,     // 水正常
+            ItemType.Medicine => 1.1f,  // 药品稍大
+            _ => 1.0f
+        };
+    }
     void SetupGlow()
     {
         if (!enableGlow || !itemData.hasGlow) return;

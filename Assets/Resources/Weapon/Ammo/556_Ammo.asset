@@ -16,6 +16,21 @@ MonoBehaviour:
   itemID: 
   icon: {fileID: 0}
   itemType: 5
+  worldPrefab: {fileID: 0}
+  worldSprite: {fileID: 0}
+  useSprite: 1
+  defaultPickupAmount: 1
+  stackable: 1
   maxStackSize: 50
+  weaponData: {fileID: 0}
+  ammoType: 556
+  isAmmo: 1
   value: 1
+  itemColor: {r: 1, g: 1, b: 1, a: 1}
+  hasGlow: 0
+  glowColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  value1: 0
+  value2: 0
+  stringValue: 
+  worldSize: 1
   description: 

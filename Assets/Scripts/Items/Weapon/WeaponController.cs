@@ -260,15 +260,26 @@ public abstract class WeaponController : MonoBehaviour
     
     protected virtual void CreateBulletTrail(Vector3 start, Vector3 end)
     {
-        if (bulletTrail)
-        {
-            GameObject trail = Instantiate(bulletTrail);
-            BulletTrail trailComponent = trail.GetComponent<BulletTrail>();
-            if (trailComponent)
-            {
-                trailComponent.InitializeTrail(start, end);
-            }
-        }
+        // 简单版本：直接创建LineRenderer显示子弹轨迹
+        GameObject trailObj = new GameObject("SimpleBulletTrail");
+        LineRenderer line = trailObj.AddComponent<LineRenderer>();
+    
+        // 基本设置
+        line.material = new Material(Shader.Find("Sprites/Default"));
+        //line.color = Color.yellow;
+        line.startWidth = 0.02f;
+        line.endWidth = 0.01f;
+        line.positionCount = 2;
+        line.useWorldSpace = true;
+    
+        // 设置位置
+        line.SetPosition(0, start);
+        line.SetPosition(1, end);
+    
+        // 0.1秒后销毁
+        Destroy(trailObj, 0.1f);
+    
+        Debug.Log($"子弹轨迹: {start} -> {end}");
     }
     
     protected virtual void ShowMuzzleFlash()
