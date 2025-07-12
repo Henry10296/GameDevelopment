@@ -22,7 +22,7 @@ public class InventoryManager : Singleton<InventoryManager>
     
         Debug.Log("[InventoryManager] Application quit cleanup completed");
     }
-    public bool AddItem(ItemData itemData, int quantity = 1)
+    /*public bool AddItem(ItemData itemData, int quantity = 1)
     {
         if (itemData == null) return false;
         bool result = AddItemInternal(itemData, quantity); 
@@ -57,7 +57,7 @@ public class InventoryManager : Singleton<InventoryManager>
             GameEventManager.UpdateQuestProgress("collect", itemData.itemName, quantity);
         }
         return quantity <= 0;
-    }
+    }*/
     private bool AddItemInternal(ItemData itemData, int quantity)
     {
         // 现有的AddItem逻辑
@@ -199,64 +199,164 @@ public class InventoryManager : Singleton<InventoryManager>
         UpdateUI();
     }
 
-    #region 弹药
+// 在你的InventoryManager.cs中添加这些方法：
 
-    public int GetAmmoCount(string ammoType)
+#region 弹药系统
+public int GetAmmoCount(string ammoType)
+{
+    int totalAmmo = 0;
+    foreach (var item in items)
     {
-        int totalAmmo = 0;
-        foreach (var item in items)
+        if (item.itemData.IsAmmo && item.itemData.ammoType == ammoType)
         {
-            if (item.itemData.itemType == ItemType.Ammo && 
-                item.itemData.itemName.Contains(ammoType))
+            totalAmmo += item.quantity;
+        }
+    }
+    return totalAmmo;
+}
+
+public bool ConsumeAmmo(string ammoType, int amount = 1)
+{
+    if (GetAmmoCount(ammoType) < amount) return false;
+
+    int remainingToConsume = amount;
+    for (int i = items.Count - 1; i >= 0 && remainingToConsume > 0; i--)
+    {
+        var item = items[i];
+        if (item.itemData.IsAmmo && item.itemData.ammoType == ammoType)
+        {
+            int consumeFromThis = Mathf.Min(remainingToConsume, item.quantity);
+            item.quantity -= consumeFromThis;
+            remainingToConsume -= consumeFromThis;
+
+            if (item.quantity <= 0)
             {
-                totalAmmo += item.quantity;
+                items.RemoveAt(i);
             }
         }
-        return totalAmmo;
     }
-    public bool ConsumeAmmo(string ammoType, int amount = 1)
+
+    UpdateUI();
+    return remainingToConsume == 0;
+}
+
+public bool HasAmmo(string ammoType, int amount = 1)
+{
+    return GetAmmoCount(ammoType) >= amount;
+}
+
+public string GetAmmoDisplayName(string ammoType)
+{
+    foreach (var item in items)
     {
-        if (GetAmmoCount(ammoType) < amount) return false;
-    
-        int remainingToConsume = amount;
-        for (int i = items.Count - 1; i >= 0 && remainingToConsume > 0; i--)
+        if (item.itemData.IsAmmo && item.itemData.ammoType == ammoType)
         {
-            var item = items[i];
-            if (item.itemData.itemType == ItemType.Ammo && 
-                item.itemData.itemName.Contains(ammoType))
+            return item.itemData.itemName;
+        }
+    }
+    return ammoType + "弹药";
+}
+#endregion
+
+#region 武器系统
+public bool HasWeapon(string weaponName)
+{
+    foreach (var item in items)
+    {
+        if (item.itemData.IsWeapon && item.itemData.weaponData.weaponName == weaponName)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+public ItemData GetWeaponItem(string weaponName)
+{
+    foreach (var item in items)
+    {
+        if (item.itemData.IsWeapon && item.itemData.weaponData.weaponName == weaponName)
+        {
+            return item.itemData;
+        }
+    }
+    return null;
+}
+#endregion
+
+// 修改AddItem方法以支持自动堆叠弹药
+public bool AddItem(ItemData itemData, int quantity = 1)
+{
+    if (itemData == null) return false;
+
+    // 特殊处理弹药 - 自动堆叠同类型弹药
+    if (itemData.IsAmmo)
+    {
+        return AddAmmoItem(itemData, quantity);
+    }
+
+    // 检查是否可以堆叠到现有物品
+    if (itemData.stackable)
+    {
+        foreach (var item in items)
+        {
+            if (item.itemData == itemData && item.quantity < itemData.maxStackSize)
             {
-                int consumeFromThis = Mathf.Min(remainingToConsume, item.quantity);
-                item.quantity -= consumeFromThis;
-                remainingToConsume -= consumeFromThis;
-            
-                if (item.quantity <= 0)
+                int addAmount = Mathf.Min(quantity, itemData.maxStackSize - item.quantity);
+                item.quantity += addAmount;
+                quantity -= addAmount;
+
+                if (quantity <= 0)
                 {
-                    items.RemoveAt(i);
+                    UpdateUI();
+                    return true;
                 }
             }
         }
-    
-        UpdateUI();
-        return remainingToConsume == 0;
-    }
-    public bool HasAmmo(string ammoType, int amount = 1)
-    {
-        return GetAmmoCount(ammoType) >= amount;
-    }
-    public string GetAmmoDisplayName(string ammoType)
-    {
-        foreach (var item in items)
-        {
-            if (item.itemData.itemType == ItemType.Ammo && 
-                item.itemData.itemName.Contains(ammoType))
-            {
-                return item.itemData.itemName;
-            }
-        }
-        return ammoType + "弹药";
     }
 
-    #endregion
+    // 添加新物品槽
+    while (quantity > 0 && items.Count < maxSlots)
+    {
+        int addAmount = Mathf.Min(quantity, itemData.maxStackSize);
+        items.Add(new InventoryItem(itemData, addAmount));
+        quantity -= addAmount;
+    }
+
+    UpdateUI();
+    return quantity <= 0;
+}
+
+bool AddAmmoItem(ItemData ammoData, int quantity)
+{
+    // 查找相同弹药类型的物品进行堆叠
+    foreach (var item in items)
+    {
+        if (item.itemData.IsAmmo && item.itemData.ammoType == ammoData.ammoType)
+        {
+            int addAmount = Mathf.Min(quantity, ammoData.maxStackSize - item.quantity);
+            item.quantity += addAmount;
+            quantity -= addAmount;
+
+            if (quantity <= 0)
+            {
+                UpdateUI();
+                return true;
+            }
+        }
+    }
+
+    // 添加新的弹药槽
+    while (quantity > 0 && items.Count < maxSlots)
+    {
+        int addAmount = Mathf.Min(quantity, ammoData.maxStackSize);
+        items.Add(new InventoryItem(ammoData, addAmount));
+        quantity -= addAmount;
+    }
+
+    UpdateUI();
+    return quantity <= 0;
+}
 }
 
 [System.Serializable]

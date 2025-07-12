@@ -1,95 +1,274 @@
 ﻿using UnityEngine;
+using System.Collections;
 
-public class PickupItem : BaseInteractable 
+[RequireComponent(typeof(SphereCollider))]
+public class PickupItem : BaseInteractable
 {
-    [Header("物品设置")]
+    [Header("物品数据")]
     public ItemData itemData;
-    public WeaponData weaponData; // 如果是武器
     public int quantity = 1;
     
     [Header("显示组件")]
-    public WorldItemDisplay worldDisplay;
+    public SpriteRenderer spriteRenderer;
+    public MeshRenderer meshRenderer;
+    public Transform visualContainer;
     
-    [Header("音效")]
-    public AudioClip pickupSound;
+    [Header("Doom风格动画")]
+    public bool enableDoomAnimation = true;
+    public float bobSpeed = 2f;
+    public float bobHeight = 0.2f;
+    public float rotationSpeed = 90f;
     
+    [Header("发光效果")]
+    public Light glowLight;
+    public bool enableGlow = true;
+    
+    [Header("UI提示")]
+    public Canvas uiCanvas;
+    public TMPro.TextMeshPro itemNameText;
+    public TMPro.TextMeshPro quantityText;
+    
+    private Vector3 originalPosition;
     private AudioSource audioSource;
-    private bool isWeapon = false;
     
     protected override void Start()
     {
         base.Start();
         
-        // 获取音频组件
+        // 设置碰撞器
+        var collider = GetComponent<SphereCollider>();
+        collider.radius = 1.5f;
+        collider.isTrigger = true;
+        
+        // 设置音频
         audioSource = GetComponent<AudioSource>();
-        if (audioSource == null)
+        if (!audioSource)
         {
             audioSource = gameObject.AddComponent<AudioSource>();
-            audioSource.spatialBlend = 1f; // 3D音效
+            audioSource.spatialBlend = 1f;
         }
         
-        // 自动获取WorldItemDisplay组件
-        if (worldDisplay == null)
+        originalPosition = transform.position;
+        
+        // 根据ItemData设置显示
+        if (itemData != null)
         {
-            worldDisplay = GetComponentInChildren<WorldItemDisplay>();
+            SetupDisplay();
         }
         
-        // 如果没有WorldItemDisplay，创建一个
-        if (worldDisplay == null)
+        // 开始动画
+        if (enableDoomAnimation)
         {
-            CreateWorldDisplay();
+            StartCoroutine(DoomBobAnimation());
         }
-        
-        SetupItemDisplay();
     }
     
-    void CreateWorldDisplay()
+    public void SetItemData(ItemData data, int qty = 1)
     {
-        // 创建子对象来显示2D精灵
-        GameObject displayObj = new GameObject("ItemDisplay");
-        displayObj.transform.SetParent(transform);
-        displayObj.transform.localPosition = Vector3.zero;
+        itemData = data;
+        quantity = qty;
         
-        worldDisplay = displayObj.AddComponent<WorldItemDisplay>();
-        displayObj.AddComponent<SpriteRenderer>();
+        if (data != null)
+        {
+            gameObject.name = $"Pickup_{data.itemName}";
+            SetupDisplay();
+        }
     }
     
-    void SetupItemDisplay()
+    void SetupDisplay()
     {
-        if (worldDisplay == null) return;
+        if (itemData == null) return;
         
-        // 判断是武器还是普通道具
-        if (weaponData != null)
+        // 设置显示模式
+        if (itemData.useSprite && itemData.worldSprite != null)
         {
-            isWeapon = true;
-            worldDisplay.SetWeaponData(weaponData);
-            
-            // 武器可能有特殊颜色
-            if (weaponData.weaponName.Contains("Rifle"))
-            {
-                worldDisplay.SetColor(Color.cyan); // 步枪用青色
-            }
-            else if (weaponData.weaponName.Contains("Pistol"))
-            {
-                worldDisplay.SetColor(Color.white); // 手枪用白色
-            }
+            SetupSpriteDisplay();
         }
-        else if (itemData != null)
+        else if (itemData.worldPrefab != null)
         {
-            isWeapon = false;
-            worldDisplay.SetItemData(itemData);
-            
-            // 根据道具类型设置颜色
-            Color itemColor = itemData.itemType switch
+            SetupMeshDisplay();
+        }
+        else
+        {
+            SetupSpriteDisplay(); // 默认使用icon
+        }
+        
+        // 设置颜色
+        SetItemColor();
+        
+        // 设置发光
+        SetupGlow();
+        
+        // 设置UI文本
+        SetupUIText();
+    }
+    
+    void SetupSpriteDisplay()
+    {
+        if (spriteRenderer == null)
+        {
+            var spriteObj = new GameObject("SpriteDisplay");
+            spriteObj.transform.SetParent(visualContainer ? visualContainer : transform);
+            spriteObj.transform.localPosition = Vector3.zero;
+            spriteRenderer = spriteObj.AddComponent<SpriteRenderer>();
+        }
+        
+        // 设置精灵
+        if (itemData.worldSprite != null)
+        {
+            spriteRenderer.sprite = itemData.worldSprite;
+        }
+        else if (itemData.icon != null)
+        {
+            spriteRenderer.sprite = itemData.icon;
+        }
+        
+        // 设置大小 - 为了解决"人物素材感觉有点小"的问题
+        spriteRenderer.transform.localScale = Vector3.one * GetItemScale();
+        
+        // 让精灵面向相机
+        spriteRenderer.transform.LookAt(Camera.main.transform);
+        spriteRenderer.transform.Rotate(0, 180, 0);
+        
+        // 隐藏mesh
+        if (meshRenderer) meshRenderer.enabled = false;
+    }
+    
+    void SetupMeshDisplay()
+    {
+        if (itemData.worldPrefab != null && visualContainer != null)
+        {
+            GameObject meshObj = Instantiate(itemData.worldPrefab, visualContainer);
+            meshObj.transform.localPosition = Vector3.zero;
+            meshObj.transform.localScale = Vector3.one * GetItemScale();
+        }
+        
+        // 隐藏sprite
+        if (spriteRenderer) spriteRenderer.enabled = false;
+    }
+    
+    float GetItemScale()
+    {
+        // 根据物品类型调整大小
+        return itemData.itemType switch
+        {
+            ItemType.Weapon => 1.5f,    // 武器稍大
+            ItemType.Ammo => 1.2f,      // 弹药中等
+            ItemType.Food => 1.0f,      // 食物正常
+            ItemType.Water => 1.0f,     // 水正常
+            ItemType.Medicine => 1.1f,  // 药品稍大
+            _ => 1.0f
+        };
+    }
+    
+    void SetItemColor()
+    {
+        Color targetColor = itemData.itemColor;
+        
+        // 根据类型设置颜色
+        if (targetColor == Color.white)
+        {
+            targetColor = itemData.itemType switch
             {
+                ItemType.Weapon => Color.cyan,
+                ItemType.Ammo => Color.yellow,
                 ItemType.Food => Color.green,
                 ItemType.Water => Color.blue,
                 ItemType.Medicine => Color.red,
-                ItemType.Ammo => Color.yellow,
-                ItemType.Key => Color.magenta,
                 _ => Color.white
             };
-            worldDisplay.SetColor(itemColor);
+        }
+        
+        if (spriteRenderer)
+        {
+            spriteRenderer.color = targetColor;
+        }
+    }
+    
+    void SetupGlow()
+    {
+        if (!enableGlow || !itemData.hasGlow) return;
+        
+        if (glowLight == null)
+        {
+            var lightObj = new GameObject("GlowLight");
+            lightObj.transform.SetParent(transform);
+            lightObj.transform.localPosition = Vector3.zero;
+            glowLight = lightObj.AddComponent<Light>();
+        }
+        
+        glowLight.type = LightType.Point;
+        glowLight.color = itemData.glowColor;
+        glowLight.intensity = 1.5f;
+        glowLight.range = 3f;
+        
+        // 闪烁效果
+        StartCoroutine(GlowPulse());
+    }
+    
+    void SetupUIText()
+    {
+        if (itemNameText)
+        {
+            itemNameText.text = itemData.itemName;
+        }
+        
+        if (quantityText)
+        {
+            if (itemData.IsAmmo)
+            {
+                quantityText.text = $"+{itemData.GetPickupAmount()}";
+            }
+            else if (quantity > 1)
+            {
+                quantityText.text = $"x{quantity}";
+            }
+            else
+            {
+                quantityText.text = "";
+            }
+        }
+        
+        // UI面向相机
+        if (uiCanvas)
+        {
+            uiCanvas.worldCamera = Camera.main;
+        }
+    }
+    
+    IEnumerator DoomBobAnimation()
+    {
+        while (this != null)
+        {
+            float time = Time.time * bobSpeed;
+            
+            // 上下浮动
+            Vector3 newPos = originalPosition + Vector3.up * Mathf.Sin(time) * bobHeight;
+            transform.position = newPos;
+            
+            // 旋转
+            if (visualContainer)
+            {
+                visualContainer.Rotate(0, rotationSpeed * Time.deltaTime, 0);
+            }
+            else
+            {
+                transform.Rotate(0, rotationSpeed * Time.deltaTime, 0);
+            }
+            
+            yield return null;
+        }
+    }
+    
+    IEnumerator GlowPulse()
+    {
+        float baseIntensity = glowLight.intensity;
+        
+        while (this != null && glowLight != null)
+        {
+            float pulse = Mathf.Sin(Time.time * 3f) * 0.5f + 0.5f;
+            glowLight.intensity = baseIntensity * (0.5f + pulse * 0.5f);
+            yield return null;
         }
     }
     
@@ -97,142 +276,77 @@ public class PickupItem : BaseInteractable
     {
         if (TryPickup())
         {
-            // 播放拾取动画
-            if (worldDisplay != null)
-            {
-                worldDisplay.OnPickedUp();
-            }
-            
-            // 播放音效
-            PlayPickupSound();
-            
-            // 短暂延迟后销毁（给动画时间）
-            Destroy(gameObject, 0.5f);
+            PlayPickupAnimation();
         }
     }
     
     bool TryPickup()
     {
-        if (!InventoryManager.Instance) 
+        if (!InventoryManager.Instance)
         {
             Debug.LogWarning("InventoryManager not found!");
             return false;
         }
         
-        bool success = false;
-        string message = "";
+        int pickupAmount = itemData.IsAmmo ? itemData.GetPickupAmount() : quantity;
         
-        if (isWeapon && weaponData != null)
+        if (InventoryManager.Instance.AddItem(itemData, pickupAmount))
         {
-            // 武器拾取逻辑 - 可以考虑直接装备或放入背包
-            // 这里简化为放入背包（需要ItemData包装）
-            if (TryAddWeaponToInventory())
+            string message = $"拾取了 {pickupAmount}x {itemData.itemName}";
+            if (UIManager.Instance)
             {
-                success = true;
-                message = $"拾取了 {weaponData.weaponName}";
+                UIManager.Instance.ShowMessage(message, 2f);
             }
-            else
-            {
-                message = "背包已满!";
-            }
+            
+            Debug.Log(message);
+            return true;
         }
-        else if (itemData != null)
+        else
         {
-            // 普通道具拾取
-            if (InventoryManager.Instance.AddItem(itemData, quantity))
+            if (UIManager.Instance)
             {
-                success = true;
-                message = $"拾取了 {quantity} 个 {itemData.itemName}";
-                
-                // 更新任务进度
-                GameEventManager.UpdateQuestProgress("collect", itemData.itemName, quantity);
+                UIManager.Instance.ShowMessage("背包已满!", 2f);
             }
-            else
-            {
-                message = "背包已满!";
-            }
+            return false;
+        }
+    }
+    
+    void PlayPickupAnimation()
+    {
+        // 播放拾取音效
+        if (audioSource && itemData.itemType == ItemType.Ammo)
+        {
+            // 可以播放弹药拾取音效
         }
         
-        // 显示拾取消息
-        if (UIManager.Instance)
-        {
-            UIManager.Instance.ShowMessage(message, 2f);
-        }
-        
-        Debug.Log(message);
-        return success;
+        StartCoroutine(PickupEffect());
     }
     
-    bool TryAddWeaponToInventory()
+    IEnumerator PickupEffect()
     {
-        // 这里需要将武器转换为ItemData或者实现武器专用的背包系统
-        // 简化实现：如果有对应的ItemData，就添加到背包
-        if (weaponData != null)
+        Vector3 startPos = transform.position;
+        Vector3 targetPos = startPos + Vector3.up * 1f;
+        Vector3 startScale = transform.localScale;
+        
+        float duration = 0.3f;
+        for (float t = 0; t < duration; t += Time.deltaTime)
         {
-            // 尝试找到对应的武器ItemData
-            var weaponItemData = FindWeaponItemData(weaponData.weaponName);
-            if (weaponItemData != null)
+            float progress = t / duration;
+            
+            transform.position = Vector3.Lerp(startPos, targetPos, progress);
+            transform.localScale = Vector3.Lerp(startScale, Vector3.zero, progress);
+            
+            // 淡出
+            if (spriteRenderer)
             {
-                return InventoryManager.Instance.AddItem(weaponItemData, 1);
+                Color color = spriteRenderer.color;
+                color.a = 1f - progress;
+                spriteRenderer.color = color;
             }
-        }
-        return false;
-    }
-    
-    ItemData FindWeaponItemData(string weaponName)
-    {
-        // 在配置中查找对应的武器ItemData
-        if (ConfigManager.Instance?.Item?.allItems != null)
-        {
-            foreach (var item in ConfigManager.Instance.Item.allItems)
-            {
-                if (item.itemType == ItemType.Weapon && item.itemName.Contains(weaponName))
-                {
-                    return item;
-                }
-            }
-        }
-        return null;
-    }
-    
-    void PlayPickupSound()
-    {
-        AudioClip soundToPlay = pickupSound;
-        
-        // 如果没有指定音效，尝试从配置获取
-        if (soundToPlay == null && ConfigManager.Instance?.Item?.pickupSound != null)
-        {
-            soundToPlay = ConfigManager.Instance.Item.pickupSound;
+            
+            yield return null;
         }
         
-        if (soundToPlay != null && audioSource != null)
-        {
-            audioSource.PlayOneShot(soundToPlay);
-        }
-    }
-    
-    // 设置物品数据（用于动态生成）
-    public void SetItemData(ItemData data, int qty = 1)
-    {
-        itemData = data;
-        quantity = qty;
-        isWeapon = false;
-        SetupItemDisplay();
-    }
-    
-    public void SetWeaponData(WeaponData data)
-    {
-        weaponData = data;
-        isWeapon = true;
-        SetupItemDisplay();
-    }
-    
-    // 调试方法
-    void OnValidate()
-    {
-        if (Application.isPlaying && worldDisplay != null)
-        {
-            SetupItemDisplay();
-        }
+        Destroy(gameObject);
     }
 }

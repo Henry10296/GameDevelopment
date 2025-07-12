@@ -4,13 +4,9 @@ using System.Collections;
 public class PistolController : WeaponController
 {
     [Header("手枪专用设置")]
-    public float semiAutoFireRate = 0.15f;    // 半自动射击间隔
-    public float quickDrawBonus = 0.8f;       // 快速拔枪加成
-    public float accuracyBonus = 0.9f;        // 精度加成
-    
-    [Header("射击模式")]
-    public bool enableRapidFire = false;      // 是否允许快速点击
-    public float rapidFireThreshold = 0.1f;   // 快速点击阈值
+    public float semiAutoFireRate = 0.15f;
+    public float quickDrawBonus = 0.8f;
+    public float accuracyBonus = 0.9f;
     
     [Header("后坐力设置")]
     public float pistolRecoilMultiplier = 0.7f;
@@ -20,10 +16,7 @@ public class PistolController : WeaponController
     public float pistolAimSpeed = 12f;
     public float aimAccuracyBonus = 0.5f;
     
-    private bool lastFrameInput = false;
     private float lastShotTime = 0f;
-    private int rapidFireCount = 0;
-    private float rapidFireWindow = 1f;
     
     public override void Initialize(WeaponManager manager)
     {
@@ -31,7 +24,7 @@ public class PistolController : WeaponController
         
         // 手枪特殊设置
         weaponType = WeaponType.Pistol;
-        isAutomatic = false;
+        isAutomatic = false; // 手枪是半自动的
         fireRate = semiAutoFireRate;
         
         // 从配置读取数据
@@ -49,49 +42,20 @@ public class PistolController : WeaponController
         
         Debug.Log($"[PistolController] Initialized: {weaponName}");
     }
+    
     protected override string GetAmmoType()
     {
         return weaponData?.ammoType ?? "9mm";
     }
-    /*public override void TryShoot()
-    {
-        // 检查基本射击条件
-        if (Time.time < nextFireTime || isReloading)
-            return;
-        
-        if (currentAmmo <= 0)
-        {
-            PlayEmptySound();
-            return;
-        }
-        
-        // 半自动射击检测
-        bool canShoot = false;
-        
-        if (enableRapidFire)
-        {
-            // 允许快速点击模式
-            canShoot = Input.GetMouseButtonDown(0) || 
-                      (Input.GetMouseButton(0) && Time.time - lastShotTime > rapidFireThreshold);
-        }
-        else
-        {
-            // 标准半自动模式 - 只响应按键按下
-            canShoot = Input.GetMouseButtonDown(0);
-        }
-        
-        if (canShoot)
-        {
-            ExecutePistolShot();
-        }
-    }*/
+    
+    // 重写射击方法以确保半自动逻辑
     public override void TryShoot()
     {
         if (Time.time < nextFireTime || isReloading)
             return;
-    
-        // 手枪单发射击检查
-        if (Input.GetMouseButtonDown(0)) // 只响应按键按下，不是持续按住
+        
+        // 手枪单发射击检查 - 只响应按键按下
+        if (Input.GetMouseButtonDown(0))
         {
             if (currentAmmo > 0)
             {
@@ -99,131 +63,76 @@ public class PistolController : WeaponController
             }
             else
             {
-                // 检查背包弹药
                 CheckBackpackAmmo();
             }
         }
     }
-
-    void CheckAmmoStatus()
-    {
-        if (!InventoryManager.Instance) return;
-        
-        string ammoType = GetAmmoType();
-        if (InventoryManager.Instance.HasAmmo(ammoType, 1))
-        {
-            ShowReloadPrompt();
-        }
-        else
-        {
-            ShowNoAmmoMessage();
-        }
-        
-        PlayEmptySound();
-    }
-    void ExecutePistolShot()
+    
+    protected virtual void ExecutePistolShot()
     {
         nextFireTime = Time.time + fireRate;
         lastShotTime = Time.time;
-    
+        
         if (!infiniteAmmo)
             currentAmmo--;
-    
+        
         // 播放射击音效
         PlayShootSound();
-    
-        // 执行射击
-        PerformPistolRaycast();
-    
-        // 后坐力效果
+        
+        // 执行手枪射击
+        PerformPistolShot();
+        
+        // 手枪后坐力
         ApplyPistolRecoil();
-    
-        // 通知其他系统
+        
+        // 通知系统
         NotifyAmmoChanged();
-    
+        
+        // 通知音响系统
+        if (SoundManager.Instance && weaponData != null)
+        {
+            SoundManager.Instance.AlertEnemies(transform.position, weaponData.noiseRadius);
+        }
+        
         Debug.Log($"[PistolController] 手枪射击! 弹药: {currentAmmo}/{maxAmmo}");
     }
-    void PerformPistolRaycast()
+    
+    protected virtual void PerformPistolShot()
     {
         Camera cam = Camera.main;
         if (cam == null) return;
-    
-        Vector3 direction = cam.transform.forward;
-    
-        // 手枪精度较高
-        float currentAccuracy = GetCurrentAccuracy();
-        direction += GetSpreadDirection(currentAccuracy);
-    
+        
+        Vector3 shootOrigin = cam.transform.position;
+        Vector3 direction = GetPistolShootDirection(cam);
+        
         // 射线检测
-        if (Physics.Raycast(cam.transform.position, direction, out RaycastHit hit, range))
+        if (Physics.Raycast(shootOrigin, direction, out RaycastHit hit, range))
         {
             ProcessHit(hit);
             CreateBulletTrail(GetMuzzlePosition(), hit.point);
         }
         else
         {
-            Vector3 endPoint = cam.transform.position + direction * range;
+            Vector3 endPoint = shootOrigin + direction * range;
             CreateBulletTrail(GetMuzzlePosition(), endPoint);
         }
+        
+        // 枪口火焰
+        ShowMuzzleFlash();
     }
     
-    float GetCurrentAccuracy()
+    protected virtual Vector3 GetPistolShootDirection(Camera cam)
     {
-        float accuracy = baseSpread;
-    
-        // 瞄准时精度提升
-        if (isAiming)
-        {
-            accuracy *= aimSpreadMultiplier;
-        }
-    
-        return Mathf.Clamp(accuracy, baseSpread, maxSpread);
-    }
-
-    Vector3 GetSpreadDirection(float spreadAmount)
-    {
-        return new Vector3(
-            Random.Range(-spreadAmount, spreadAmount),
-            Random.Range(-spreadAmount, spreadAmount),
-            0f
-        );
-    }
-
-    Vector3 GetMuzzlePosition()
-    {
-        return muzzlePoint != null ? muzzlePoint.position : transform.position;
-    }
-
-    void PlayShootSound()
-    {
-        if (shootSound && audioSource)
-        {
-            audioSource.pitch = Random.Range(0.95f, 1.05f); // 轻微变调
-            audioSource.PlayOneShot(shootSound);
-        }
+        Vector3 direction = cam.transform.forward;
+        
+        // 手枪精度较高
+        float currentAccuracy = GetCurrentAccuracy();
+        direction += GetSpreadDirection(currentAccuracy, cam);
+        
+        return direction.normalized;
     }
     
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    /*
-    float GetCurrentAccuracy()
+    protected virtual float GetCurrentAccuracy()
     {
         float accuracy = baseSpread;
         
@@ -231,12 +140,6 @@ public class PistolController : WeaponController
         if (isAiming)
         {
             accuracy *= aimSpreadMultiplier;
-        }
-        
-        // 快速射击精度降低
-        if (enableRapidFire && rapidFireCount > 3)
-        {
-            accuracy *= (1f + rapidFireCount * 0.1f);
         }
         
         // 移动时精度降低
@@ -254,64 +157,21 @@ public class PistolController : WeaponController
         return Mathf.Clamp(accuracy, baseSpread, maxSpread);
     }
     
-    Vector3 GetSpreadDirection(float spreadAmount)
+    protected virtual Vector3 GetSpreadDirection(float spreadAmount, Camera cam)
     {
-        Camera cam = Camera.main;
         return new Vector3(
             Random.Range(-spreadAmount, spreadAmount),
             Random.Range(-spreadAmount, spreadAmount),
             0f
         );
-    }*/
-    
-    void ProcessHit(RaycastHit hit)
-    {
-        // 伤害处理
-        IDamageable damageable = hit.collider.GetComponent<IDamageable>();
-        if (damageable != null)
-        {
-            float finalDamage = CalculateDamage(hit);
-            damageable.TakeDamage(finalDamage);
-            
-            // 通知准星击中
-            NotifyCrosshairHit();
-        }
-        
-        // 击中效果
-        CreateHitEffect(hit.point, hit.normal);
-        
-        // 弹孔
-        CreateBulletHole(hit.point, hit.normal, hit.collider);
     }
     
-    float CalculateDamage(RaycastHit hit)
+    protected override void ApplyRecoil()
     {
-        float baseDamage = damage;
-        
-        // 距离损伤计算
-        float distance = hit.distance;
-        float damageMultiplier = 1f;
-        
-        if (distance > range * 0.7f)
-        {
-            // 远距离伤害衰减
-            damageMultiplier = Mathf.Lerp(1f, 0.6f, (distance - range * 0.7f) / (range * 0.3f));
-        }
-        
-        // 暴击检测（头部等）
-        if (hit.collider.CompareTag("Head"))
-        {
-            damageMultiplier *= 2f;
-        }
-        else if (hit.collider.CompareTag("Torso"))
-        {
-            damageMultiplier *= 1.2f;
-        }
-        
-        return baseDamage * damageMultiplier;
+        ApplyPistolRecoil();
     }
     
-    void ApplyPistolRecoil()
+    protected virtual void ApplyPistolRecoil()
     {
         Vector2 recoilForce = new Vector2(
             Random.Range(-recoilAmount.x, recoilAmount.x) * pistolRecoilMultiplier,
@@ -324,7 +184,7 @@ public class PistolController : WeaponController
         StartCoroutine(VisualRecoilEffect());
     }
     
-    IEnumerator VisualRecoilEffect()
+    protected virtual IEnumerator VisualRecoilEffect()
     {
         Vector3 originalPos = transform.localPosition;
         Vector3 recoilPos = originalPos - Vector3.forward * 0.05f;
@@ -350,12 +210,6 @@ public class PistolController : WeaponController
         transform.localPosition = originalPos;
     }
     
-    IEnumerator ResetRapidFireCount()
-    {
-        yield return new WaitForSeconds(rapidFireWindow);
-        rapidFireCount = Mathf.Max(0, rapidFireCount - 1);
-    }
-    
     public override void SetAiming(bool aiming)
     {
         base.SetAiming(aiming);
@@ -363,94 +217,7 @@ public class PistolController : WeaponController
         // 手枪瞄准速度更快
         if (aimPosition != null)
         {
-            float targetAimSpeed = aiming ? pistolAimSpeed : pistolAimSpeed * 0.8f;
-            // 这里可以调整瞄准动画速度
-        }
-    }
-    
-    /*Vector3 GetMuzzlePosition()
-    {
-        return muzzlePoint != null ? muzzlePoint.position : transform.position;
-    }
-    
-    void PlayShootSound()
-    {
-        if (shootSound && audioSource)
-        {
-            audioSource.pitch = Random.Range(0.95f, 1.05f); // 轻微变调
-            audioSource.PlayOneShot(shootSound);
-        }
-    }*/
-    
-    void PlayEmptySound()
-    {
-        if (emptySound && audioSource && !audioSource.isPlaying)
-        {
-            audioSource.PlayOneShot(emptySound);
-        }
-    }
-    
-    void ShowMuzzleFlash()
-    {
-        if (muzzleFlash && muzzlePoint)
-        {
-            GameObject flash = Instantiate(muzzleFlash, muzzlePoint.position, muzzlePoint.rotation);
-            Destroy(flash, 0.05f);
-        }
-    }
-    
-    void CreateBulletTrail(Vector3 start, Vector3 end)
-    {
-        if (bulletTrail)
-        {
-            GameObject trail = Instantiate(bulletTrail);
-            BulletTrail trailComponent = trail.GetComponent<BulletTrail>();
-            if (trailComponent)
-            {
-                trailComponent.InitializeTrail(start, end);
-            }
-        }
-    }
-    
-    void CreateHitEffect(Vector3 position, Vector3 normal)
-    {
-        if (impactEffect)
-        {
-            GameObject effect = Instantiate(impactEffect, position, Quaternion.LookRotation(normal));
-            Destroy(effect, 2f);
-        }
-    }
-    
-    void CreateBulletHole(Vector3 position, Vector3 normal, Collider hitCollider)
-    {
-        // 只在非敌人表面创建弹孔
-        if (hitCollider.gameObject.layer != LayerMask.NameToLayer("Enemy"))
-        {
-            Vector3 holePosition = position + normal * 0.01f;
-            // 这里可以创建弹孔预制体
-        }
-    }
-    
-    void NotifyWeaponFired()
-    {
-        // 通知武器显示系统
-        WeaponDisplay weaponDisplay = FindObjectOfType<WeaponDisplay>();
-        if (weaponDisplay)
-        {
-            weaponDisplay.OnWeaponFired();
-        }
-        
-        // 通知UI更新弹药显示
-        UIManager.Instance?.UpdateAmmoDisplay(currentAmmo, maxAmmo);
-    }
-    
-    void NotifyCrosshairHit()
-    {
-        // 通知准星击中反馈
-        SimpleMouseCrosshair crosshair = FindObjectOfType<SimpleMouseCrosshair>();
-        if (crosshair)
-        {
-            crosshair.OnTargetHit();
+            aimSpeed = aiming ? pistolAimSpeed : pistolAimSpeed * 0.8f;
         }
     }
     
