@@ -6,7 +6,7 @@ public class InventoryManager : Singleton<InventoryManager>
     [Header("背包设置")]
     public int maxSlots = 9;
 
-    private List<InventoryItem> items = new List<InventoryItem>();
+    [SerializeField]private List<InventoryItem> items = new List<InventoryItem>();
     
     [Header("物品事件")] 
     public StringGameEvent onItemChanged; // 物品变化事件
@@ -207,42 +207,74 @@ public int GetAmmoCount(string ammoType)
     int totalAmmo = 0;
     foreach (var item in items)
     {
-        if (item.itemData.IsAmmo && item.itemData.ammoType == ammoType)
+        if (item.itemData.IsAmmo)
         {
-            totalAmmo += item.quantity;
+            // 修复：支持模糊匹配，"9mm"可以匹配"9mm_Ammo"
+            if (item.itemData.ammoType == ammoType || 
+                item.itemData.ammoType.Contains(ammoType) || 
+                ammoType.Contains(item.itemData.ammoType) ||
+                item.itemData.itemName.Contains(ammoType))
+            {
+                totalAmmo += item.quantity;
+            }
         }
     }
+    
+    Debug.Log($"[InventoryManager] GetAmmoCount({ammoType}): {totalAmmo}");
     return totalAmmo;
 }
 
 public bool ConsumeAmmo(string ammoType, int amount = 1)
 {
-    if (GetAmmoCount(ammoType) < amount) return false;
+    Debug.Log($"[InventoryManager] ConsumeAmmo({ammoType}, {amount})");
+    
+    if (GetAmmoCount(ammoType) < amount) 
+    {
+        Debug.LogWarning($"[InventoryManager] Not enough ammo. Required: {amount}, Available: {GetAmmoCount(ammoType)}");
+        return false;
+    }
 
     int remainingToConsume = amount;
     for (int i = items.Count - 1; i >= 0 && remainingToConsume > 0; i--)
     {
         var item = items[i];
-        if (item.itemData.IsAmmo && item.itemData.ammoType == ammoType)
+        if (item.itemData.IsAmmo)
         {
-            int consumeFromThis = Mathf.Min(remainingToConsume, item.quantity);
-            item.quantity -= consumeFromThis;
-            remainingToConsume -= consumeFromThis;
-
-            if (item.quantity <= 0)
+            // 修复：支持模糊匹配
+            bool isMatchingAmmo = item.itemData.ammoType == ammoType || 
+                                  item.itemData.ammoType.Contains(ammoType) || 
+                                  ammoType.Contains(item.itemData.ammoType) ||
+                                  item.itemData.itemName.Contains(ammoType);
+                                 
+            if (isMatchingAmmo)
             {
-                items.RemoveAt(i);
+                int consumeFromThis = Mathf.Min(remainingToConsume, item.quantity);
+                item.quantity -= consumeFromThis;
+                remainingToConsume -= consumeFromThis;
+                
+                Debug.Log($"[InventoryManager] Consumed {consumeFromThis} from {item.itemData.itemName}. Remaining in slot: {item.quantity}");
+
+                if (item.quantity <= 0)
+                {
+                    Debug.Log($"[InventoryManager] Removing empty slot: {item.itemData.itemName}");
+                    items.RemoveAt(i);
+                }
             }
         }
     }
 
     UpdateUI();
-    return remainingToConsume == 0;
+    
+    bool success = remainingToConsume == 0;
+    Debug.Log($"[InventoryManager] ConsumeAmmo result: {success}, remaining to consume: {remainingToConsume}");
+    return success;
 }
 
 public bool HasAmmo(string ammoType, int amount = 1)
 {
-    return GetAmmoCount(ammoType) >= amount;
+    bool hasAmmo = GetAmmoCount(ammoType) >= amount;
+    Debug.Log($"[InventoryManager] HasAmmo({ammoType}, {amount}): {hasAmmo}");
+    return hasAmmo;
 }
 
 public string GetAmmoDisplayName(string ammoType)
@@ -285,26 +317,75 @@ public ItemData GetWeaponItem(string weaponName)
 #endregion
 
 // 修改AddItem方法以支持自动堆叠弹药
-public bool AddItem(ItemData itemData, int quantity = 1)
-{
-    if (itemData == null) return false;
-
-    // 特殊处理弹药 - 自动堆叠同类型弹药
-    if (itemData.IsAmmo)
+    public bool AddItem(ItemData itemData, int quantity = 1)
     {
-        return AddAmmoItem(itemData, quantity);
+        if (itemData == null) 
+        {
+            Debug.LogWarning("[InventoryManager] ItemData is null!");
+            return false;
+        }
+
+        Debug.Log($"[InventoryManager] Adding {quantity}x {itemData.itemName} (Type: {itemData.itemType})");
+
+        // 特殊处理弹药 - 自动堆叠同类型弹药
+        if (itemData.IsAmmo)
+        {
+            return AddAmmoItem(itemData, quantity);
+        }
+
+        // 检查是否可以堆叠到现有物品
+        if (itemData.stackable)
+        {
+            foreach (var item in items)
+            {
+                if (item.itemData == itemData && item.quantity < itemData.maxStackSize)
+                {
+                    int addAmount = Mathf.Min(quantity, itemData.maxStackSize - item.quantity);
+                    item.quantity += addAmount;
+                    quantity -= addAmount;
+
+                    Debug.Log($"[InventoryManager] Stacked {addAmount} to existing item. New quantity: {item.quantity}");
+
+                    if (quantity <= 0)
+                    {
+                        UpdateUI();
+                        return true;
+                    }
+                }
+            }
+        }
+
+        // 添加新物品槽
+        while (quantity > 0 && items.Count < maxSlots)
+        {
+            int addAmount = Mathf.Min(quantity, itemData.maxStackSize);
+            items.Add(new InventoryItem(itemData, addAmount));
+            quantity -= addAmount;
+        
+            Debug.Log($"[InventoryManager] Created new slot with {addAmount} items");
+        }
+
+        UpdateUI();
+    
+        bool success = quantity <= 0;
+        Debug.Log($"[InventoryManager] AddItem result: {success}, remaining: {quantity}");
+        return success;
     }
 
-    // 检查是否可以堆叠到现有物品
-    if (itemData.stackable)
+    bool AddAmmoItem(ItemData ammoData, int quantity)
     {
+        Debug.Log($"[InventoryManager] Adding ammo: {quantity}x {ammoData.itemName} (Type: {ammoData.ammoType})");
+    
+        // 查找相同弹药类型的物品进行堆叠
         foreach (var item in items)
         {
-            if (item.itemData == itemData && item.quantity < itemData.maxStackSize)
+            if (item.itemData.IsAmmo && item.itemData.ammoType == ammoData.ammoType)
             {
-                int addAmount = Mathf.Min(quantity, itemData.maxStackSize - item.quantity);
+                int addAmount = Mathf.Min(quantity, ammoData.maxStackSize - item.quantity);
                 item.quantity += addAmount;
                 quantity -= addAmount;
+            
+                Debug.Log($"[InventoryManager] Stacked {addAmount} ammo to existing {item.itemData.itemName}. New quantity: {item.quantity}");
 
                 if (quantity <= 0)
                 {
@@ -313,50 +394,23 @@ public bool AddItem(ItemData itemData, int quantity = 1)
                 }
             }
         }
-    }
 
-    // 添加新物品槽
-    while (quantity > 0 && items.Count < maxSlots)
-    {
-        int addAmount = Mathf.Min(quantity, itemData.maxStackSize);
-        items.Add(new InventoryItem(itemData, addAmount));
-        quantity -= addAmount;
-    }
-
-    UpdateUI();
-    return quantity <= 0;
-}
-
-bool AddAmmoItem(ItemData ammoData, int quantity)
-{
-    // 查找相同弹药类型的物品进行堆叠
-    foreach (var item in items)
-    {
-        if (item.itemData.IsAmmo && item.itemData.ammoType == ammoData.ammoType)
+        // 添加新的弹药槽
+        while (quantity > 0 && items.Count < maxSlots)
         {
-            int addAmount = Mathf.Min(quantity, ammoData.maxStackSize - item.quantity);
-            item.quantity += addAmount;
+            int addAmount = Mathf.Min(quantity, ammoData.maxStackSize);
+            items.Add(new InventoryItem(ammoData, addAmount));
             quantity -= addAmount;
-
-            if (quantity <= 0)
-            {
-                UpdateUI();
-                return true;
-            }
+        
+            Debug.Log($"[InventoryManager] Created new ammo slot: {addAmount}x {ammoData.itemName}");
         }
-    }
 
-    // 添加新的弹药槽
-    while (quantity > 0 && items.Count < maxSlots)
-    {
-        int addAmount = Mathf.Min(quantity, ammoData.maxStackSize);
-        items.Add(new InventoryItem(ammoData, addAmount));
-        quantity -= addAmount;
+        UpdateUI();
+    
+        bool success = quantity <= 0;
+        Debug.Log($"[InventoryManager] AddAmmoItem result: {success}, remaining: {quantity}");
+        return success;
     }
-
-    UpdateUI();
-    return quantity <= 0;
-}
 }
 
 [System.Serializable]

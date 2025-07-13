@@ -510,14 +510,16 @@ public class PlayerController : MonoBehaviour
     void PerformPickup()
     {
         if (playerCamera == null) return;
-        
+    
         RaycastHit hit;
         if (Physics.Raycast(playerCamera.transform.position, playerCamera.transform.forward, out hit, 3f))
         {
             PickupItem pickup = hit.collider.GetComponent<PickupItem>();
             if (pickup != null)
             {
-                Debug.Log($"Picked up: {pickup.itemData.itemName}");
+                Debug.Log($"Trying to pickup: {pickup.itemData.itemName}");
+                // 关键修复：实际调用拾取逻辑
+                pickup.OnInteract(); // 这行原来缺失了！
             }
         }
     }

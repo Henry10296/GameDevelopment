@@ -167,35 +167,35 @@ public abstract class WeaponController : MonoBehaviour
     {
         Camera cam = Camera.main;
         if (cam == null) return;
-        
+    
+        // 从摄像机位置发射
         Vector3 shootOrigin = cam.transform.position;
         Vector3 shootDirection = GetShootDirection(cam);
-        
+    
         // 执行射线检测
         if (Physics.Raycast(shootOrigin, shootDirection, out RaycastHit hit, range))
         {
             ProcessHit(hit);
-            CreateBulletTrail(GetMuzzlePosition(), hit.point);
+            CreateBulletTrail(shootOrigin, hit.point);
         }
         else
         {
-            // 没有击中任何物体，创建到最远距离的轨迹
             Vector3 endPoint = shootOrigin + shootDirection * range;
-            CreateBulletTrail(GetMuzzlePosition(), endPoint);
+            CreateBulletTrail(shootOrigin, endPoint);
         }
     }
-    
     protected virtual Vector3 GetShootDirection(Camera cam)
     {
+        // 使用摄像机前方向，跟随鼠标移动
         Vector3 direction = cam.transform.forward;
-        
+    
         // 应用散布
         float spread = isAiming ? currentSpread * aimSpreadMultiplier : currentSpread;
-        
-        // 添加随机散布
+    
+        // 修复：使用摄像机坐标系计算散布
         direction += cam.transform.right * Random.Range(-spread, spread);
         direction += cam.transform.up * Random.Range(-spread, spread);
-        
+    
         return direction.normalized;
     }
     
@@ -260,10 +260,10 @@ public abstract class WeaponController : MonoBehaviour
     
     protected virtual void CreateBulletTrail(Vector3 start, Vector3 end)
     {
-        // 简单版本：直接创建LineRenderer显示子弹轨迹
-        GameObject trailObj = new GameObject("SimpleBulletTrail");
+        // 改进的子弹轨迹创建
+        GameObject trailObj = new GameObject("BulletTrail");
         LineRenderer line = trailObj.AddComponent<LineRenderer>();
-    
+
         // 基本设置
         line.material = new Material(Shader.Find("Sprites/Default"));
         //line.color = Color.yellow;
@@ -271,17 +271,40 @@ public abstract class WeaponController : MonoBehaviour
         line.endWidth = 0.01f;
         line.positionCount = 2;
         line.useWorldSpace = true;
-    
+        line.sortingOrder = 100;
+
         // 设置位置
         line.SetPosition(0, start);
         line.SetPosition(1, end);
-    
-        // 0.1秒后销毁
-        Destroy(trailObj, 0.1f);
-    
+
+        // 开始淡出协程
+        StartCoroutine(FadeOutTrail(line, trailObj));
+
         Debug.Log($"子弹轨迹: {start} -> {end}");
     }
     
+    IEnumerator FadeOutTrail(LineRenderer line, GameObject trailObj)
+    {
+        // 获取初始颜色（只取 startColor 就够了，通常 start 和 end 一样）
+        Color startColor = line.startColor;
+        float fadeTime = 0.1f;
+        float elapsed = 0f;
+
+        while (elapsed < fadeTime && line != null)
+        {
+            elapsed += Time.deltaTime;
+            float alpha = Mathf.Lerp(startColor.a, 0f, elapsed / fadeTime);
+            Color fadedColor = new Color(startColor.r, startColor.g, startColor.b, alpha);
+            line.startColor = fadedColor;
+            line.endColor = fadedColor;
+            yield return null;
+        }
+
+        // 销毁轨迹对象
+        if (trailObj != null)
+            GameObject.Destroy(trailObj);
+    }
+
     protected virtual void ShowMuzzleFlash()
     {
         if (muzzleFlash && muzzlePoint)
@@ -357,31 +380,37 @@ public abstract class WeaponController : MonoBehaviour
     protected virtual IEnumerator ReloadFromBackpack(string ammoType)
     {
         isReloading = true;
-        Debug.Log($"[WeaponController] Started reloading {weaponName}");
-        
+        Debug.Log($"[WeaponController] Started reloading {weaponName} with {ammoType}");
+    
         if (reloadSound)
             audioSource.PlayOneShot(reloadSound);
-        
+    
         yield return PlayReloadAnimation();
-        
+    
         // 计算需要的弹药数量
         int needAmmo = maxAmmo - currentAmmo;
         int availableAmmo = InventoryManager.Instance.GetAmmoCount(ammoType);
         int actualReload = Mathf.Min(needAmmo, availableAmmo);
-        
+    
+        Debug.Log($"[WeaponController] Reload calculation: need={needAmmo}, available={availableAmmo}, actual={actualReload}");
+    
         // 从背包消耗弹药并装入武器
-        if (InventoryManager.Instance.ConsumeAmmo(ammoType, actualReload))
+        if (actualReload > 0 && InventoryManager.Instance.ConsumeAmmo(ammoType, actualReload))
         {
             currentAmmo += actualReload;
-            
+        
             if (UIManager.Instance)
             {
-                UIManager.Instance.ShowMessage($"换弹完成 {currentAmmo}/{maxAmmo}", 2f);
+                UIManager.Instance.ShowMessage($"{weaponName} 换弹完成 {currentAmmo}/{maxAmmo}", 2f);
             }
-            
+        
             Debug.Log($"[WeaponController] Reload complete: {currentAmmo}/{maxAmmo}");
         }
-        
+        else
+        {
+            Debug.LogWarning($"[WeaponController] Reload failed - no ammo consumed");
+        }
+    
         isReloading = false;
         NotifyAmmoChanged();
     }
@@ -415,12 +444,22 @@ public abstract class WeaponController : MonoBehaviour
     #region 弹药系统
     protected virtual string GetAmmoType()
     {
+        // 优先从weaponData获取
         if (weaponData != null && !string.IsNullOrEmpty(weaponData.ammoType))
         {
             return weaponData.ammoType;
         }
-        return "9mm"; // 默认弹药类型
+    
+        // 根据武器类型返回默认值
+        return weaponType switch
+        {
+            WeaponType.Pistol => "9mm_Ammo",  // 修复：改为与ItemData一致的名称
+            WeaponType.Rifle => "5.56mm_Ammo",
+            _ => "9mm_Ammo"
+        };
     }
+    
+    
     
     protected virtual void CheckBackpackAmmo()
     {

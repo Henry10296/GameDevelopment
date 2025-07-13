@@ -272,7 +272,7 @@ public class PickupItem : BaseInteractable
         }
     }
     
-    protected override void OnInteract()
+    public override void OnInteract()
     {
         if (TryPickup())
         {
@@ -287,9 +287,9 @@ public class PickupItem : BaseInteractable
             Debug.LogWarning("InventoryManager not found!");
             return false;
         }
-        
+    
         int pickupAmount = itemData.IsAmmo ? itemData.GetPickupAmount() : quantity;
-        
+    
         if (InventoryManager.Instance.AddItem(itemData, pickupAmount))
         {
             string message = $"拾取了 {pickupAmount}x {itemData.itemName}";
@@ -297,7 +297,7 @@ public class PickupItem : BaseInteractable
             {
                 UIManager.Instance.ShowMessage(message, 2f);
             }
-            
+        
             Debug.Log(message);
             return true;
         }
@@ -310,6 +310,7 @@ public class PickupItem : BaseInteractable
             return false;
         }
     }
+
     
     void PlayPickupAnimation()
     {
@@ -318,7 +319,7 @@ public class PickupItem : BaseInteractable
         {
             // 可以播放弹药拾取音效
         }
-        
+    
         StartCoroutine(PickupEffect());
     }
     
@@ -327,15 +328,15 @@ public class PickupItem : BaseInteractable
         Vector3 startPos = transform.position;
         Vector3 targetPos = startPos + Vector3.up * 1f;
         Vector3 startScale = transform.localScale;
-        
+    
         float duration = 0.3f;
         for (float t = 0; t < duration; t += Time.deltaTime)
         {
             float progress = t / duration;
-            
+        
             transform.position = Vector3.Lerp(startPos, targetPos, progress);
             transform.localScale = Vector3.Lerp(startScale, Vector3.zero, progress);
-            
+        
             // 淡出
             if (spriteRenderer)
             {
@@ -343,10 +344,11 @@ public class PickupItem : BaseInteractable
                 color.a = 1f - progress;
                 spriteRenderer.color = color;
             }
-            
+        
             yield return null;
         }
-        
+    
+        // 关键修复：确保销毁物体
         Destroy(gameObject);
     }
 }

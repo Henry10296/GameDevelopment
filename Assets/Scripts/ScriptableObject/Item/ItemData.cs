@@ -58,8 +58,28 @@ public class ItemData : ScriptableObject
     
     // 便捷方法
     public bool IsWeapon => itemType == ItemType.Weapon && weaponData != null;
-    public bool IsAmmo => isAmmo && !string.IsNullOrEmpty(ammoType);
-    public int GetPickupAmount() => IsAmmo ? defaultPickupAmount : 1;
+    public bool IsAmmo => itemType == ItemType.Ammo && !string.IsNullOrEmpty(ammoType);
+
+    public int GetPickupAmount() 
+    {
+        if (IsAmmo)
+        {
+            // 如果设置了value1，使用value1，否则使用defaultPickupAmount
+            if (value1 > 0) return value1;
+            if (defaultPickupAmount > 0) return defaultPickupAmount;
+        
+            // 根据弹药类型返回默认值
+            return ammoType switch
+            {
+                "9mm" or "9mm_Ammo" => 15,
+                "5.56mm" or "5.56mm_Ammo" => 30,
+                "7.62mm" or "7.62mm_Ammo" => 20,
+                _ => 10
+            };
+        }
+        return 1;
+    }
+
     public float GetWorldSize()
     {
         if (worldSize != 1f) return worldSize;

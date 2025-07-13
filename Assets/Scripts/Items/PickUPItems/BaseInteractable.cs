@@ -41,8 +41,8 @@ public abstract class BaseInteractable : MonoBehaviour
             OnInteract();
         }
     }
-    
-    protected abstract void OnInteract();
+
+    public abstract void OnInteract();
     
     protected virtual void OnDrawGizmosSelected()
     {

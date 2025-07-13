@@ -7,7 +7,7 @@ public class RadioInteractable : BaseInteractable
     [Header("无线电设置")]
     public bool isRadioStation = false;
     public bool isRadioClue = false;
-    protected override void OnInteract()
+   public override void OnInteract()
     {
         if (isRadioStation)
         {

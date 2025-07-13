@@ -101,10 +101,15 @@ public class PistolController : WeaponController
     {
         Camera cam = Camera.main;
         if (cam == null) return;
-        
+    
         Vector3 shootOrigin = cam.transform.position;
         Vector3 direction = GetPistolShootDirection(cam);
-        
+    
+        // 调试信息：显示摄像机朝向和射击方向
+        Debug.Log($"[DEBUG] Camera forward: {cam.transform.forward}");
+        Debug.Log($"[DEBUG] Shoot direction: {direction}");
+        Debug.Log($"[DEBUG] Camera rotation: {cam.transform.eulerAngles}");
+    
         // 射线检测
         if (Physics.Raycast(shootOrigin, direction, out RaycastHit hit, range))
         {
@@ -116,21 +121,24 @@ public class PistolController : WeaponController
             Vector3 endPoint = shootOrigin + direction * range;
             CreateBulletTrail(GetMuzzlePosition(), endPoint);
         }
-        
+    
         // 枪口火焰
         ShowMuzzleFlash();
     }
     
     protected virtual Vector3 GetPistolShootDirection(Camera cam)
     {
+        // 修复：直接使用摄像机前方向
         Vector3 direction = cam.transform.forward;
-        
+    
         // 手枪精度较高
         float currentAccuracy = GetCurrentAccuracy();
         direction += GetSpreadDirection(currentAccuracy, cam);
-        
+    
         return direction.normalized;
     }
+
+ 
     
     protected virtual float GetCurrentAccuracy()
     {
@@ -159,11 +167,12 @@ public class PistolController : WeaponController
     
     protected virtual Vector3 GetSpreadDirection(float spreadAmount, Camera cam)
     {
-        return new Vector3(
-            Random.Range(-spreadAmount, spreadAmount),
-            Random.Range(-spreadAmount, spreadAmount),
-            0f
-        );
+        // 修复：使用摄像机的right和up向量来计算散布，而不是世界坐标
+        Vector3 spreadDirection = 
+            cam.transform.right * Random.Range(-spreadAmount, spreadAmount) +
+            cam.transform.up * Random.Range(-spreadAmount, spreadAmount);
+    
+        return spreadDirection;
     }
     
     protected override void ApplyRecoil()
@@ -238,4 +247,5 @@ public class PistolController : WeaponController
             Gizmos.DrawWireSphere(muzzlePoint.position, 0.1f);
         }
     }
+    
 }
