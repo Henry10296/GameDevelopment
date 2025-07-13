@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using TMPro;
 using System.Collections;
 using System.Collections.Generic;
+using UnityEngine.SceneManagement;
 
 public class UIManager : Singleton<UIManager>
 {
@@ -15,7 +16,7 @@ public class UIManager : Singleton<UIManager>
     public SettingsUI settingsUI;
     public PauseMenuUI pauseMenuUI;
     
-    [Header("游戏内HUD")] // 新增：整合PlayerUI
+    [Header("游戏内HUD")]
     public PlayerUI playerHUD;
     
     [Header("通用UI组件")]
@@ -36,6 +37,7 @@ public class UIManager : Singleton<UIManager>
     [Header("自动更新设置")] 
     public bool enableAutoUpdate = true;
     public float updateInterval = 0.1f;
+    
     [Header("文本配置")]
     public UITextSettings textSettings;
     public GameValues gameValues;
@@ -66,7 +68,6 @@ public class UIManager : Singleton<UIManager>
             InvokeRepeating(nameof(AutoUpdateUI), 0f, updateInterval);
         }
         
-        // 初始化PlayerHUD
         InitializePlayerHUD();
     }
     
@@ -79,7 +80,15 @@ public class UIManager : Singleton<UIManager>
         
         if (playerHUD != null)
         {
-            playerHUD.Initialize();
+            // 安全初始化PlayerUI
+            try
+            {
+                playerHUD.Initialize();
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"[UIManager] PlayerUI initialization failed: {e.Message}");
+            }
         }
     }
     
@@ -91,35 +100,78 @@ public class UIManager : Singleton<UIManager>
     
     private void AutoUpdateUI()
     {
-        if (currentPhase == GamePhase.Home && homeUI != null)
+        try
         {
-            homeUI.RefreshAllData();
+            if (currentPhase == GamePhase.Home && homeUI != null)
+            {
+                // 安全调用RefreshAllData
+                if (HasMethod(homeUI, "RefreshAllData"))
+                {
+                    homeUI.RefreshAllData();
+                }
+            }
+            else if (currentPhase == GamePhase.Exploration && explorationUI != null)
+            {
+                UpdateCommonUI();
+            }
         }
-        else if (currentPhase == GamePhase.Exploration && explorationUI != null)
+        catch (System.Exception e)
         {
-            UpdateCommonUI();
+            Debug.LogWarning($"[UIManager] AutoUpdateUI error: {e.Message}");
         }
     }
     
     void InitializeUIPanels()
     {
-        if (homeUI) uiPanels[GamePhase.Home] = homeUI;
-        if (explorationUI) uiPanels[GamePhase.Exploration] = explorationUI;
+        // 安全添加UI面板到字典
+        try
+        {
+            if (homeUI != null && homeUI is IUIPanel) 
+                uiPanels[GamePhase.Home] = homeUI as IUIPanel;
+            if (explorationUI != null && explorationUI is IUIPanel) 
+                uiPanels[GamePhase.Exploration] = explorationUI as IUIPanel;
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[UIManager] InitializeUIPanels error: {e.Message}");
+        }
         
         InitializeAllPanels();
     }
     
     void InitializeAllPanels()
     {
-        homeUI?.Initialize();
-        explorationUI?.Initialize();
-        inventoryUI?.Initialize();
-        eventChoiceUI?.Initialize();
-        journalUI?.Initialize();
-        settingsUI?.Initialize();
-        pauseMenuUI?.Initialize();
-        
-        messageDisplay?.Initialize();
+        // 安全初始化所有面板
+        SafeInitialize(homeUI, "HomeUI");
+        SafeInitialize(explorationUI, "ExplorationUI");
+        SafeInitialize(inventoryUI, "InventoryUI");
+        SafeInitialize(eventChoiceUI, "EventChoiceUI");
+        SafeInitialize(journalUI, "JournalUI");
+        SafeInitialize(settingsUI, "SettingsUI");
+        SafeInitialize(pauseMenuUI, "PauseMenuUI");
+        SafeInitialize(messageDisplay, "MessageDisplay");
+    }
+    
+    void SafeInitialize(object uiComponent, string componentName)
+    {
+        try
+        {
+            if (uiComponent != null && HasMethod(uiComponent, "Initialize"))
+            {
+                var method = uiComponent.GetType().GetMethod("Initialize");
+                method?.Invoke(uiComponent, null);
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[UIManager] {componentName} initialization failed: {e.Message}");
+        }
+    }
+    
+    bool HasMethod(object obj, string methodName)
+    {
+        if (obj == null) return false;
+        return obj.GetType().GetMethod(methodName) != null;
     }
     
     void SubscribeToInputs()
@@ -131,32 +183,50 @@ public class UIManager : Singleton<UIManager>
     {
         if (inputSettings == null) return;
         
-        if (Input.GetKeyDown(inputSettings.inventoryKey))
+        try
         {
-            ToggleInventory();
+            if (Input.GetKeyDown(inputSettings.inventoryKey))
+            {
+                ToggleInventory();
+            }
+            
+            if (Input.GetKeyDown(inputSettings.pauseKey))
+            {
+                TogglePauseMenu();
+            }
+            
+            if (Input.GetKeyDown(inputSettings.journalKey))
+            {
+                ToggleJournal();
+            }
         }
-        
-        if (Input.GetKeyDown(inputSettings.pauseKey))
+        catch (System.Exception e)
         {
-            TogglePauseMenu();
-        }
-        
-        if (Input.GetKeyDown(inputSettings.journalKey))
-        {
-            ToggleJournal();
+            Debug.LogWarning($"[UIManager] HandleInput error: {e.Message}");
         }
     }
     
     void UpdateDynamicUI()
     {
-        // 更新当前阶段的UI
-        if (uiPanels.ContainsKey(currentPhase))
+        try
         {
-            uiPanels[currentPhase].UpdateUI();
+            // 更新当前阶段的UI
+            if (uiPanels.ContainsKey(currentPhase))
+            {
+                var panel = uiPanels[currentPhase];
+                if (panel != null && HasMethod(panel, "UpdateUI"))
+                {
+                    panel.UpdateUI();
+                }
+            }
+            
+            // 更新通用UI元素
+            UpdateCommonUI();
         }
-        
-        // 更新通用UI元素
-        UpdateCommonUI();
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[UIManager] UpdateDynamicUI error: {e.Message}");
+        }
     }
     
     void UpdateCommonUI()
@@ -170,10 +240,33 @@ public class UIManager : Singleton<UIManager>
     
     void UpdateTimeDisplay()
     {
-        if (currentPhase == GamePhase.Exploration && explorationUI)
+        try
         {
-            float remainingTime = GameManager.Instance.PhaseTimer;
-            explorationUI.UpdateTimeDisplay(remainingTime);
+            if (currentPhase == GamePhase.Exploration && explorationUI != null)
+            {
+                float remainingTime = GameManager.Instance.PhaseTimer;
+                
+                // 安全调用UpdateTimeDisplay方法
+                var method = explorationUI.GetType().GetMethod("UpdateTimeDisplay");
+                if (method != null)
+                {
+                    var parameters = method.GetParameters();
+                    if (parameters.Length == 0)
+                    {
+                        // 无参数版本
+                        method.Invoke(explorationUI, null);
+                    }
+                    else if (parameters.Length == 1 && parameters[0].ParameterType == typeof(float))
+                    {
+                        // 有float参数版本
+                        method.Invoke(explorationUI, new object[] { remainingTime });
+                    }
+                }
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[UIManager] UpdateTimeDisplay error: {e.Message}");
         }
     }
     
@@ -181,39 +274,93 @@ public class UIManager : Singleton<UIManager>
     {
         if (currentPhase == newPhase) return;
         
-        HideCurrentPanel();
-        currentPhase = newPhase;
-        ShowCurrentPanel();
-        SetCursorState(GetCursorVisibilityForPhase(newPhase));
-        
-        // 通知PlayerHUD阶段变化
-        if (playerHUD != null)
+        try
         {
-            playerHUD.OnPhaseChanged(newPhase);
+            HideCurrentPanel();
+            currentPhase = newPhase;
+            ShowCurrentPanel();
+            SetCursorState(GetCursorVisibilityForPhase(newPhase));
+            
+            // 通知PlayerHUD阶段变化
+            if (playerHUD != null && HasMethod(playerHUD, "OnPhaseChanged"))
+            {
+                var method = playerHUD.GetType().GetMethod("OnPhaseChanged");
+                method?.Invoke(playerHUD, new object[] { newPhase });
+            }
+            
+            Debug.Log($"[UIManager] UI phase changed to: {newPhase}");
         }
-        
-        Debug.Log($"[UIManager] UI phase changed to: {newPhase}");
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[UIManager] OnPhaseChanged error: {e.Message}");
+        }
     }
     
     void HideAllPanels()
     {
-        foreach (var panel in uiPanels.Values)
+        try
         {
-            panel?.Hide();
+            foreach (var panel in uiPanels.Values)
+            {
+                if (panel != null && HasMethod(panel, "Hide"))
+                {
+                    panel.Hide();
+                }
+            }
+            
+            SafeHide(inventoryUI, "InventoryUI");
+            SafeHide(eventChoiceUI, "EventChoiceUI");
+            SafeHide(journalUI, "JournalUI");
+            SafeHide(settingsUI, "SettingsUI");
+            SafeHide(pauseMenuUI, "PauseMenuUI");
         }
-        
-        inventoryUI?.Hide();
-        eventChoiceUI?.Hide();
-        journalUI?.Hide();
-        settingsUI?.Hide();
-        pauseMenuUI?.Hide();
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[UIManager] HideAllPanels error: {e.Message}");
+        }
+    }
+    
+    void SafeHide(object uiComponent, string componentName)
+    {
+        try
+        {
+            if (uiComponent != null && HasMethod(uiComponent, "Hide"))
+            {
+                var method = uiComponent.GetType().GetMethod("Hide");
+                method?.Invoke(uiComponent, null);
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[UIManager] {componentName} hide failed: {e.Message}");
+        }
+    }
+    
+    void SafeShow(object uiComponent, string componentName)
+    {
+        try
+        {
+            if (uiComponent != null && HasMethod(uiComponent, "Show"))
+            {
+                var method = uiComponent.GetType().GetMethod("Show");
+                method?.Invoke(uiComponent, null);
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[UIManager] {componentName} show failed: {e.Message}");
+        }
     }
     
     void HideCurrentPanel()
     {
         if (uiPanels.ContainsKey(currentPhase))
         {
-            uiPanels[currentPhase]?.Hide();
+            var panel = uiPanels[currentPhase];
+            if (panel != null && HasMethod(panel, "Hide"))
+            {
+                panel.Hide();
+            }
         }
     }
     
@@ -221,7 +368,11 @@ public class UIManager : Singleton<UIManager>
     {
         if (uiPanels.ContainsKey(currentPhase))
         {
-            uiPanels[currentPhase]?.Show();
+            var panel = uiPanels[currentPhase];
+            if (panel != null && HasMethod(panel, "Show"))
+            {
+                panel.Show();
+            }
         }
     }
     
@@ -242,68 +393,128 @@ public class UIManager : Singleton<UIManager>
     
     void SetCursorState(bool visible)
     {
-        Cursor.lockState = visible ? CursorLockMode.None : CursorLockMode.Locked;
-        Cursor.visible = visible;
+        try
+        {
+            Cursor.lockState = visible ? CursorLockMode.None : CursorLockMode.Locked;
+            Cursor.visible = visible;
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[UIManager] SetCursorState error: {e.Message}");
+        }
     }
     
     // UI切换方法
     public void ToggleInventory()
     {
-        inventoryOpen = !inventoryOpen;
-        
-        if (inventoryOpen)
+        try
         {
-            inventoryUI?.Show();
-            PauseGame();
+            inventoryOpen = !inventoryOpen;
+            
+            if (inventoryOpen)
+            {
+                SafeShow(inventoryUI, "InventoryUI");
+                PauseGame();
+            }
+            else
+            {
+                SafeHide(inventoryUI, "InventoryUI");
+                ResumeGame();
+            }
         }
-        else
+        catch (System.Exception e)
         {
-            inventoryUI?.Hide();
-            ResumeGame();
+            Debug.LogWarning($"[UIManager] ToggleInventory error: {e.Message}");
         }
     }
     
     public void TogglePauseMenu()
     {
-        pauseMenuOpen = !pauseMenuOpen;
-        
-        if (pauseMenuOpen)
+        try
         {
-            pauseMenuUI?.Show();
-            PauseGame();
+            pauseMenuOpen = !pauseMenuOpen;
+            
+            if (pauseMenuOpen)
+            {
+                SafeShow(pauseMenuUI, "PauseMenuUI");
+                PauseGame();
+            }
+            else
+            {
+                SafeHide(pauseMenuUI, "PauseMenuUI");
+                ResumeGame();
+            }
         }
-        else
+        catch (System.Exception e)
         {
-            pauseMenuUI?.Hide();
-            ResumeGame();
+            Debug.LogWarning($"[UIManager] TogglePauseMenu error: {e.Message}");
         }
     }
     
     public void ToggleJournal()
     {
-        bool isJournalOpen = journalUI?.IsVisible() ?? false;
-        
-        if (isJournalOpen)
+        try
         {
-            journalUI?.Hide();
+            bool isJournalOpen = false;
+            
+            // 安全检查IsVisible方法
+            if (journalUI != null && HasMethod(journalUI, "IsVisible"))
+            {
+                var method = journalUI.GetType().GetMethod("IsVisible");
+                var result = method?.Invoke(journalUI, null);
+                isJournalOpen = result is bool && (bool)result;
+            }
+            
+            if (isJournalOpen)
+            {
+                SafeHide(journalUI, "JournalUI");
+            }
+            else
+            {
+                SafeShow(journalUI, "JournalUI");
+                
+                // 安全调用RefreshEntries
+                if (HasMethod(journalUI, "RefreshEntries"))
+                {
+                    var method = journalUI.GetType().GetMethod("RefreshEntries");
+                    method?.Invoke(journalUI, null);
+                }
+            }
         }
-        else
+        catch (System.Exception e)
         {
-            journalUI?.Show();
-            journalUI?.RefreshEntries();
+            Debug.LogWarning($"[UIManager] ToggleJournal error: {e.Message}");
         }
     }
     
     public void ShowEventChoice(RandomEvent eventData)
     {
-        eventChoiceUI?.ShowEvent(eventData);
-        PauseGame();
+        try
+        {
+            if (eventChoiceUI != null && HasMethod(eventChoiceUI, "ShowEvent"))
+            {
+                var method = eventChoiceUI.GetType().GetMethod("ShowEvent");
+                method?.Invoke(eventChoiceUI, new object[] { eventData });
+            }
+            PauseGame();
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[UIManager] ShowEventChoice error: {e.Message}");
+        }
     }
     
     public void HideEventChoice()
     {
-        eventChoiceUI?.Hide();
-        ResumeGame();
+        try
+        {
+            SafeHide(eventChoiceUI, "EventChoiceUI");
+            ResumeGame();
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[UIManager] HideEventChoice error: {e.Message}");
+        }
     }
     
     void PauseGame()
@@ -321,31 +532,76 @@ public class UIManager : Singleton<UIManager>
     // 消息系统
     public void ShowMessage(string message, float duration = 0f)
     {
-        float showDuration = duration > 0f ? duration : messageDuration;
-        messageDisplay?.ShowMessage(message, showDuration);
+        try
+        {
+            float showDuration = duration > 0f ? duration : messageDuration;
+            
+            if (messageDisplay != null && HasMethod(messageDisplay, "ShowMessage"))
+            {
+                var method = messageDisplay.GetType().GetMethod("ShowMessage");
+                var parameters = method?.GetParameters();
+                
+                if (parameters != null && parameters.Length >= 2)
+                {
+                    method.Invoke(messageDisplay, new object[] { message, showDuration });
+                }
+                else if (parameters != null && parameters.Length == 1)
+                {
+                    method.Invoke(messageDisplay, new object[] { message });
+                }
+            }
+            else
+            {
+                // 备用方案：在控制台显示消息
+                Debug.Log($"[UIManager] Message: {message}");
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[UIManager] ShowMessage error: {e.Message}");
+            Debug.Log($"[UIManager] Message (fallback): {message}");
+        }
     }
     
     public void ShowTimeWarning()
     {
-        string warningText = textSettings?.GetText("TIME_WARNING") ?? "时间不多了！赶紧回家！";
-        float duration = gameValues?.defaultMessageDuration ?? 5f;
-        ShowMessage(warningText, duration);
-        
-        if (explorationUI)
+        try
         {
-            explorationUI.ShowTimeWarning();
+            string warningText = "时间不多了！赶紧回家！";
+            if (textSettings != null && HasMethod(textSettings, "GetText"))
+            {
+                var method = textSettings.GetType().GetMethod("GetText");
+                var result = method?.Invoke(textSettings, new object[] { "TIME_WARNING" });
+                if (result is string text && !string.IsNullOrEmpty(text))
+                {
+                    warningText = text;
+                }
+            }
+            
+            float duration = gameValues?.defaultMessageDuration ?? 5f;
+            ShowMessage(warningText, duration);
+            
+            if (explorationUI != null && HasMethod(explorationUI, "ShowTimeWarning"))
+            {
+                var method = explorationUI.GetType().GetMethod("ShowTimeWarning");
+                method?.Invoke(explorationUI, null);
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[UIManager] ShowTimeWarning error: {e.Message}");
         }
     }
     
     // 加载屏幕
     public void ShowLoadingScreen()
     {
-        loadingScreen?.Show();
+        SafeShow(loadingScreen, "LoadingScreen");
     }
     
     public void HideLoadingScreen()
     {
-        loadingScreen?.Hide();
+        SafeHide(loadingScreen, "LoadingScreen");
     }
     
     // 淡入淡出效果
@@ -385,62 +641,141 @@ public class UIManager : Singleton<UIManager>
     // 交互提示
     public void ShowInteractionPrompt(string customText = null)
     {
-        if (explorationUI)
+        try
         {
-            string promptText = customText;
-            if (string.IsNullOrEmpty(promptText) && textSettings != null && inputSettings != null)
+            if (explorationUI != null)
             {
-                promptText = textSettings.GetText("INTERACT_PROMPT", inputSettings.interactionKey);
+                string promptText = customText ?? "按 E 交互";
+                
+                if (string.IsNullOrEmpty(promptText) && textSettings != null && inputSettings != null)
+                {
+                    if (HasMethod(textSettings, "GetText"))
+                    {
+                        var method = textSettings.GetType().GetMethod("GetText");
+                        var result = method?.Invoke(textSettings, new object[] { "INTERACT_PROMPT", inputSettings.interactionKey });
+                        if (result is string text)
+                        {
+                            promptText = text;
+                        }
+                    }
+                }
+                
+                if (HasMethod(explorationUI, "ShowInteractionPrompt"))
+                {
+                    var method = explorationUI.GetType().GetMethod("ShowInteractionPrompt");
+                    method?.Invoke(explorationUI, new object[] { promptText });
+                }
             }
-            promptText ??= "按 E 交互";
-            
-            explorationUI.ShowInteractionPrompt(promptText);
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[UIManager] ShowInteractionPrompt error: {e.Message}");
         }
     }
     
     public void HideInteractionPrompt()
     {
-        if (explorationUI)
+        try
         {
-            explorationUI.HideInteractionPrompt();
+            if (explorationUI != null && HasMethod(explorationUI, "HideInteractionPrompt"))
+            {
+                var method = explorationUI.GetType().GetMethod("HideInteractionPrompt");
+                method?.Invoke(explorationUI, null);
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[UIManager] HideInteractionPrompt error: {e.Message}");
         }
     }
     
     // PlayerUI委托方法 - 保持向后兼容
     public void UpdateAmmoDisplay(int current, int max)
     {
-        if (playerHUD)
+        try
         {
-            playerHUD.UpdateAmmoDisplay(current, max);
+            if (playerHUD != null && HasMethod(playerHUD, "UpdateAmmoDisplay"))
+            {
+                var method = playerHUD.GetType().GetMethod("UpdateAmmoDisplay");
+                method?.Invoke(playerHUD, new object[] { current, max });
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[UIManager] UpdateAmmoDisplay error: {e.Message}");
         }
     }
     
     public void UpdateHealthDisplay(float current, float max)
     {
-        if (playerHUD)
+        try
         {
-            playerHUD.UpdateHealthDisplay(current, max);
+            if (playerHUD != null && HasMethod(playerHUD, "UpdateHealthDisplay"))
+            {
+                var method = playerHUD.GetType().GetMethod("UpdateHealthDisplay");
+                method?.Invoke(playerHUD, new object[] { current, max });
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[UIManager] UpdateHealthDisplay error: {e.Message}");
         }
     }
     
     public void RefreshHomeUI()
     {
-        if (homeUI)
+        try
         {
-            homeUI.RefreshAllData();
+            if (homeUI != null && HasMethod(homeUI, "RefreshAllData"))
+            {
+                var method = homeUI.GetType().GetMethod("RefreshAllData");
+                method?.Invoke(homeUI, null);
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[UIManager] RefreshHomeUI error: {e.Message}");
         }
     }
     
     public void RefreshInventoryUI()
     {
-        if (inventoryUI)
+        try
         {
-            inventoryUI.RefreshInventory();
+            if (inventoryUI != null && HasMethod(inventoryUI, "RefreshInventory"))
+            {
+                var method = inventoryUI.GetType().GetMethod("RefreshInventory");
+                method?.Invoke(inventoryUI, null);
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[UIManager] RefreshInventoryUI error: {e.Message}");
         }
     }
     
     public string GetText(string key, params object[] args)
     {
-        return textSettings?.GetText(key, args) ?? key;
+        try
+        {
+            if (textSettings != null && HasMethod(textSettings, "GetText"))
+            {
+                var method = textSettings.GetType().GetMethod("GetText");
+                var result = method?.Invoke(textSettings, new object[] { key, args });
+                return result as string ?? key;
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[UIManager] GetText error: {e.Message}");
+        }
+        return key;
     }
+    /*void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        // 根据场景重新初始化UI
+        RefreshUIForScene(scene.name);
+    }*/
+    
 }
+

@@ -155,15 +155,24 @@ public abstract class WeaponController : MonoBehaviour
             PerformShot(); // 原有的射线检测
         }
         
-        // 其他效果...
+        // 其他效果
         ApplyRecoil();
+        
+        // 通知WeaponDisplay播放射击动画
+        NotifyWeaponDisplay("fire");
+        
+        // 通知UI更新
         NotifyAmmoChanged();
         
+        // 通知音响系统
         if (SoundManager.Instance && weaponData != null)
         {
             SoundManager.Instance.AlertEnemies(transform.position, weaponData.noiseRadius);
         }
+        
+        Debug.Log($"[WeaponController] Shot fired! Ammo: {currentAmmo}/{maxAmmo}");
     }
+    
     protected virtual void CreatePhysicalBullet()
     {
         Camera cam = Camera.main;
@@ -186,19 +195,25 @@ public abstract class WeaponController : MonoBehaviour
         Debug.Log($"发射物理子弹: {bulletObj.name}");
     }
 
-    
     protected virtual void PerformShot()
     {
         Camera cam = Camera.main;
-        if (cam == null) return;
-    
-        // 从摄像机位置发射
+        if (cam == null) 
+        {
+            Debug.LogError("[WeaponController] No main camera found!");
+            return;
+        }
+        
+        // 修复：确保使用正确的射击起点和方向
         Vector3 shootOrigin = cam.transform.position;
         Vector3 shootDirection = GetShootDirection(cam);
-    
+        
+        Debug.Log($"[WeaponController] Shooting from {shootOrigin} in direction {shootDirection}");
+        
         // 执行射线检测
         if (Physics.Raycast(shootOrigin, shootDirection, out RaycastHit hit, range))
         {
+            Debug.Log($"[WeaponController] Hit {hit.collider.name} at {hit.point}");
             ProcessHit(hit);
             CreateBulletTrail(shootOrigin, hit.point);
         }
@@ -206,26 +221,41 @@ public abstract class WeaponController : MonoBehaviour
         {
             Vector3 endPoint = shootOrigin + shootDirection * range;
             CreateBulletTrail(shootOrigin, endPoint);
+            Debug.Log($"[WeaponController] Shot missed, end point: {endPoint}");
         }
     }
+    
     protected virtual Vector3 GetShootDirection(Camera cam)
     {
-        // 使用摄像机前方向，跟随鼠标移动
-        Vector3 direction = cam.transform.forward;
-    
+        // 修复：使用屏幕中心点进行射线投射，确保方向正确
+        Vector3 screenCenter = new Vector3(Screen.width * 0.5f, Screen.height * 0.5f, 0);
+        Ray centerRay = cam.ScreenPointToRay(screenCenter);
+        Vector3 direction = centerRay.direction;
+        
         // 应用散布
         float spread = isAiming ? currentSpread * aimSpreadMultiplier : currentSpread;
-    
-        // 修复：使用摄像机坐标系计算散布
-        direction += cam.transform.right * Random.Range(-spread, spread);
-        direction += cam.transform.up * Random.Range(-spread, spread);
-    
+        
+        if (spread > 0)
+        {
+            // 使用摄像机坐标系计算散布
+            direction += cam.transform.right * Random.Range(-spread, spread);
+            direction += cam.transform.up * Random.Range(-spread, spread);
+        }
+        
         return direction.normalized;
     }
     
     protected virtual Vector3 GetMuzzlePosition()
     {
-        return muzzlePoint != null ? muzzlePoint.position : transform.position;
+        if (muzzlePoint != null)
+            return muzzlePoint.position;
+        
+        // 如果没有枪口点，使用摄像机位置稍微向前
+        Camera cam = Camera.main;
+        if (cam != null)
+            return cam.transform.position + cam.transform.forward * 0.5f;
+            
+        return transform.position;
     }
     
     protected virtual void ProcessHit(RaycastHit hit)
@@ -290,7 +320,8 @@ public abstract class WeaponController : MonoBehaviour
 
         // 基本设置
         line.material = new Material(Shader.Find("Sprites/Default"));
-        //line.color = Color.yellow;
+        line.startColor = Color.yellow;
+        line.endColor = Color.yellow;
         line.startWidth = 0.02f;
         line.endWidth = 0.01f;
         line.positionCount = 2;
@@ -309,7 +340,7 @@ public abstract class WeaponController : MonoBehaviour
     
     IEnumerator FadeOutTrail(LineRenderer line, GameObject trailObj)
     {
-        // 获取初始颜色（只取 startColor 就够了，通常 start 和 end 一样）
+        // 获取初始颜色
         Color startColor = line.startColor;
         float fadeTime = 0.1f;
         float elapsed = 0f;
@@ -367,6 +398,27 @@ public abstract class WeaponController : MonoBehaviour
         }
     }
     
+    // 修复：通知WeaponDisplay播放动画
+    protected virtual void NotifyWeaponDisplay(string animationType)
+    {
+        WeaponDisplay weaponDisplay = FindObjectOfType<WeaponDisplay>();
+        if (weaponDisplay != null)
+        {
+            switch (animationType)
+            {
+                case "fire":
+                    weaponDisplay.OnWeaponFired();
+                    break;
+                case "reload":
+                    weaponDisplay.OnWeaponReload();
+                    break;
+                case "switch":
+                    weaponDisplay.OnWeaponSwitch(weaponType);
+                    break;
+            }
+        }
+    }
+    
     public virtual void StopShooting()
     {
         isShooting = false;
@@ -408,6 +460,9 @@ public abstract class WeaponController : MonoBehaviour
     
         if (reloadSound)
             audioSource.PlayOneShot(reloadSound);
+        
+        // 通知WeaponDisplay播放换弹动画
+        NotifyWeaponDisplay("reload");
     
         yield return PlayReloadAnimation();
     
@@ -477,13 +532,11 @@ public abstract class WeaponController : MonoBehaviour
         // 根据武器类型返回默认值
         return weaponType switch
         {
-            WeaponType.Pistol => "9mm_Ammo",  // 修复：改为与ItemData一致的名称
+            WeaponType.Pistol => "9mm_Ammo",  
             WeaponType.Rifle => "5.56mm_Ammo",
             _ => "9mm_Ammo"
         };
     }
-    
-    
     
     protected virtual void CheckBackpackAmmo()
     {
