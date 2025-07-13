@@ -101,15 +101,16 @@ public class PistolController : WeaponController
     {
         Camera cam = Camera.main;
         if (cam == null) return;
-    
+
         Vector3 shootOrigin = cam.transform.position;
         Vector3 direction = GetPistolShootDirection(cam);
-    
-        // 调试信息：显示摄像机朝向和射击方向
-        Debug.Log($"[DEBUG] Camera forward: {cam.transform.forward}");
-        Debug.Log($"[DEBUG] Shoot direction: {direction}");
+
+        // 修复：使用正确的摄像机变换
+        Debug.Log($"[DEBUG] Camera position: {cam.transform.position}");
         Debug.Log($"[DEBUG] Camera rotation: {cam.transform.eulerAngles}");
-    
+        Debug.Log($"[DEBUG] Camera forward: {cam.transform.forward}");
+        Debug.Log($"[DEBUG] Final shoot direction: {direction}");
+
         // 射线检测
         if (Physics.Raycast(shootOrigin, direction, out RaycastHit hit, range))
         {
@@ -121,22 +122,37 @@ public class PistolController : WeaponController
             Vector3 endPoint = shootOrigin + direction * range;
             CreateBulletTrail(GetMuzzlePosition(), endPoint);
         }
-    
+
         // 枪口火焰
         ShowMuzzleFlash();
     }
     
     protected virtual Vector3 GetPistolShootDirection(Camera cam)
     {
-        // 修复：直接使用摄像机前方向
-        Vector3 direction = cam.transform.forward;
-    
-        // 手枪精度较高
+        // 修复：确保使用正确的摄像机朝向
+        Vector3 direction;
+        
+        // 如果摄像机旋转有问题，直接使用屏幕中心射线
+        Ray centerRay = cam.ScreenPointToRay(new Vector3(Screen.width * 0.5f, Screen.height * 0.5f, 0));
+        direction = centerRay.direction;
+        
+        // 应用散布
         float currentAccuracy = GetCurrentAccuracy();
-        direction += GetSpreadDirection(currentAccuracy, cam);
-    
+        if (currentAccuracy > 0)
+        {
+            // 修复：使用摄像机的局部坐标系计算散布
+            Vector3 right = cam.transform.right;
+            Vector3 up = cam.transform.up;
+            
+            float spreadX = Random.Range(-currentAccuracy, currentAccuracy);
+            float spreadY = Random.Range(-currentAccuracy, currentAccuracy);
+            
+            direction += right * spreadX + up * spreadY;
+        }
+        
         return direction.normalized;
     }
+
 
  
     

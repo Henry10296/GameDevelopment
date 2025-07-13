@@ -24,6 +24,10 @@ public class WeaponManager : MonoBehaviour
     private bool isAiming = false;
     private Coroutine switchCoroutine;
     
+    
+    [Header("武器拾取丢弃")]
+    public GameObject weaponPickupPrefab; // 地面武器预制体
+    public KeyCode dropWeaponKey = KeyCode.G; // 丢弃武器按键
     // 属性访问器
     public WeaponController GetCurrentWeapon() => isEmptyHands ? null : currentWeapon;
     public bool IsEmptyHands() => isEmptyHands;
@@ -61,8 +65,45 @@ public class WeaponManager : MonoBehaviour
     {
         HandleInput();
         HandleShooting();
+        
+        // 添加丢弃武器输入
+        if (Input.GetKeyDown(dropWeaponKey))
+        {
+            DropCurrentWeapon();
+        }
+    }
+    public void DropCurrentWeapon()
+    {
+        if (isEmptyHands || currentWeapon == null) return;
+        
+        // 获取丢弃位置
+        Transform playerTransform = transform.root;
+        Vector3 dropPosition = playerTransform.position + playerTransform.forward * 2f + Vector3.up * 0.5f;
+        
+        // 创建地面武器
+        CreateDroppedWeapon(currentWeapon, dropPosition);
+        
+        // 移除当前武器
+        RemoveWeapon(currentWeapon);
+        SetEmptyHands();
+        
+        Debug.Log($"丢弃了武器: {currentWeapon.weaponName}");
     }
     
+    void CreateDroppedWeapon(WeaponController weapon, Vector3 position)
+    {
+        GameObject droppedWeapon = new GameObject($"DroppedWeapon_{weapon.weaponName}");
+        droppedWeapon.transform.position = position;
+        
+        // 添加简单的武器拾取脚本
+        WeaponPickup pickup = droppedWeapon.AddComponent<WeaponPickup>();
+        pickup.SetupWeapon(weapon.weaponData, weapon.CurrentAmmo);
+        
+        // 添加物理效果
+        Rigidbody rb = droppedWeapon.AddComponent<Rigidbody>();
+        rb.AddForce(Random.insideUnitSphere * 2f, ForceMode.Impulse);
+    }
+
     void HandleInput()
     {
         // 武器切换

@@ -62,6 +62,9 @@ public abstract class WeaponController : MonoBehaviour
     protected Vector2 currentRecoil;
     
     [HideInInspector] public Vector3 originalPosition;
+    [Header("子弹系统")]
+    public GameObject bulletPrefab; // 子弹预制体
+    public bool usePhysicalBullets = false; // 是否使用物理子弹
     
     public virtual void Initialize(WeaponManager manager)
     {
@@ -142,26 +145,47 @@ public abstract class WeaponController : MonoBehaviour
         // 枪口火焰
         ShowMuzzleFlash();
         
-        // 执行射击逻辑
-        PerformShot();
+        // 选择射击方式
+        if (usePhysicalBullets && bulletPrefab != null)
+        {
+            CreatePhysicalBullet();
+        }
+        else
+        {
+            PerformShot(); // 原有的射线检测
+        }
         
-        // 增加散布
-        currentSpread = Mathf.Min(currentSpread + spreadIncrease, maxSpread);
-        
-        // 应用后坐力
+        // 其他效果...
         ApplyRecoil();
-        
-        // 通知弹药变化
         NotifyAmmoChanged();
         
-        // 通知音响系统（吸引敌人）
         if (SoundManager.Instance && weaponData != null)
         {
             SoundManager.Instance.AlertEnemies(transform.position, weaponData.noiseRadius);
         }
-        
-        Debug.Log($"[WeaponController] {weaponName} fired! Ammo: {currentAmmo}/{maxAmmo}");
     }
+    protected virtual void CreatePhysicalBullet()
+    {
+        Camera cam = Camera.main;
+        if (cam == null) return;
+        
+        Vector3 shootOrigin = GetMuzzlePosition();
+        Vector3 shootDirection = GetShootDirection(cam);
+        
+        // 创建子弹
+        GameObject bulletObj = Instantiate(bulletPrefab, shootOrigin, Quaternion.identity);
+        Bullet bullet = bulletObj.GetComponent<Bullet>();
+        
+        if (bullet == null)
+        {
+            bullet = bulletObj.AddComponent<Bullet>();
+        }
+        
+        bullet.Initialize(shootOrigin, shootDirection, damage);
+        
+        Debug.Log($"发射物理子弹: {bulletObj.name}");
+    }
+
     
     protected virtual void PerformShot()
     {
