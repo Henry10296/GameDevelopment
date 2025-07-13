@@ -13,10 +13,10 @@ public class InventorySlot : MonoBehaviour, IPointerClickHandler
     public Button slotButton;
     
     private InventoryItem currentItem;
-    private int slotIndex;
-    private EnhancedInventoryUI inventoryUI;
+    [SerializeField]private int slotIndex;
+    private InventoryUI inventoryUI;
     
-    public void Initialize(int index, EnhancedInventoryUI ui)
+    public void Initialize(int index, InventoryUI ui)
     {
         slotIndex = index;
         inventoryUI = ui;

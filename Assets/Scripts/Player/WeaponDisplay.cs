@@ -106,6 +106,9 @@ public class WeaponDisplay : MonoBehaviour
     private int lastAmmo = -1;
     private Vector2 smoothedWalkBob = Vector2.zero;
     
+    
+    
+    private bool lastAimingState = false;
     void Start()
     {
         Initialize();
@@ -223,10 +226,15 @@ public class WeaponDisplay : MonoBehaviour
     
     void Update()
     {
+        // 修复：限制更新频率
+        if (Time.time - lastUpdateTime < 0.016f) return; // 60FPS限制
+        lastUpdateTime = Time.time;
+        
         UpdateWeaponSway();
         CheckInteractionInput();
         CheckMeleeInput();
     }
+    private float lastUpdateTime = 0f;
     
     void UpdateWeaponSway()
     {
@@ -638,6 +646,11 @@ public class WeaponDisplay : MonoBehaviour
     
     public void SetAiming(bool aiming)
     {
+        // 修复：避免重复设置相同状态
+        if (lastAimingState == aiming) return;
+        
+        lastAimingState = aiming;
+        
         if (isEmptyHands || isMeleeWeapon) return;
         
         WeaponSpriteSet spriteSet = GetCurrentSpriteSet();

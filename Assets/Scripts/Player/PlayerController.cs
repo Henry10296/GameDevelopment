@@ -495,16 +495,46 @@ public class PlayerController : MonoBehaviour
     void PerformInteraction()
     {
         if (playerCamera == null) return;
-        
-        RaycastHit hit;
-        if (Physics.Raycast(playerCamera.transform.position, playerCamera.transform.forward, out hit, 3f))
+    
+        Vector3 screenCenter = new Vector3(Screen.width * 0.5f, Screen.height * 0.5f, 0);
+        Ray ray = playerCamera.ScreenPointToRay(screenCenter);
+    
+        RaycastHit[] hits = Physics.RaycastAll(ray, 3f);
+    
+        // 按距离排序
+        System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+    
+        foreach (var hit in hits)
         {
+            // 优先检查武器拾取
+            WeaponPickup weaponPickup = hit.collider.GetComponent<WeaponPickup>();
+            if (weaponPickup != null)
+            {
+                Debug.Log($"[PlayerController] Trying to pickup weapon: {weaponPickup.gameObject.name}");
+                weaponPickup.OnInteract();
+                return;
+            }
+        
+            // 然后检查普通物品拾取
+            PickupItem pickup = hit.collider.GetComponent<PickupItem>();
+            if (pickup != null)
+            {
+                Debug.Log($"[PlayerController] Trying to pickup item: {pickup.gameObject.name}");
+                pickup.OnInteract();
+                return;
+            }
+        
+            // 最后检查其他交互物品
             IInteractable interactable = hit.collider.GetComponent<IInteractable>();
             if (interactable != null)
             {
+                Debug.Log($"[PlayerController] Trying to interact with: {hit.collider.name}");
                 interactable.Interact();
+                return;
             }
         }
+    
+        Debug.Log("[PlayerController] No interactable objects found");
     }
     
     void PerformPickup()

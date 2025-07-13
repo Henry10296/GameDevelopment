@@ -102,7 +102,48 @@ public class PickupItem : BaseInteractable
         // 设置UI文本
         SetupUIText();
     }
+    protected override void Update()
+    {
+        if (player == null) return;
     
+        float distance = Vector3.Distance(transform.position, player.position);
+        bool inRange = distance <= interactionRange;
+    
+        // 修复：添加视线检测
+        bool hasLineOfSight = false;
+        if (inRange)
+        {
+            Vector3 directionToPlayer = (player.position - transform.position).normalized;
+            if (!Physics.Raycast(transform.position, directionToPlayer, distance, LayerMask.GetMask("Default")))
+            {
+                hasLineOfSight = true;
+            }
+        }
+    
+        bool canInteract = inRange && hasLineOfSight;
+    
+        if (canInteract != playerInRange)
+        {
+            playerInRange = canInteract;
+            if (interactionPrompt) 
+                interactionPrompt.SetActive(canInteract);
+            
+            // 通知UI系统
+            if (canInteract && UIManager.Instance)
+            {
+                UIManager.Instance.ShowInteractionPrompt($"按 F 拾取 {itemData.itemName}");
+            }
+            else if (!canInteract && UIManager.Instance)
+            {
+                UIManager.Instance.HideInteractionPrompt();
+            }
+        }
+    
+        if (playerInRange && Input.GetKeyDown(interactionKey))
+        {
+            OnInteract();
+        }
+    }
     void SetupSpriteDisplay()
     {
         if (spriteRenderer == null)

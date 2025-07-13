@@ -227,24 +227,28 @@ public abstract class WeaponController : MonoBehaviour
     
     protected virtual Vector3 GetShootDirection(Camera cam)
     {
-        // 修复：使用屏幕中心点进行射线投射，确保方向正确
+        // 修复：确保使用正确的摄像机中心射线
         Vector3 screenCenter = new Vector3(Screen.width * 0.5f, Screen.height * 0.5f, 0);
         Ray centerRay = cam.ScreenPointToRay(screenCenter);
         Vector3 direction = centerRay.direction;
-        
+    
         // 应用散布
         float spread = isAiming ? currentSpread * aimSpreadMultiplier : currentSpread;
-        
+    
         if (spread > 0)
         {
             // 使用摄像机坐标系计算散布
-            direction += cam.transform.right * Random.Range(-spread, spread);
-            direction += cam.transform.up * Random.Range(-spread, spread);
-        }
+            Vector3 right = cam.transform.right;
+            Vector3 up = cam.transform.up;
         
+            float spreadX = Random.Range(-spread, spread);
+            float spreadY = Random.Range(-spread, spread);
+        
+            direction += right * spreadX + up * spreadY;
+        }
+    
         return direction.normalized;
     }
-    
     protected virtual Vector3 GetMuzzlePosition()
     {
         if (muzzlePoint != null)

@@ -1,11 +1,11 @@
-using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using UnityEngine;
 
 public class WeaponManager : MonoBehaviour
 {
     [Header("武器配置")]
-    public List<WeaponController> availableWeapons = new List<WeaponController>();
+    [SerializeField] private List<WeaponController> availableWeapons = new List<WeaponController>();
     public Transform weaponHolder;
     
     [Header("武器切换设置")]
@@ -17,6 +17,10 @@ public class WeaponManager : MonoBehaviour
     public bool allowEmptyHands = true;
     public GameObject handModel;
     
+    [Header("武器拾取丢弃")]
+    public GameObject weaponPickupPrefab;
+    public KeyCode dropWeaponKey = KeyCode.G;
+    
     private int currentWeaponIndex = -1;
     private WeaponController currentWeapon;
     private bool isSwitching = false;
@@ -24,11 +28,8 @@ public class WeaponManager : MonoBehaviour
     private bool isAiming = false;
     private Coroutine switchCoroutine;
     
-    
-    [Header("武器拾取丢弃")]
-    public GameObject weaponPickupPrefab; // 地面武器预制体
-    public KeyCode dropWeaponKey = KeyCode.G; // 丢弃武器按键
-    // 属性访问器
+    // 修复：使用属性而不是直接访问字段
+    public List<WeaponController> AvailableWeapons => availableWeapons;
     public WeaponController GetCurrentWeapon() => isEmptyHands ? null : currentWeapon;
     public bool IsEmptyHands() => isEmptyHands;
     public bool IsSwitching() => isSwitching;
@@ -38,27 +39,108 @@ public class WeaponManager : MonoBehaviour
     void Start()
     {
         InitializeWeapons();
-        
-        // 默认空手状态
         SetEmptyHands();
     }
     
     void InitializeWeapons()
     {
+        // 修复：安全初始化武器列表
+        if (availableWeapons == null)
+        {
+            availableWeapons = new List<WeaponController>();
+        }
+        
+        // 清理空引用
+        for (int i = availableWeapons.Count - 1; i >= 0; i--)
+        {
+            if (availableWeapons[i] == null)
+            {
+                availableWeapons.RemoveAt(i);
+                Debug.LogWarning($"[WeaponManager] Removed null weapon at index {i}");
+            }
+        }
+        
         // 查找所有子武器
         if (weaponHolder != null && availableWeapons.Count == 0)
         {
-            availableWeapons.AddRange(weaponHolder.GetComponentsInChildren<WeaponController>(true));
+            var childWeapons = weaponHolder.GetComponentsInChildren<WeaponController>(true);
+            availableWeapons.AddRange(childWeapons);
         }
         
         // 初始化所有武器
         foreach (var weapon in availableWeapons)
         {
-            weapon.Initialize(this);
-            weapon.gameObject.SetActive(false);
+            if (weapon != null)
+            {
+                weapon.Initialize(this);
+                weapon.gameObject.SetActive(false);
+            }
         }
         
         Debug.Log($"[WeaponManager] Initialized {availableWeapons.Count} weapons");
+    }
+    
+    // 修复：安全添加武器方法
+    public void AddWeapon(WeaponController weapon)
+    {
+        if (weapon == null)
+        {
+            Debug.LogError("[WeaponManager] Cannot add null weapon!");
+            return;
+        }
+        
+        if (availableWeapons == null)
+        {
+            availableWeapons = new List<WeaponController>();
+        }
+        
+        if (!availableWeapons.Contains(weapon))
+        {
+            availableWeapons.Add(weapon);
+            weapon.Initialize(this);
+            weapon.gameObject.SetActive(false);
+            
+            Debug.Log($"[WeaponManager] Added weapon: {weapon.weaponName} (Total: {availableWeapons.Count})");
+            
+            // 如果是第一把武器，自动切换到它
+            if (availableWeapons.Count == 1 && isEmptyHands)
+            {
+                SwitchToWeapon(0);
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"[WeaponManager] Weapon {weapon.weaponName} already exists!");
+        }
+    }
+    
+    // 修复：检查武器类型方法
+    public bool HasWeaponType(WeaponType weaponType)
+    {
+        if (availableWeapons == null) return false;
+        
+        foreach (var weapon in availableWeapons)
+        {
+            if (weapon != null && weapon.weaponType == weaponType)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    public WeaponController GetWeaponByType(WeaponType weaponType)
+    {
+        if (availableWeapons == null) return null;
+        
+        foreach (var weapon in availableWeapons)
+        {
+            if (weapon != null && weapon.weaponType == weaponType)
+            {
+                return weapon;
+            }
+        }
+        return null;
     }
     
     void Update()
@@ -66,66 +148,30 @@ public class WeaponManager : MonoBehaviour
         HandleInput();
         HandleShooting();
         
-        // 添加丢弃武器输入
         if (Input.GetKeyDown(dropWeaponKey))
         {
             DropCurrentWeapon();
         }
     }
-    public void DropCurrentWeapon()
-    {
-        if (isEmptyHands || currentWeapon == null) return;
-        
-        // 获取丢弃位置
-        Transform playerTransform = transform.root;
-        Vector3 dropPosition = playerTransform.position + playerTransform.forward * 2f + Vector3.up * 0.5f;
-        
-        // 创建地面武器
-        CreateDroppedWeapon(currentWeapon, dropPosition);
-        
-        // 移除当前武器
-        RemoveWeapon(currentWeapon);
-        SetEmptyHands();
-        
-        Debug.Log($"丢弃了武器: {currentWeapon.weaponName}");
-    }
     
-    void CreateDroppedWeapon(WeaponController weapon, Vector3 position)
-    {
-        GameObject droppedWeapon = new GameObject($"DroppedWeapon_{weapon.weaponName}");
-        droppedWeapon.transform.position = position;
-        
-        // 添加简单的武器拾取脚本
-        WeaponPickup pickup = droppedWeapon.AddComponent<WeaponPickup>();
-        pickup.SetupWeapon(weapon.weaponData, weapon.CurrentAmmo);
-        
-        // 添加物理效果
-        Rigidbody rb = droppedWeapon.AddComponent<Rigidbody>();
-        rb.AddForce(Random.insideUnitSphere * 2f, ForceMode.Impulse);
-    }
-
     void HandleInput()
     {
-        // 武器切换
-        if (Input.GetKeyDown(KeyCode.Alpha1)) SwitchToWeapon(0);
-        if (Input.GetKeyDown(KeyCode.Alpha2)) SwitchToWeapon(1);
-        if (Input.GetKeyDown(KeyCode.Alpha3)) SwitchToWeapon(2);
+        if (Input.GetKeyDown(KeyCode.Alpha1) && availableWeapons.Count > 0) SwitchToWeapon(0);
+        if (Input.GetKeyDown(KeyCode.Alpha2) && availableWeapons.Count > 1) SwitchToWeapon(1);
+        if (Input.GetKeyDown(KeyCode.Alpha3) && availableWeapons.Count > 2) SwitchToWeapon(2);
         if (Input.GetKeyDown(KeyCode.Alpha0)) SetEmptyHands();
         
-        // 滚轮切换
         float scroll = Input.GetAxis("Mouse ScrollWheel");
         if (scroll != 0)
         {
             CycleWeapon(scroll > 0 ? 1 : -1);
         }
         
-        // 换弹
         if (Input.GetKeyDown(KeyCode.R))
         {
             Reload();
         }
         
-        // 瞄准
         SetAiming(Input.GetMouseButton(1));
     }
     
@@ -145,12 +191,52 @@ public class WeaponManager : MonoBehaviour
     
     public void SwitchToWeapon(int index)
     {
-        if (index < 0 || index >= availableWeapons.Count || isSwitching) return;
+        if (availableWeapons == null || index < 0 || index >= availableWeapons.Count || isSwitching) 
+        {
+            Debug.LogWarning($"[WeaponManager] Cannot switch to weapon index {index}");
+            return;
+        }
         
         if (switchCoroutine != null)
             StopCoroutine(switchCoroutine);
         
         switchCoroutine = StartCoroutine(SwitchToWeaponCoroutine(index));
+    }
+    
+    IEnumerator SwitchToWeaponCoroutine(int newIndex)
+    {
+        isSwitching = true;
+
+        // 降下当前武器
+        if (!isEmptyHands && currentWeapon != null)
+        {
+            yield return StartCoroutine(LowerWeapon(currentWeapon.transform));
+            currentWeapon.gameObject.SetActive(false);
+        }
+
+        // 切换武器和处理逻辑放到 try-catch 中（不包含 yield）
+        try
+        {
+            currentWeaponIndex = newIndex;
+            currentWeapon = availableWeapons[currentWeaponIndex];
+            currentWeapon.gameObject.SetActive(true);
+            isEmptyHands = false;
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[WeaponManager] Error preparing new weapon: {e.Message}");
+            isSwitching = false;
+            yield break; // 提前退出协程
+        }
+
+        // 抬起新武器
+        yield return StartCoroutine(RaiseWeapon(currentWeapon.transform));
+
+        // 剩余逻辑
+        NotifyWeaponSwitch();
+        Debug.Log($"[WeaponManager] Switched to {currentWeapon.weaponName}");
+
+        isSwitching = false;
     }
     
     public void SetEmptyHands()
@@ -163,9 +249,104 @@ public class WeaponManager : MonoBehaviour
         switchCoroutine = StartCoroutine(SwitchToEmptyHandsCoroutine());
     }
     
+    IEnumerator SwitchToEmptyHandsCoroutine()
+    {
+        isSwitching = true;
+        
+        if (!isEmptyHands && currentWeapon != null)
+        {
+            yield return StartCoroutine(LowerWeapon(currentWeapon.transform));
+            currentWeapon.gameObject.SetActive(false);
+        }
+        
+        currentWeapon = null;
+        currentWeaponIndex = -1;
+        isEmptyHands = true;
+        
+        if (handModel != null)
+        {
+            handModel.SetActive(true);
+            yield return StartCoroutine(RaiseWeapon(handModel.transform));
+        }
+        
+        isSwitching = false;
+        NotifyWeaponSwitch();
+        
+        Debug.Log("[WeaponManager] Switched to empty hands");
+    }
+    
+    IEnumerator LowerWeapon(Transform weaponTransform)
+    {
+        if (weaponTransform == null) yield break;
+        
+        Vector3 startPos = weaponTransform.localPosition;
+        Vector3 endPos = startPos - Vector3.up * dropDistance;
+        
+        float timer = 0f;
+        float duration = 0.3f;
+        
+        while (timer < duration)
+        {
+            timer += Time.deltaTime;
+            float t = timer / duration;
+            weaponTransform.localPosition = Vector3.Lerp(startPos, endPos, switchCurve.Evaluate(t));
+            yield return null;
+        }
+    }
+    
+    IEnumerator RaiseWeapon(Transform weaponTransform)
+    {
+        if (weaponTransform == null) yield break;
+        
+        Vector3 startPos = weaponTransform.localPosition - Vector3.up * dropDistance;
+        Vector3 endPos = weaponTransform.localPosition + Vector3.up * dropDistance;
+        
+        weaponTransform.localPosition = startPos;
+        
+        float timer = 0f;
+        float duration = 0.3f;
+        
+        while (timer < duration)
+        {
+            timer += Time.deltaTime;
+            float t = timer / duration;
+            weaponTransform.localPosition = Vector3.Lerp(startPos, endPos, switchCurve.Evaluate(t));
+            yield return null;
+        }
+        
+        weaponTransform.localPosition = endPos;
+    }
+    
+    public void SetAiming(bool aiming)
+    {
+        // 修复：避免重复设置相同状态
+        if (isAiming == aiming) return;
+        
+        isAiming = aiming;
+        
+        if (currentWeapon != null)
+        {
+            currentWeapon.SetAiming(aiming);
+        }
+        
+        WeaponDisplay weaponDisplay = FindObjectOfType<WeaponDisplay>();
+        if (weaponDisplay != null)
+        {
+            weaponDisplay.SetAiming(aiming);
+        }
+    }
+    
+    public void Reload()
+    {
+        if (!isEmptyHands && currentWeapon != null && !isSwitching)
+        {
+            currentWeapon.Reload();
+        }
+    }
+    
     public void CycleWeapon(int direction)
     {
-        if (isSwitching) return;
+        if (isSwitching || availableWeapons == null) return;
         
         int newIndex;
         
@@ -206,147 +387,85 @@ public class WeaponManager : MonoBehaviour
         SwitchToWeapon(newIndex);
     }
     
-    IEnumerator SwitchToWeaponCoroutine(int newIndex)
+    public void DropCurrentWeapon()
     {
-        isSwitching = true;
-        
-        // 降下当前武器或手
-        if (!isEmptyHands && currentWeapon != null)
+        if (isEmptyHands || currentWeapon == null) 
         {
-            yield return StartCoroutine(LowerWeapon(currentWeapon.transform));
-            currentWeapon.gameObject.SetActive(false);
+            Debug.Log("没有武器可以丢弃");
+            return;
         }
-        else if (isEmptyHands && handModel != null)
+
+        Transform playerTransform = transform.root;
+        Vector3 dropPosition = playerTransform.position + playerTransform.forward * 2f + Vector3.up * 0.5f;
+
+        CreateDroppedWeapon(currentWeapon, dropPosition);
+
+        if (UIManager.Instance)
         {
-            yield return StartCoroutine(LowerWeapon(handModel.transform));
-            handModel.SetActive(false);
+            UIManager.Instance.ShowMessage($"丢弃了 {currentWeapon.weaponName}", 2f);
         }
-        
-        // 切换到新武器
-        currentWeaponIndex = newIndex;
-        currentWeapon = availableWeapons[currentWeaponIndex];
-        currentWeapon.gameObject.SetActive(true);
-        isEmptyHands = false;
-        
-        // 抬起新武器
-        yield return StartCoroutine(RaiseWeapon(currentWeapon.transform));
-        
-        isSwitching = false;
-        
-        // 通知UI和其他系统
-        NotifyWeaponSwitch();
-        
-        Debug.Log($"[WeaponManager] Switched to {currentWeapon.weaponName}");
+
+        RemoveWeapon(currentWeapon);
+        SetEmptyHands();
+
+        Debug.Log($"丢弃了武器: {currentWeapon.weaponName}");
     }
     
-    IEnumerator SwitchToEmptyHandsCoroutine()
+    void CreateDroppedWeapon(WeaponController weapon, Vector3 position)
     {
-        isSwitching = true;
+        GameObject droppedWeapon = new GameObject($"DroppedWeapon_{weapon.weaponName}");
+        droppedWeapon.transform.position = position;
+
+        WeaponPickup pickup = droppedWeapon.AddComponent<WeaponPickup>();
+        pickup.SetupWeapon(weapon.weaponData, weapon.CurrentAmmo);
+
+        SphereCollider col = droppedWeapon.AddComponent<SphereCollider>();
+        col.radius = 1.5f;
+        col.isTrigger = true;
+
+        WorldItemDisplay display = droppedWeapon.AddComponent<WorldItemDisplay>();
+        display.SetWeaponData(weapon.weaponData);
+
+        Rigidbody rb = droppedWeapon.AddComponent<Rigidbody>();
+        rb.AddForce(Random.insideUnitSphere * 3f + Vector3.up * 2f, ForceMode.Impulse);
         
-        // 降下当前武器
-        if (!isEmptyHands && currentWeapon != null)
-        {
-            yield return StartCoroutine(LowerWeapon(currentWeapon.transform));
-            currentWeapon.gameObject.SetActive(false);
-        }
-        
-        // 切换到空手
-        currentWeapon = null;
-        currentWeaponIndex = -1;
-        isEmptyHands = true;
-        
-        // 抬起手
-        if (handModel != null)
-        {
-            handModel.SetActive(true);
-            yield return StartCoroutine(RaiseWeapon(handModel.transform));
-        }
-        
-        isSwitching = false;
-        
-        // 通知UI和其他系统
-        NotifyWeaponSwitch();
-        
-        Debug.Log("[WeaponManager] Switched to empty hands");
+        StartCoroutine(StopPhysicsAfterDelay(rb, 2f));
     }
     
-    IEnumerator LowerWeapon(Transform weaponTransform)
+    IEnumerator StopPhysicsAfterDelay(Rigidbody rb, float delay)
     {
-        if (weaponTransform == null) yield break;
-        
-        Vector3 startPos = weaponTransform.localPosition;
-        Vector3 endPos = startPos - Vector3.up * dropDistance;
-        
-        float timer = 0f;
-        float duration = 0.3f;
-        
-        while (timer < duration)
+        yield return new WaitForSeconds(delay);
+        if (rb != null)
         {
-            timer += Time.deltaTime;
-            float t = timer / duration;
-            weaponTransform.localPosition = Vector3.Lerp(startPos, endPos, switchCurve.Evaluate(t));
-            yield return null;
+            rb.isKinematic = true;
+            rb.useGravity = false;
         }
     }
     
-    IEnumerator RaiseWeapon(Transform weaponTransform)
+    public void RemoveWeapon(WeaponController weapon)
     {
-        if (weaponTransform == null) yield break;
-        
-        Vector3 startPos = weaponTransform.localPosition - Vector3.up * dropDistance;
-        Vector3 endPos = weaponTransform.localPosition + Vector3.up * dropDistance;
-        
-        // 设置起始位置
-        weaponTransform.localPosition = startPos;
-        
-        float timer = 0f;
-        float duration = 0.3f;
-        
-        while (timer < duration)
+        if (weapon != null && availableWeapons != null && availableWeapons.Contains(weapon))
         {
-            timer += Time.deltaTime;
-            float t = timer / duration;
-            weaponTransform.localPosition = Vector3.Lerp(startPos, endPos, switchCurve.Evaluate(t));
-            yield return null;
-        }
-        
-        weaponTransform.localPosition = endPos;
-    }
-    
-    public void SetAiming(bool aiming)
-    {
-        isAiming = aiming;
-        
-        if (currentWeapon != null)
-        {
-            currentWeapon.SetAiming(aiming);
-        }
-        
-        // 通知2D武器显示
-        WeaponDisplay weaponDisplay = FindObjectOfType<WeaponDisplay>();
-        if (weaponDisplay != null)
-        {
-            weaponDisplay.SetAiming(aiming);
-        }
-    }
-    
-    public void Reload()
-    {
-        if (!isEmptyHands && currentWeapon != null && !isSwitching)
-        {
-            currentWeapon.Reload();
+            if (currentWeapon == weapon)
+            {
+                SetEmptyHands();
+            }
+            
+            availableWeapons.Remove(weapon);
+            Debug.Log($"[WeaponManager] Removed weapon: {weapon.weaponName}");
         }
     }
     
     void NotifyWeaponSwitch()
     {
-        // 通知UI管理器更新UI
-        UIManager.Instance?.UpdateAmmoDisplay(
-            currentWeapon?.CurrentAmmo ?? 0, 
-            currentWeapon?.MaxAmmo ?? 0
-        );
+        if (UIManager.Instance != null)
+        {
+            UIManager.Instance.UpdateAmmoDisplay(
+                currentWeapon?.CurrentAmmo ?? 0, 
+                currentWeapon?.MaxAmmo ?? 0
+            );
+        }
         
-        // 通知2D武器显示系统
         WeaponDisplay weaponDisplay = FindObjectOfType<WeaponDisplay>();
         if (weaponDisplay != null)
         {
@@ -360,78 +479,4 @@ public class WeaponManager : MonoBehaviour
             }
         }
     }
-    
-    // 添加武器到管理器
-    public void AddWeapon(WeaponController weapon)
-    {
-        if (weapon != null && !availableWeapons.Contains(weapon))
-        {
-            availableWeapons.Add(weapon);
-            weapon.Initialize(this);
-            weapon.gameObject.SetActive(false);
-            
-            Debug.Log($"[WeaponManager] Added weapon: {weapon.weaponName}");
-        }
-    }
-    
-    // 移除武器
-    public void RemoveWeapon(WeaponController weapon)
-    {
-        if (weapon != null && availableWeapons.Contains(weapon))
-        {
-            if (currentWeapon == weapon)
-            {
-                SetEmptyHands();
-            }
-            
-            availableWeapons.Remove(weapon);
-            Debug.Log($"[WeaponManager] Removed weapon: {weapon.weaponName}");
-        }
-    }
-    
-    // 根据类型获取武器
-    public WeaponController GetWeaponByType(WeaponType weaponType)
-    {
-        foreach (var weapon in availableWeapons)
-        {
-            if (weapon.weaponType == weaponType)
-            {
-                return weapon;
-            }
-        }
-        return null;
-    }
-    
-    // 检查是否拥有某种武器
-    public bool HasWeaponType(WeaponType weaponType)
-    {
-        return GetWeaponByType(weaponType) != null;
-    }
-    
-    // 获取武器状态信息
-    public WeaponStatus GetWeaponStatus()
-    {
-        return new WeaponStatus
-        {
-            isEmptyHands = this.isEmptyHands,
-            currentWeaponName = currentWeapon?.weaponName ?? "Empty Hands",
-            currentAmmo = currentWeapon?.CurrentAmmo ?? 0,
-            maxAmmo = currentWeapon?.MaxAmmo ?? 0,
-            isReloading = currentWeapon?.IsReloading ?? false,
-            isAiming = this.isAiming,
-            isSwitching = this.isSwitching
-        };
-    }
-}
-
-[System.Serializable]
-public class WeaponStatus
-{
-    public bool isEmptyHands;
-    public string currentWeaponName;
-    public int currentAmmo;
-    public int maxAmmo;
-    public bool isReloading;
-    public bool isAiming;
-    public bool isSwitching;
 }

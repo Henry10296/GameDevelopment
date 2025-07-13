@@ -143,10 +143,6 @@ public class HomeUI : UIPanel
 
 
 // 其他UI面板类的占位符
-public class InventoryUI : UIPanel
-{
-    public void RefreshInventory() { /* 实现背包刷新 */ }
-}
 
 public class EventChoiceUI : UIPanel
 {
