@@ -12,20 +12,28 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ce8358b51c90b1340b45af6e96eb320e, type: 3}
   m_Name: InputSettings
   m_EditorClassIdentifier: 
-  interactionKey: 101
-  pickupKey: 101
-  useItemKey: 101
-  inventoryKey: 9
-  journalKey: 106
-  pauseKey: 27
-  reloadKey: 114
-  weapon1Key: 49
-  weapon2Key: 50
-  fireKey: 323
-  aimKey: 324
+  configName: InputSettings
+  configVersion: 1.0
+  description: 
   runKey: 304
   crouchKey: 99
   jumpKey: 32
+  leanLeftKey: 113
+  leanRightKey: 101
+  interactionKey: 102
+  pickupKey: 102
+  useItemKey: 316
+  fireKey: 323
+  aimKey: 324
+  reloadKey: 114
+  weapon1Key: 49
+  weapon2Key: 50
+  inventoryKey: 9
+  journalKey: 106
+  pauseKey: 27
+  mouseSensitivity: 2
+  aimSensitivity: 1
+  invertMouseY: 0
   debugNextDay: 282
   debugEndGame: 283
   debugAddResources: 284

@@ -10,9 +10,12 @@ public abstract class BaseInteractable : MonoBehaviour
     protected Transform player;
     protected bool playerInRange = false;
     
+    // 添加这个标志来控制是否使用内置输入检测
+    [Header("输入设置")]
+    public bool useBuiltInInput = false; // 默认关闭，让PlayerController处理
+    
     protected virtual void Start()
     {
-        // 修复：更可靠的玩家查找
         FindPlayer();
         
         if (interactionPrompt) 
@@ -67,7 +70,7 @@ public abstract class BaseInteractable : MonoBehaviour
         if (inRange)
         {
             Vector3 directionToPlayer = (player.position - transform.position).normalized;
-            Vector3 startPos = transform.position + Vector3.up * 0.5f; // 稍微抬高起点
+            Vector3 startPos = transform.position + Vector3.up * 0.5f;
             
             // 检查是否有障碍物遮挡
             if (Physics.Raycast(startPos, directionToPlayer, distance - 0.1f))
@@ -84,15 +87,20 @@ public abstract class BaseInteractable : MonoBehaviour
             OnPlayerRangeChanged(canInteract);
         }
         
-        // 修复：检测交互输入
-        if (playerInRange && Input.GetKeyDown(interactionKey))
+        // 只有在启用内置输入时才检测按键
+        if (useBuiltInInput && playerInRange && Input.GetKeyDown(interactionKey))
         {
             Debug.Log($"[BaseInteractable] {gameObject.name} - Interaction triggered!");
             OnInteract();
         }
     }
     
-    // 新增：当玩家进入/离开范围时调用
+    // 新增：供外部调用的交互方法
+    public virtual bool CanInteract()
+    {
+        return playerInRange;
+    }
+    
     protected virtual void OnPlayerRangeChanged(bool inRange)
     {
         if (interactionPrompt) 
@@ -114,7 +122,7 @@ public abstract class BaseInteractable : MonoBehaviour
         if (UIManager.Instance)
         {
             string itemName = GetInteractionText();
-            UIManager.Instance.ShowInteractionPrompt($"按 {interactionKey} {itemName}");
+            UIManager.Instance.ShowInteractionPrompt($"按 E {itemName}");
         }
     }
     
@@ -128,7 +136,6 @@ public abstract class BaseInteractable : MonoBehaviour
     
     public abstract void OnInteract();
     
-    // 修复：添加默认的交互文本
     public virtual string GetInteractionText()
     {
         return "交互";

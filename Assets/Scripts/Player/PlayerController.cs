@@ -420,7 +420,7 @@ public class PlayerController : MonoBehaviour
     
     void HandleInteraction()
     {
-        if (Input.GetKeyDown(KeyCode.E))
+        if (Input.GetKeyDown(KeyCode.F))
         {
             PerformInteraction();
         }

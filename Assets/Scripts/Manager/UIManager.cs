@@ -43,6 +43,10 @@ public class UIManager : Singleton<UIManager>
     public GameValues gameValues;
     public InputSettings inputSettings;
     
+    
+    
+    private bool gameIsPaused = false;
+    private float previousTimeScale = 1f;
     protected override void OnSingletonApplicationQuit()
     {
         StopAllCoroutines();
@@ -185,24 +189,33 @@ public class UIManager : Singleton<UIManager>
         
         try
         {
+            // 背包切换
             if (Input.GetKeyDown(inputSettings.inventoryKey))
             {
                 ToggleInventory();
             }
             
+            // 暂停菜单
             if (Input.GetKeyDown(inputSettings.pauseKey))
             {
                 TogglePauseMenu();
             }
             
+            // 日志
             if (Input.GetKeyDown(inputSettings.journalKey))
             {
                 ToggleJournal();
             }
+            
+            // ESC键处理 - 关闭当前打开的面板或显示暂停菜单
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                HandleEscapeKey();
+            }
         }
         catch (System.Exception e)
         {
-            Debug.LogWarning($"[UIManager] HandleInput error: {e.Message}");
+            Debug.LogWarning($"[UIManager] HandleInput 错误: {e.Message}");
         }
     }
     
@@ -405,26 +418,30 @@ public class UIManager : Singleton<UIManager>
     }
     
     // UI切换方法
-    public void ToggleInventory()
+    public new void ToggleInventory()
     {
+        if (inventoryUI == null)
+        {
+            Debug.LogWarning("[UIManager] InventoryUI 未设置");
+            return;
+        }
+        
         try
         {
-            inventoryOpen = !inventoryOpen;
-            
-            if (inventoryOpen)
+            if (inventoryUI.IsVisible())
             {
-                SafeShow(inventoryUI, "InventoryUI");
-                PauseGame();
+                inventoryUI.Hide();
             }
             else
             {
-                SafeHide(inventoryUI, "InventoryUI");
-                ResumeGame();
+                // 关闭其他可能打开的UI
+                CloseOtherPanels();
+                inventoryUI.Show();
             }
         }
         catch (System.Exception e)
         {
-            Debug.LogWarning($"[UIManager] ToggleInventory error: {e.Message}");
+            Debug.LogError($"[UIManager] ToggleInventory 错误: {e.Message}");
         }
     }
     
@@ -517,16 +534,34 @@ public class UIManager : Singleton<UIManager>
         }
     }
     
-    void PauseGame()
+    public void PauseGame()
     {
-        Time.timeScale = 0f;
-        SetCursorState(true);
+        if (!gameIsPaused)
+        {
+            previousTimeScale = Time.timeScale;
+            Time.timeScale = 0f;
+            gameIsPaused = true;
+            
+            // 显示鼠标
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+            
+            Debug.Log("[UIManager] 游戏已暂停");
+        }
     }
     
-    void ResumeGame()
+    public void ResumeGame()
     {
-        Time.timeScale = 1f;
-        SetCursorState(GetCursorVisibilityForPhase(currentPhase));
+        if (gameIsPaused)
+        {
+            Time.timeScale = previousTimeScale;
+            gameIsPaused = false;
+            
+            // 根据当前阶段设置鼠标状态
+            SetCursorState(GetCursorVisibilityForPhase(currentPhase));
+            
+            Debug.Log("[UIManager] 游戏已恢复");
+        }
     }
     
     // 消息系统
@@ -771,6 +806,43 @@ public class UIManager : Singleton<UIManager>
         }
         return key;
     }
+    
+    void CloseOtherPanels()
+    {
+        // 关闭其他面板，确保同时只有一个面板打开
+        if (journalUI != null && journalUI.IsVisible())
+            journalUI.Hide();
+        if (settingsUI != null && settingsUI.IsVisible())
+            settingsUI.Hide();
+        if (pauseMenuUI != null && pauseMenuUI.IsVisible())
+            pauseMenuUI.Hide();
+    }
+    
+    void HandleEscapeKey()
+    {
+        // 优先级：先关闭打开的面板，没有面板时显示暂停菜单
+        if (inventoryUI != null && inventoryUI.IsVisible())
+        {
+            inventoryUI.Hide();
+        }
+        else if (journalUI != null && journalUI.IsVisible())
+        {
+            journalUI.Hide();
+        }
+        else if (settingsUI != null && settingsUI.IsVisible())
+        {
+            settingsUI.Hide();
+        }
+        else if (pauseMenuUI != null && pauseMenuUI.IsVisible())
+        {
+            pauseMenuUI.Hide();
+        }
+        else if (currentPhase == GamePhase.Exploration || currentPhase == GamePhase.Home)
+        {
+            TogglePauseMenu();
+        }
+    }
+ 
     /*void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         // 根据场景重新初始化UI
@@ -778,4 +850,5 @@ public class UIManager : Singleton<UIManager>
     }*/
     
 }
+
 

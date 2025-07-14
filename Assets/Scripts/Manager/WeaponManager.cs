@@ -147,13 +147,18 @@ public class WeaponManager : MonoBehaviour
     {
         HandleInput();
         HandleShooting();
-        
+    
+        Drop();
+       
+    }
+
+    internal void Drop()
+    {
         if (Input.GetKeyDown(dropWeaponKey))
         {
             DropCurrentWeapon();
         }
     }
-    
     void HandleInput()
     {
         if (Input.GetKeyDown(KeyCode.Alpha1) && availableWeapons.Count > 0) SwitchToWeapon(0);
@@ -392,12 +397,15 @@ public class WeaponManager : MonoBehaviour
         if (isEmptyHands || currentWeapon == null) 
         {
             Debug.Log("没有武器可以丢弃");
+            if (UIManager.Instance)
+                UIManager.Instance.ShowMessage("没有武器可以丢弃", 2f);
             return;
         }
 
         Transform playerTransform = transform.root;
         Vector3 dropPosition = playerTransform.position + playerTransform.forward * 2f + Vector3.up * 0.5f;
 
+        // 修复：传递当前武器信息创建掉落物
         CreateDroppedWeapon(currentWeapon, dropPosition);
 
         if (UIManager.Instance)
@@ -405,32 +413,73 @@ public class WeaponManager : MonoBehaviour
             UIManager.Instance.ShowMessage($"丢弃了 {currentWeapon.weaponName}", 2f);
         }
 
-        RemoveWeapon(currentWeapon);
-        SetEmptyHands();
+        Debug.Log($"丢弃了武器: {currentWeapon.weaponName} (弹药: {currentWeapon.CurrentAmmo})");
 
-        Debug.Log($"丢弃了武器: {currentWeapon.weaponName}");
-    }
+        // 从列表中移除武器
+        RemoveWeapon(currentWeapon);
     
+        // 切换到下一个武器或空手
+        SwitchToNextAvailableWeapon();
+    }
+    void SwitchToNextAvailableWeapon()
+    {
+        if (availableWeapons.Count > 0)
+        {
+            // 切换到第一个可用武器
+            SwitchToWeapon(0);
+        }
+        else
+        {
+            // 没有武器了，切换到空手
+            SetEmptyHands();
+        }
+    }
     void CreateDroppedWeapon(WeaponController weapon, Vector3 position)
     {
-        GameObject droppedWeapon = new GameObject($"DroppedWeapon_{weapon.weaponName}");
+        if (weapon == null || weapon.weaponData == null)
+        {
+            Debug.LogError("[WeaponManager] Cannot drop weapon - invalid weapon data");
+            return;
+        }
+
+        // 创建武器拾取物体
+        GameObject droppedWeapon = new GameObject($"DroppedWeapon_{weapon.weaponData.weaponName}");
         droppedWeapon.transform.position = position;
 
-        WeaponPickup pickup = droppedWeapon.AddComponent<WeaponPickup>();
-        pickup.SetupWeapon(weapon.weaponData, weapon.CurrentAmmo);
-
+        // 添加碰撞体
         SphereCollider col = droppedWeapon.AddComponent<SphereCollider>();
         col.radius = 1.5f;
         col.isTrigger = true;
 
-        WorldItemDisplay display = droppedWeapon.AddComponent<WorldItemDisplay>();
-        display.SetWeaponData(weapon.weaponData);
+        // 添加WeaponPickup组件
+        WeaponPickup pickup = droppedWeapon.AddComponent<WeaponPickup>();
+    
+        // 修复：使用新方法设置掉落武器数据，保留弹药数量
+        pickup.SetupFromDroppedWeapon(weapon);
 
+        // 添加视觉显示
+        WorldItemDisplay display = droppedWeapon.AddComponent<WorldItemDisplay>();
+        if (display != null)
+        {
+            display.SetWeaponData(weapon.weaponData);
+        }
+
+        // 添加物理效果
         Rigidbody rb = droppedWeapon.AddComponent<Rigidbody>();
-        rb.AddForce(Random.insideUnitSphere * 3f + Vector3.up * 2f, ForceMode.Impulse);
+        if (rb != null)
+        {
+            // 随机抛出方向
+            Vector3 throwForce = Random.insideUnitSphere * 3f + Vector3.up * 2f;
+            rb.AddForce(throwForce, ForceMode.Impulse);
         
-        StartCoroutine(StopPhysicsAfterDelay(rb, 2f));
+            // 一段时间后停止物理模拟
+            StartCoroutine(StopPhysicsAfterDelay(rb, 2f));
+        }
+
+        Debug.Log($"[WeaponManager] Created dropped weapon: {weapon.weaponData.weaponName} with {weapon.CurrentAmmo} ammo");
     }
+
+    
     
     IEnumerator StopPhysicsAfterDelay(Rigidbody rb, float delay)
     {
@@ -441,18 +490,62 @@ public class WeaponManager : MonoBehaviour
             rb.useGravity = false;
         }
     }
+
     
     public void RemoveWeapon(WeaponController weapon)
     {
         if (weapon != null && availableWeapons != null && availableWeapons.Contains(weapon))
         {
+            // 如果是当前武器，清除引用
             if (currentWeapon == weapon)
             {
-                SetEmptyHands();
+                currentWeapon = null;
+                currentWeaponIndex = -1;
+                isEmptyHands = true;
             }
-            
+        
+            // 从列表中移除
             availableWeapons.Remove(weapon);
+        
+            // 销毁武器对象
+            if (weapon.gameObject != null)
+            {
+                Destroy(weapon.gameObject);
+            }
+        
             Debug.Log($"[WeaponManager] Removed weapon: {weapon.weaponName}");
+        
+            // 更新武器索引
+            UpdateWeaponIndices();
+        }
+    }
+    
+    
+    
+    
+   
+    
+    void UpdateWeaponIndices()
+    {
+        // 重新分配武器索引
+        if (availableWeapons.Count == 0)
+        {
+            currentWeaponIndex = -1;
+            isEmptyHands = true;
+            return;
+        }
+    
+        // 如果当前武器索引无效，重置
+        if (currentWeaponIndex >= availableWeapons.Count)
+        {
+            currentWeaponIndex = availableWeapons.Count - 1;
+        }
+    
+        // 更新当前武器引用
+        if (currentWeaponIndex >= 0 && currentWeaponIndex < availableWeapons.Count)
+        {
+            currentWeapon = availableWeapons[currentWeaponIndex];
+            isEmptyHands = false;
         }
     }
     

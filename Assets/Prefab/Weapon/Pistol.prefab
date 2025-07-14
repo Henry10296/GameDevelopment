@@ -146,6 +146,7 @@ MonoBehaviour:
   interactionRange: 3
   interactionKey: 102
   interactionPrompt: {fileID: 0}
+  useBuiltInInput: 1
   weaponData: {fileID: 11400000, guid: 01ac9c885afcab24bac13322f8c91154, type: 2}
   currentAmmo: 0
   weaponSprite: {fileID: 7482869637838056005}

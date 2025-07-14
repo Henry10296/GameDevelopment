@@ -14,7 +14,7 @@ public class InputSettings : BaseGameConfig
     [Header("交互控制")]
     public KeyCode interactionKey = KeyCode.F;
     public KeyCode pickupKey = KeyCode.F;
-    public KeyCode useItemKey = KeyCode.E;
+    public KeyCode useItemKey = KeyCode.LeftCommand;
     
     [Header("武器控制")]
     public KeyCode fireKey = KeyCode.Mouse0;

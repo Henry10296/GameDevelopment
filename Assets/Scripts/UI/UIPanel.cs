@@ -155,6 +155,5 @@ public class JournalUI : UIPanel
 }
 
 public class SettingsUI : UIPanel { }
-public class PauseMenuUI : UIPanel { }
 
 // 通用UI组件

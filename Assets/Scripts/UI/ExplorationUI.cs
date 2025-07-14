@@ -42,6 +42,17 @@ public class ExplorationUI : UIPanel
     public Color criticalTimeColor = Color.red;
     public Color[] riskLevelColors = new Color[5];
     
+    [Header("=== 快捷操作 ===")]
+    public Button quickInventoryButton;
+    public Button quickJournalButton;
+    public Button quickMapButton;
+    
+    [Header("=== 状态指示器 ===")]
+    public GameObject lowHealthWarning;
+    public GameObject lowAmmoWarning;
+    public GameObject noAmmoWarning;
+
+    
     private float maxExplorationTime;
     private bool isTimeWarningShown = false;
     private Coroutine messageCoroutine;
@@ -64,7 +75,37 @@ public class ExplorationUI : UIPanel
         // 设置地图信息
         //SetupMapInfo();
         
-        Debug.Log("[ExplorationUI] 初始化完成");
+        // 设置快捷按钮
+        SetupQuickButtons();
+        
+        // 初始化状态指示器
+        InitializeStatusIndicators();
+        
+
+        
+        Debug.Log("[ExplorationUI] 探索UI初始化完成");
+    
+    }
+    void SetupQuickButtons()//TODO:
+    {
+        quickInventoryButton?.onClick.AddListener(() => {
+            UIManager.Instance?.ToggleInventory();
+        });
+        
+        quickJournalButton?.onClick.AddListener(() => {
+            UIManager.Instance?.ToggleJournal();
+        });
+        
+        quickMapButton?.onClick.AddListener(() => {
+            // TODO: 显示小地图
+            ShowMessage("小地图功能开发中...", 2f);
+        });
+    }
+    void InitializeStatusIndicators()
+    {
+        if (lowHealthWarning) lowHealthWarning.SetActive(false);
+        if (lowAmmoWarning) lowAmmoWarning.SetActive(false);
+        if (noAmmoWarning) noAmmoWarning.SetActive(false);
     }
     
     public override void Show()
@@ -96,9 +137,83 @@ public class ExplorationUI : UIPanel
         {
             UpdateTimeDisplay();
             CheckTimeWarning();
+            UpdateStatusWarnings();
+        }
+    }
+    void UpdateStatusWarnings()
+    {
+        // 检查玩家健康状态
+        UpdateHealthWarning();
+        
+        // 检查弹药状态
+        UpdateAmmoWarnings();
+    }
+    
+    void UpdateHealthWarning()
+    {
+        if (lowHealthWarning && Player.Instance)
+        {
+            bool showWarning = Player.Instance.GetHealthPercentage() < 0.3f;
+            lowHealthWarning.SetActive(showWarning);
         }
     }
     
+    
+    
+    void UpdateAmmoWarnings()
+    {
+        var weaponManager = FindObjectOfType<WeaponManager>();
+        if (weaponManager == null) return;
+        
+        var currentWeapon = weaponManager.GetCurrentWeapon();
+        if (currentWeapon == null)
+        {
+            if (lowAmmoWarning) lowAmmoWarning.SetActive(false);
+            if (noAmmoWarning) noAmmoWarning.SetActive(false);
+            return;
+        }
+        
+        bool hasNoAmmo = currentWeapon.CurrentAmmo == 0;
+        bool hasLowAmmo = currentWeapon.CurrentAmmo <= currentWeapon.MaxAmmo * 0.2f;
+        
+        if (noAmmoWarning) noAmmoWarning.SetActive(hasNoAmmo);
+        if (lowAmmoWarning) lowAmmoWarning.SetActive(hasLowAmmo && !hasNoAmmo);
+    }
+    
+    public void PlayUISound(string soundType)
+    {
+        if (AudioManager.Instance)
+        {
+            string soundName = soundType switch
+            {
+                "button_click" => "UI_ButtonClick",
+                "warning" => "UI_Warning",
+                "notification" => "UI_Notification",
+                _ => "UI_ButtonClick"
+            };
+            
+            AudioManager.Instance.PlaySFX(soundName);
+        }
+    }
+    
+    
+    
+    public void UpdateMapInfo()//TODO：
+    {
+        if (ExplorationManager.Instance)
+        {
+            var currentMapData = ExplorationManager.Instance.CurrentMap;
+            if (currentMapData != null && mapNameText)
+            {
+                mapNameText.text = currentMapData.mapName;
+                
+                if (riskLevelText)
+                {
+                    riskLevelText.text = $"风险等级: {currentMapData.riskLevel}/5";
+                }
+            }
+        }
+    }
     /*void SetupMapInfo()
     {
         // 从ExplorationManager获取当前地图信息

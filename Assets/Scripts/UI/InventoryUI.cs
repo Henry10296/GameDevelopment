@@ -18,47 +18,99 @@ public class InventoryUI : UIPanel
     public TextMeshProUGUI itemInfoDescription;
     public Button useButton;
     public Button dropButton;
+    public Button closeButton; // 新增关闭按钮
     
     [Header("=== 统计信息 ===")]
-    public TextMeshProUGUI slotsUsedText; // "8/9"
+    public TextMeshProUGUI slotsUsedText;
+    public TextMeshProUGUI inventoryWeight; // 重量显示
+    
+    [Header("=== 输入设置 ===")]
+    public KeyCode toggleKey = KeyCode.Tab;
     
     private List<InventorySlot> inventorySlots = new List<InventorySlot>();
     private InventoryItem selectedItem;
+    private bool isInitialized = false;
     
-    void Start()
+    public override void Initialize()
     {
-        Initialize();
+        if (isInitialized) return;
+        
+        base.Initialize();
+        CreateInventorySlots();
+        SetupEventListeners();
+        SetupButtons();
+        
+        // 初始隐藏
+        Hide();
+        isInitialized = true;
+        
+        Debug.Log("[InventoryUI] 初始化完成");
     }
     
-    public void Initialize()
+    void SetupEventListeners()
     {
-        CreateInventorySlots();
-        
         // 订阅背包变化事件
         if (InventoryManager.Instance)
         {
+            InventoryManager.OnInventoryChanged -= OnInventoryChanged; // 防止重复订阅
             InventoryManager.OnInventoryChanged += OnInventoryChanged;
         }
-        
-        // 按钮事件
+    }
+    
+    void SetupButtons()
+    {
         useButton?.onClick.AddListener(UseSelectedItem);
         dropButton?.onClick.AddListener(DropSelectedItem);
+        closeButton?.onClick.AddListener(Hide);
+    }
+    
+    void Update()
+    {
+        // 处理输入
+        if (Input.GetKeyDown(toggleKey))
+        {
+            ToggleInventory();
+        }
         
-        // 初始隐藏
-        inventoryPanel?.SetActive(false);
-        itemInfoPanel?.SetActive(false);
+        // ESC键关闭
+        if (isVisible && Input.GetKeyDown(KeyCode.Escape))
+        {
+            Hide();
+        }
+    }
+    
+    public void ToggleInventory()
+    {
+        if (isVisible)
+            Hide();
+        else
+            Show();
     }
     
     void CreateInventorySlots()
     {
-        if (slotsContainer == null || slotPrefab == null) return;
+        if (slotsContainer == null || slotPrefab == null) 
+        {
+            Debug.LogError("[InventoryUI] SlotsContainer 或 SlotPrefab 未设置");
+            return;
+        }
+        
+        // 清理现有槽位
+        foreach (Transform child in slotsContainer)
+        {
+            if (Application.isPlaying)
+                Destroy(child.gameObject);
+            else
+                DestroyImmediate(child.gameObject);
+        }
+        inventorySlots.Clear();
         
         int maxSlots = InventoryManager.Instance ? InventoryManager.Instance.maxSlots : 9;
         
         for (int i = 0; i < maxSlots; i++)
         {
             GameObject slotObj = Instantiate(slotPrefab, slotsContainer);
-           InventorySlot slot = slotObj.GetComponent<InventorySlot>();
+            InventorySlot slot = slotObj.GetComponent<InventorySlot>();
             
             if (slot == null)
                 slot = slotObj.AddComponent<InventorySlot>();
@@ -66,6 +118,8 @@ public class InventoryUI : UIPanel
             slot.Initialize(i, this);
             inventorySlots.Add(slot);
         }
+        
+        Debug.Log($"[InventoryUI] 创建了 {maxSlots} 个背包槽位");
     }
     
     void OnInventoryChanged(List<InventoryItem> items)
@@ -79,19 +133,46 @@ public class InventoryUI : UIPanel
                 inventorySlots[i].ClearSlot();
         }
         
-        // 更新统计
+        // 更新统计信息
+        UpdateStatistics(items);
+    }
+    
+    void UpdateStatistics(List<InventoryItem> items)
+    {
         if (slotsUsedText)
         {
             int usedSlots = items.Count;
             int totalSlots = inventorySlots.Count;
-            slotsUsedText.text = $"{usedSlots}/{totalSlots}";
+            slotsUsedText.text = $"槽位: {usedSlots}/{totalSlots}";
         }
+        
+        /*if (inventoryWeight)
+        {
+            float totalWeight = CalculateTotalWeight(items);
+            inventoryWeight.text = $"重量: {totalWeight:F1} kg";
+        }*/
     }
+    
+    /*float CalculateTotalWeight(List<InventoryItem> items)
+    {
+        float weight = 0f;
+        foreach (var item in items)
+        {
+            if (item?.itemData != null)
+            {
+                weight += item.itemData.weight * item.quantity;
+            }
+        }
+        return weight;
+    }*/
     
     public void OnSlotClicked(InventoryItem item)
     {
         selectedItem = item;
-        ShowItemInfo(item);
+        if (item != null)
+            ShowItemInfo(item);
+        else
+            HideItemInfo();
     }
     
     void ShowItemInfo(InventoryItem item)
@@ -111,17 +192,27 @@ public class InventoryUI : UIPanel
     
     bool CanUseItem(InventoryItem item)
     {
+        if (item?.itemData == null) return false;
+        
         return item.itemData.itemType == ItemType.Food ||
                item.itemData.itemType == ItemType.Water ||
-               item.itemData.itemType == ItemType.Medicine;
+               item.itemData.itemType == ItemType.Medicine ||
+               item.itemData.IsWeapon;
     }
     
     void UseSelectedItem()
     {
         if (selectedItem?.itemData != null && InventoryManager.Instance)
         {
-            InventoryManager.Instance.UseItem(selectedItem.itemData.itemName);
-            HideItemInfo();
+            bool success = InventoryManager.Instance.UseItem(selectedItem.itemData.itemName);
+            if (success)
+            {
+                if (UIManager.Instance)
+                {
+                    UIManager.Instance.ShowMessage($"使用了 {selectedItem.itemData.itemName}", 2f);
+                }
+                HideItemInfo();
+            }
         }
     }
     
@@ -130,16 +221,21 @@ public class InventoryUI : UIPanel
         if (selectedItem?.itemData != null)
         {
             // 在玩家前方丢弃物品
-            PlayerController player = FindObjectOfType<PlayerController>();
+            var player = FindObjectOfType<PlayerController>();
             if (player != null)
             {
-                Vector3 dropPos = player.transform.position + player.transform.forward * 1.5f;
+                Vector3 dropPos = player.transform.position + player.transform.forward * 1.5f + Vector3.up * 0.5f;
                 DropItemAtPosition(selectedItem, dropPos);
                 
                 // 从背包移除
                 if (InventoryManager.Instance)
                 {
                     InventoryManager.Instance.RemoveItem(selectedItem.itemData.itemName, 1);
+                }
+                
+                if (UIManager.Instance)
+                {
+                    UIManager.Instance.ShowMessage($"丢弃了 {selectedItem.itemData.itemName}", 2f);
                 }
             }
             
@@ -153,14 +249,29 @@ public class InventoryUI : UIPanel
         GameObject droppedItem = new GameObject($"Dropped_{item.itemData.itemName}");
         droppedItem.transform.position = position;
         
+        // 添加PickupItem组件
         PickupItem pickup = droppedItem.AddComponent<PickupItem>();
         pickup.SetItemData(item.itemData, 1);
         
+        // 添加碰撞器
+        SphereCollider collider = droppedItem.AddComponent<SphereCollider>();
+        collider.radius = 0.5f;
+        collider.isTrigger = true;
+        
         // 添加物理效果
         Rigidbody rb = droppedItem.AddComponent<Rigidbody>();
-        rb.AddForce(Random.insideUnitSphere * 2f, ForceMode.Impulse);
+        Vector3 randomForce = new Vector3(
+            Random.Range(-2f, 2f),
+            Random.Range(1f, 3f),
+            Random.Range(-2f, 2f)
+        );
+        rb.AddForce(randomForce, ForceMode.Impulse);
         
-        Debug.Log($"丢弃了物品: {item.itemData.itemName}");
+        // 添加视觉效果
+        WorldItemDisplay display = droppedItem.AddComponent<WorldItemDisplay>();
+        display.SetItemData(item.itemData);
+        
+        Debug.Log($"[InventoryUI] 丢弃了物品: {item.itemData.itemName} 在位置: {position}");
     }
     
     void HideItemInfo()
@@ -169,20 +280,47 @@ public class InventoryUI : UIPanel
         if (itemInfoPanel) itemInfoPanel.SetActive(false);
     }
     
-    public void Show()
+    public override void Show()
     {
-        inventoryPanel?.SetActive(true);
-        Time.timeScale = 0f; // 暂停游戏
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
+        base.Show();
+        
+        // 通知UIManager暂停游戏
+        if (UIManager.Instance)
+        {
+            UIManager.Instance.PauseGame();
+        }
+        
+        // 刷新背包数据
+        if (InventoryManager.Instance)
+        {
+            OnInventoryChanged(InventoryManager.Instance.GetItems());
+        }
+        
+        Debug.Log("[InventoryUI] 背包界面已显示");
     }
     
-    public void Hide()
+    public override void Hide()
     {
-        inventoryPanel?.SetActive(false);
+        base.Hide();
+        
+        // 隐藏物品信息
         HideItemInfo();
-        Time.timeScale = 1f; // 恢复游戏
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+        
+        // 通知UIManager恢复游戏
+        if (UIManager.Instance)
+        {
+            UIManager.Instance.ResumeGame();
+        }
+        
+        Debug.Log("[InventoryUI] 背包界面已隐藏");
+    }
+    
+    void OnDestroy()
+    {
+        // 取消事件订阅
+        if (InventoryManager.Instance)
+        {
+            InventoryManager.OnInventoryChanged -= OnInventoryChanged;
+        }
     }
 }

@@ -2,6 +2,7 @@
 
 public enum ItemType
 {
+    All = -1,     // 用于显示所有物品
     Food=1,
     Water=2,
     Medicine=3,

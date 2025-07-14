@@ -21,14 +21,36 @@ public class WeaponPickup : BaseInteractable
     
     protected override void Start()
     {
+        // 先调用基类的Start
         base.Start();
         
         // 确保碰撞体设置正确
         SetupCollider();
         
-        if (!isInitialized && weaponData != null)
+        // 如果有weaponData就立即初始化
+        if (weaponData != null)
         {
             Initialize();
+        }
+        else
+        {
+            // 如果没有weaponData，尝试自动查找
+            AutoFindWeaponData();
+        }
+    }
+    
+    void AutoFindWeaponData()
+    {
+        // 尝试从游戏配置中找到weaponData
+        if (GameManager.Instance?.gameConfig?.WeaponConfig?.pistol != null)
+        {
+            // 默认给一个手枪数据作为测试
+            SetupWeapon(GameManager.Instance.gameConfig.WeaponConfig.pistol, 15);
+            Debug.Log("[WeaponPickup] Auto-assigned pistol data for testing");
+        }
+        else
+        {
+            Debug.LogError("[WeaponPickup] No weapon data found! Please assign weaponData in inspector.");
         }
     }
     
@@ -164,6 +186,7 @@ public class WeaponPickup : BaseInteractable
         if (!isInitialized || weaponData == null)
         {
             Debug.LogError("[WeaponPickup] 武器未正确初始化!");
+            ShowMessage("武器数据错误!");
             return;
         }
 
@@ -310,6 +333,25 @@ public class WeaponPickup : BaseInteractable
         return null;
     }
     
+    
+    public void SetupFromDroppedWeapon(WeaponController droppedWeapon)
+    {
+        if (droppedWeapon == null || droppedWeapon.weaponData == null)
+        {
+            Debug.LogError("[WeaponPickup] Invalid dropped weapon data!");
+            return;
+        }
+        
+        // 设置武器数据和当前弹药
+        weaponData = droppedWeapon.weaponData;
+        currentAmmo = droppedWeapon.CurrentAmmo; // 保留丢弃时的弹药数量
+        
+        Debug.Log($"[WeaponPickup] Setup from dropped weapon: {weaponData.weaponName} with {currentAmmo} ammo");
+        
+        // 初始化显示
+        Initialize();
+    }
+    
     bool IsMatchingAmmoType(string itemAmmoType, string weaponAmmoType)
     {
         if (string.IsNullOrEmpty(itemAmmoType) || string.IsNullOrEmpty(weaponAmmoType))
@@ -364,4 +406,23 @@ public class WeaponPickup : BaseInteractable
         
         Destroy(gameObject);
     }
+    
+    // 调试信息
+    void OnGUI()
+    {
+        if (!Debug.isDebugBuild) return;
+        
+        if (weaponData != null)
+        {
+            Vector3 screenPos = Camera.main.WorldToScreenPoint(transform.position + Vector3.up * 2f);
+            if (screenPos.z > 0)
+            {
+                GUI.color = Color.green;
+                GUI.Label(new Rect(screenPos.x - 50, Screen.height - screenPos.y, 100, 20), 
+                    $"{weaponData.weaponName} ({currentAmmo})");
+                GUI.color = Color.white;
+            }
+        }
+    }
+    
 }

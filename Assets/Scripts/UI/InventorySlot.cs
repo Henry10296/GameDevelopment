@@ -1,27 +1,37 @@
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using TMPro;
 
-public class InventorySlot : MonoBehaviour, IPointerClickHandler
+public class InventorySlot : MonoBehaviour, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler
 {
-   [Header("UI组件")]
+    [Header("UI组件")]
     public Image itemIcon;
     public TextMeshProUGUI quantityText;
     public Image background;
+    public Image highlight; // 高亮效果
     public Button slotButton;
     
+    [Header("颜色设置")]
+    public Color normalColor = new Color(0.2f, 0.2f, 0.2f, 0.5f);
+    public Color highlightColor = new Color(1f, 1f, 1f, 0.1f);
+    public Color selectedColor = new Color(0.8f, 0.8f, 0f, 0.3f);
+    
     private InventoryItem currentItem;
-    [SerializeField]private int slotIndex;
+    private int slotIndex;
     private InventoryUI inventoryUI;
+    private bool isSelected = false;
     
     public void Initialize(int index, InventoryUI ui)
     {
         slotIndex = index;
         inventoryUI = ui;
         
-        if (slotButton) slotButton.onClick.AddListener(OnSlotClick);
+        if (slotButton) 
+            slotButton.onClick.AddListener(OnSlotClick);
+        
+        if (highlight) 
+            highlight.gameObject.SetActive(false);
         
         ClearSlot();
     }
@@ -36,12 +46,14 @@ public class InventorySlot : MonoBehaviour, IPointerClickHandler
             {
                 itemIcon.sprite = item.itemData.icon;
                 itemIcon.color = Color.white;
+                itemIcon.gameObject.SetActive(true);
             }
             
             if (quantityText)
             {
-                quantityText.text = item.quantity > 1 ? item.quantity.ToString() : "";
-                quantityText.gameObject.SetActive(item.quantity > 1);
+                bool showQuantity = item.quantity > 1;
+                quantityText.text = showQuantity ? item.quantity.ToString() : "";
+                quantityText.gameObject.SetActive(showQuantity);
             }
             
             if (background)
@@ -63,10 +75,16 @@ public class InventorySlot : MonoBehaviour, IPointerClickHandler
         {
             itemIcon.sprite = null;
             itemIcon.color = Color.clear;
+            itemIcon.gameObject.SetActive(false);
         }
         
-        if (quantityText) quantityText.gameObject.SetActive(false);
-        if (background) background.color = new Color(0.2f, 0.2f, 0.2f, 0.5f);
+        if (quantityText) 
+            quantityText.gameObject.SetActive(false);
+        
+        if (background) 
+            background.color = normalColor;
+        
+        SetSelected(false);
     }
     
     Color GetItemTypeColor(ItemType itemType)
@@ -78,20 +96,54 @@ public class InventorySlot : MonoBehaviour, IPointerClickHandler
             ItemType.Medicine => new Color(0.8f, 1f, 0.4f, 0.3f),  // 绿色
             ItemType.Weapon => new Color(1f, 0.4f, 0.4f, 0.3f),    // 红色
             ItemType.Ammo => new Color(1f, 1f, 0.4f, 0.3f),        // 黄色
+            ItemType.Key => new Color(1f, 0.4f, 1f, 0.3f),         // 紫色
+            ItemType.Material => new Color(0.6f, 0.4f, 0.2f, 0.3f), // 棕色
             _ => new Color(0.8f, 0.8f, 0.8f, 0.3f)                 // 灰色
         };
     }
     
     void OnSlotClick()
     {
-        if (currentItem != null && inventoryUI != null)
+        if (inventoryUI != null)
         {
             inventoryUI.OnSlotClicked(currentItem);
+            SetSelected(currentItem != null);
         }
     }
-
+    
+    public void SetSelected(bool selected)
+    {
+        isSelected = selected;
+        if (highlight)
+        {
+            highlight.gameObject.SetActive(selected);
+            highlight.color = selected ? selectedColor : highlightColor;
+        }
+    }
+    
     public void OnPointerClick(PointerEventData eventData)
     {
-        throw new System.NotImplementedException();
+        OnSlotClick();
     }
+    
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        if (!isSelected && highlight)
+        {
+            highlight.gameObject.SetActive(true);
+            highlight.color = highlightColor;
+        }
+    }
+    
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        if (!isSelected && highlight)
+        {
+            highlight.gameObject.SetActive(false);
+        }
+    }
+    
+    public InventoryItem GetItem() => currentItem;
+    public bool HasItem() => currentItem != null;
+    public int GetSlotIndex() => slotIndex;
 }
