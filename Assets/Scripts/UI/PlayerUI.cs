@@ -16,16 +16,20 @@ public class PlayerUI : MonoBehaviour
     public TextMeshProUGUI armorText;
     
     [Header("武器显示")]
+    public GameObject weaponPanel; // 武器面板容器
     public TextMeshProUGUI weaponNameText;
     public Image weaponIcon;
-    public GameObject weaponUI; // 武器UI容器
     
     [Header("弹药显示")]
     public TextMeshProUGUI weaponAmmoText;    // 武器弹药 "12/30"
     public TextMeshProUGUI backpackAmmoText;  // 背包弹药 "备弹: 45"
-    public TextMeshProUGUI ammoText;          // 旧版兼容
+    public GameObject ammoPanel; // 弹药面板容器
+    
+    [Header("特殊提示")]
     public GameObject reloadPromptUI;         // 换弹提示UI
     public TextMeshProUGUI reloadPromptText;  // 换弹提示文本
+    public GameObject noAmmoWarning;          // 无弹药警告
+    public GameObject lowAmmoWarning;         // 低弹药警告
     
     [Header("准星")]
     public SimpleMouseCrosshair crosshair;
@@ -45,12 +49,21 @@ public class PlayerUI : MonoBehaviour
     public Color healthyColor = Color.green;
     public Color lowHealthColor = Color.red;
     public Color armorColor = Color.blue;
+    public Color normalAmmoColor = Color.white;
+    public Color lowAmmoColor = Color.yellow;
+    public Color noAmmoColor = Color.red;
     
     private Player player;
     private WeaponManager weaponManager;
     private Coroutine damageEffectCoroutine;
     private Coroutine hitMarkerCoroutine;
     private GamePhase currentPhase;
+    
+    // 状态缓存
+    private WeaponController lastWeapon;
+    private bool lastEmptyHandsState;
+    private int lastWeaponAmmo = -1;
+    private int lastBackpackAmmo = -1;
     
     public void Initialize()
     {
@@ -74,7 +87,16 @@ public class PlayerUI : MonoBehaviour
             }
         }
         
+        // 订阅武器管理器事件
+        if (weaponManager != null)
+        {
+            weaponManager.OnWeaponChanged += OnWeaponChanged;
+            weaponManager.OnGoEmptyHands += OnGoEmptyHands;
+        }
+        
         InitializeUI();
+        
+        Debug.Log("[PlayerUI] 初始化完成");
     }
     
     void InitializeUI()
@@ -82,6 +104,8 @@ public class PlayerUI : MonoBehaviour
         if (damageOverlay) damageOverlay.color = new Color(1, 0, 0, 0);
         if (hitMarker) hitMarker.gameObject.SetActive(false);
         if (reloadPromptUI) reloadPromptUI.SetActive(false);
+        if (noAmmoWarning) noAmmoWarning.SetActive(false);
+        if (lowAmmoWarning) lowAmmoWarning.SetActive(false);
         
         // 默认隐藏所有HUD
         SetHUDVisibility(false);
@@ -94,6 +118,8 @@ public class PlayerUI : MonoBehaviour
         {
             UpdateHealthDisplay();
             UpdateWeaponDisplay();
+            UpdateAmmoDisplay();
+            CheckAmmoWarnings();
         }
     }
     
@@ -104,6 +130,8 @@ public class PlayerUI : MonoBehaviour
         // 根据阶段显示/隐藏HUD
         bool showHUD = (newPhase == GamePhase.Exploration);
         SetHUDVisibility(showHUD);
+        
+        Debug.Log($"[PlayerUI] 阶段变更: {newPhase}, HUD显示: {showHUD}");
     }
     
     void SetHUDVisibility(bool show)
@@ -128,6 +156,10 @@ public class PlayerUI : MonoBehaviour
         {
             healthFill.color = Color.Lerp(lowHealthColor, healthyColor, healthPercent);
         }
+        
+        // 护甲显示
+        if (armorSlider) armorSlider.value = player.GetArmorPercentage();
+        if (armorText) armorText.text = $"{player.currentArmor:F0}/{player.maxArmor:F0}";
     }
     
     void UpdateWeaponDisplay()
@@ -137,8 +169,9 @@ public class PlayerUI : MonoBehaviour
         var currentWeapon = weaponManager.GetCurrentWeapon();
         bool hasWeapon = currentWeapon != null && !weaponManager.IsEmptyHands();
         
-        // 武器UI容器显示/隐藏
-        if (weaponUI) weaponUI.SetActive(hasWeapon);
+        // 武器面板显示/隐藏
+        if (weaponPanel) weaponPanel.SetActive(hasWeapon);
+        if (ammoPanel) ammoPanel.SetActive(hasWeapon);
         
         if (hasWeapon)
         {
@@ -146,18 +179,13 @@ public class PlayerUI : MonoBehaviour
             if (weaponNameText) 
                 weaponNameText.text = currentWeapon.weaponName;
             
-            // 更新弹药显示
-            UpdateAmmoDisplay(currentWeapon);
-            
             // 武器图标
             if (weaponIcon && currentWeapon.weaponData?.weaponIcon)
             {
                 weaponIcon.sprite = currentWeapon.weaponData.weaponIcon;
                 weaponIcon.enabled = true;
+                weaponIcon.color = Color.white;
             }
-            
-            // 换弹提示
-            UpdateReloadPrompt(currentWeapon);
         }
         else
         {
@@ -166,80 +194,91 @@ public class PlayerUI : MonoBehaviour
         }
     }
     
-    void UpdateAmmoDisplay(WeaponController weapon)
+    void UpdateAmmoDisplay()
     {
-        if (weapon == null) return;
+        if (weaponManager == null) return;
         
-        // 武器弹药
+        var currentWeapon = weaponManager.GetCurrentWeapon();
+        if (currentWeapon == null || weaponManager.IsEmptyHands()) return;
+        
+        // 武器弹药显示
         if (weaponAmmoText)
         {
-            weaponAmmoText.text = $"{weapon.CurrentAmmo}/{weapon.MaxAmmo}";
+            weaponAmmoText.text = $"{currentWeapon.CurrentAmmo}/{currentWeapon.MaxAmmo}";
             
-            // 根据弹药量改变颜色
-            if (weapon.CurrentAmmo == 0)
+            // 根据弹药量设置颜色
+            float ammoRatio = (float)currentWeapon.CurrentAmmo / currentWeapon.MaxAmmo;
+            if (currentWeapon.CurrentAmmo == 0)
             {
-                weaponAmmoText.color = Color.red;
+                weaponAmmoText.color = noAmmoColor;
             }
-            else if (weapon.CurrentAmmo <= weapon.MaxAmmo * 0.3f)
+            else if (ammoRatio <= 0.3f)
             {
-                weaponAmmoText.color = Color.yellow;
+                weaponAmmoText.color = lowAmmoColor;
             }
             else
             {
-                weaponAmmoText.color = Color.white;
+                weaponAmmoText.color = normalAmmoColor;
             }
         }
         
-        // 背包弹药
+        // 背包弹药显示
         if (backpackAmmoText && InventoryManager.Instance)
         {
-            string ammoType = GetCurrentWeaponAmmoType(weapon);
+            string ammoType = GetCurrentWeaponAmmoType(currentWeapon);
             int backpackAmmo = InventoryManager.Instance.GetAmmoCount(ammoType);
             
             backpackAmmoText.text = $"备弹: {backpackAmmo}";
             
-            // 根据备弹量改变颜色
+            // 根据备弹量设置颜色
             if (backpackAmmo == 0)
             {
-                backpackAmmoText.color = Color.red;
+                backpackAmmoText.color = noAmmoColor;
             }
-            else if (backpackAmmo <= 20)
+            else if (backpackAmmo <= 30)
             {
-                backpackAmmoText.color = Color.yellow;
+                backpackAmmoText.color = lowAmmoColor;
             }
             else
             {
-                backpackAmmoText.color = Color.white;
+                backpackAmmoText.color = normalAmmoColor;
             }
-        }
-        
-        // 兼容旧的ammoText（如果存在）
-        if (ammoText && !weaponAmmoText)
-        {
-            string weaponAmmo = $"{weapon.CurrentAmmo}/{weapon.MaxAmmo}";
-            string backpackInfo = "";
-            
-            if (InventoryManager.Instance)
-            {
-                string ammoType = GetCurrentWeaponAmmoType(weapon);
-                int backpackAmmo = InventoryManager.Instance.GetAmmoCount(ammoType);
-                backpackInfo = $"\n备弹: {backpackAmmo}";
-            }
-            
-            ammoText.text = weaponAmmo + backpackInfo;
         }
     }
     
-    void UpdateReloadPrompt(WeaponController weapon)
+    void CheckAmmoWarnings()
     {
-        if (weapon == null)
+        if (weaponManager == null) return;
+        
+        var currentWeapon = weaponManager.GetCurrentWeapon();
+        if (currentWeapon == null)
         {
+            if (noAmmoWarning) noAmmoWarning.SetActive(false);
+            if (lowAmmoWarning) lowAmmoWarning.SetActive(false);
             if (reloadPromptUI) reloadPromptUI.SetActive(false);
             return;
         }
         
+        bool hasNoAmmo = currentWeapon.CurrentAmmo == 0;
+        bool hasLowAmmo = currentWeapon.CurrentAmmo <= currentWeapon.MaxAmmo * 0.2f;
+        
+        // 无弹药警告
+        if (noAmmoWarning) noAmmoWarning.SetActive(hasNoAmmo);
+        
+        // 低弹药警告
+        if (lowAmmoWarning) lowAmmoWarning.SetActive(hasLowAmmo && !hasNoAmmo);
+        
+        // 换弹提示
+        UpdateReloadPrompt(currentWeapon);
+    }
+    
+    void UpdateReloadPrompt(WeaponController weapon)
+    {
+        if (weapon == null || reloadPromptUI == null) return;
+        
         bool shouldShowPrompt = false;
         string promptText = "";
+        Color promptColor = Color.white;
         
         if (weapon.CurrentAmmo == 0 && InventoryManager.Instance)
         {
@@ -248,34 +287,23 @@ public class PlayerUI : MonoBehaviour
             {
                 shouldShowPrompt = true;
                 promptText = "按 R 键换弹";
+                promptColor = lowAmmoColor;
             }
             else
             {
                 shouldShowPrompt = true;
                 string ammoDisplayName = InventoryManager.Instance.GetAmmoDisplayName(ammoType);
                 promptText = $"没有{ammoDisplayName}";
+                promptColor = noAmmoColor;
             }
         }
         
-        // 显示或隐藏换弹提示
-        if (reloadPromptUI)
-        {
-            reloadPromptUI.SetActive(shouldShowPrompt);
-        }
+        reloadPromptUI.SetActive(shouldShowPrompt);
         
         if (reloadPromptText && shouldShowPrompt)
         {
             reloadPromptText.text = promptText;
-            
-            // 根据提示类型设置颜色
-            if (promptText.Contains("没有"))
-            {
-                reloadPromptText.color = Color.red;
-            }
-            else
-            {
-                reloadPromptText.color = Color.yellow;
-            }
+            reloadPromptText.color = promptColor;
         }
     }
     
@@ -284,14 +312,10 @@ public class PlayerUI : MonoBehaviour
         if (weaponNameText) weaponNameText.text = "";
         if (weaponAmmoText) weaponAmmoText.text = "";
         if (backpackAmmoText) backpackAmmoText.text = "";
-        if (ammoText) ammoText.text = "";
         if (weaponIcon) weaponIcon.enabled = false;
         if (reloadPromptUI) reloadPromptUI.SetActive(false);
     }
     
-    /// <summary>
-    /// 安全获取当前武器的弹药类型
-    /// </summary>
     string GetCurrentWeaponAmmoType(WeaponController weapon)
     {
         if (weapon == null) return "9mm";
@@ -313,10 +337,31 @@ public class PlayerUI : MonoBehaviour
         return "9mm"; // 默认
     }
     
+    // 武器管理器事件响应
+    void OnWeaponChanged(WeaponController newWeapon)
+    {
+        Debug.Log($"[PlayerUI] 武器变更: {newWeapon?.weaponName}");
+        lastWeapon = newWeapon;
+        lastEmptyHandsState = false;
+        
+        // 立即更新显示
+        UpdateWeaponDisplay();
+        UpdateAmmoDisplay();
+    }
+    
+    void OnGoEmptyHands()
+    {
+        Debug.Log("[PlayerUI] 切换到空手");
+        lastWeapon = null;
+        lastEmptyHandsState = true;
+        
+        // 立即清除显示
+        ClearWeaponDisplay();
+    }
+    
     // 外部调用接口 - 保持与UIManager的兼容性
     public void UpdateAmmoDisplay(int current, int max)
     {
-        if (ammoText) ammoText.text = $"{current}/{max}";
         if (weaponAmmoText) weaponAmmoText.text = $"{current}/{max}";
     }
     
@@ -412,6 +457,12 @@ public class PlayerUI : MonoBehaviour
         {
             player.OnHealthChanged -= UpdateHealth;
             player.OnDamaged -= OnPlayerDamaged;
+        }
+        
+        if (weaponManager != null)
+        {
+            weaponManager.OnWeaponChanged -= OnWeaponChanged;
+            weaponManager.OnGoEmptyHands -= OnGoEmptyHands;
         }
     }
 }

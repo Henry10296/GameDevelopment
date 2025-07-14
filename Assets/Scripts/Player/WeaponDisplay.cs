@@ -76,6 +76,12 @@ public class WeaponDisplay : MonoBehaviour
     public float runSmoothingFactor = 0.3f;
     public float maxRunBob = 20f;
     
+    [Header("显示优化")]
+    public float weaponImageScale = 2.5f;     // 增大武器显示
+    public bool autoScaleWeaponImage = true;  
+    public Vector2 weaponPositionOffset = new Vector2(0, -100f); // 调整武器位置
+    public Vector2 screenBounds = new Vector2(50f, 50f);        // 屏幕边界限制
+    
     [Header("调试")]
     public bool enableDebugLog = true;
     
@@ -84,6 +90,7 @@ public class WeaponDisplay : MonoBehaviour
     
     // 私有变量
     private Vector2 originalPosition;
+    private Vector2 adjustedOriginalPosition; // 调整后的原始位置
     private WeaponController currentWeapon;
     private WeaponManager weaponManager;
     private Coroutine currentAnimation;
@@ -105,15 +112,9 @@ public class WeaponDisplay : MonoBehaviour
     private bool wasRunning = false;
     private int lastAmmo = -1;
     private Vector2 smoothedWalkBob = Vector2.zero;
-    
-    
-    
-    [Header("武器显示缩放")]
-    public float weaponImageScale = 1.5f; // 武器图片缩放倍数
-    public bool autoScaleWeaponImage = true; // 自动缩放武器图片
-    
-    
     private bool lastAimingState = false;
+    private float lastUpdateTime = 0f;
+    
     void Start()
     {
         Initialize();
@@ -125,10 +126,27 @@ public class WeaponDisplay : MonoBehaviour
         if (weaponRect != null)
         {
             originalPosition = weaponRect.anchoredPosition;
+            
+            // 调整武器显示位置 - 避免过度出屏幕
+            adjustedOriginalPosition = originalPosition + weaponPositionOffset;
+            
+            // 确保不会过度出屏幕
+            adjustedOriginalPosition = ClampToScreenBounds(adjustedOriginalPosition);
+            
+            weaponRect.anchoredPosition = adjustedOriginalPosition;
+            
+            Debug.Log($"[WeaponDisplay] Original position: {originalPosition}, Adjusted: {adjustedOriginalPosition}");
         }
         else
         {
             LogWarning("weaponRect is null!");
+        }
+        
+        // 设置武器图片缩放
+        if (autoScaleWeaponImage && weaponImage != null)
+        {
+            weaponImage.rectTransform.localScale = Vector3.one * weaponImageScale;
+            Debug.Log($"[WeaponDisplay] Set weapon scale to: {weaponImageScale}");
         }
         
         // 查找武器管理器
@@ -144,6 +162,25 @@ public class WeaponDisplay : MonoBehaviour
         LogDebug("Initialized successfully");
     }
     
+    Vector2 ClampToScreenBounds(Vector2 position)
+    {
+        // 获取屏幕尺寸
+        float screenWidth = Screen.width;
+        float screenHeight = Screen.height;
+        
+        // 计算安全边界
+        float minX = -screenWidth * 0.5f + screenBounds.x;
+        float maxX = screenWidth * 0.5f - screenBounds.x;
+        float minY = -screenHeight * 0.5f + screenBounds.y;
+        float maxY = screenHeight * 0.5f - screenBounds.y;
+        
+        // 限制位置
+        position.x = Mathf.Clamp(position.x, minX, maxX);
+        position.y = Mathf.Clamp(position.y, minY, maxY);
+        
+        return position;
+    }
+    
     void StartWeaponMonitoring()
     {
         if (weaponMonitorCoroutine != null)
@@ -157,19 +194,16 @@ public class WeaponDisplay : MonoBehaviour
     {
         while (this != null)
         {
-            // 检查weaponManager是否有效
             if (weaponManager != null)
             {
                 WeaponController newWeapon = SafeGetCurrentWeapon();
                 bool newEmptyHands = SafeIsEmptyHands();
                 
-                // 检测武器变化
                 if (newWeapon != currentWeapon || newEmptyHands != isEmptyHands)
                 {
                     HandleWeaponChange(newWeapon, newEmptyHands);
                 }
                 
-                // 检测射击和换弹
                 if (currentWeapon != null && !isEmptyHands)
                 {
                     CheckForShooting();
@@ -177,7 +211,7 @@ public class WeaponDisplay : MonoBehaviour
                 }
             }
             
-            yield return new WaitForSeconds(0.05f); // 20FPS检测频率
+            yield return new WaitForSeconds(0.05f);
         }
     }
     
@@ -231,21 +265,19 @@ public class WeaponDisplay : MonoBehaviour
     
     void Update()
     {
-        // 修复：限制更新频率
-        if (Time.time - lastUpdateTime < 0.016f) return; // 60FPS限制
+        if (Time.time - lastUpdateTime < 0.016f) return;
         lastUpdateTime = Time.time;
         
         UpdateWeaponSway();
         CheckInteractionInput();
         CheckMeleeInput();
     }
-    private float lastUpdateTime = 0f;
     
     void UpdateWeaponSway()
     {
         if (weaponRect == null || isSwitching) return;
         
-        Vector2 targetPos = originalPosition;
+        Vector2 targetPos = adjustedOriginalPosition; // 使用调整后的原始位置
         
         // 鼠标摇摆
         Vector2 mouseDelta = (Vector2)Input.mousePosition - lastMousePosition;
@@ -265,8 +297,12 @@ public class WeaponDisplay : MonoBehaviour
         Vector2 walkSway = CalculateWalkSway();
         
         // 合并摇摆
-        targetPos += mouseSway + breathSway + walkSway;
-        weaponRect.anchoredPosition = Vector2.Lerp(weaponRect.anchoredPosition, targetPos, Time.deltaTime * 8f);
+        Vector2 finalPosition = targetPos + mouseSway + breathSway + walkSway;
+        
+        // 限制在屏幕边界内
+        finalPosition = ClampToScreenBounds(finalPosition);
+        
+        weaponRect.anchoredPosition = Vector2.Lerp(weaponRect.anchoredPosition, finalPosition, Time.deltaTime * 8f);
         lastMousePosition = Input.mousePosition;
     }
     
@@ -323,7 +359,6 @@ public class WeaponDisplay : MonoBehaviour
     {
         if (currentWeapon == null || isAnimating) return;
         
-        // 方法1：检测鼠标输入
         if (Input.GetMouseButtonDown(0))
         {
             if (SafeGetCurrentAmmo() > 0)
@@ -333,7 +368,6 @@ public class WeaponDisplay : MonoBehaviour
             }
         }
         
-        // 方法2：检测弹药变化（备用方案）
         int currentAmmoCount = SafeGetCurrentAmmo();
         if (lastAmmo != -1 && currentAmmoCount < lastAmmo && !SafeIsReloading())
         {
@@ -422,12 +456,6 @@ public class WeaponDisplay : MonoBehaviour
         currentWeaponType = weaponType;
         isEmptyHands = false;
     
-        // 设置武器图片缩放
-        if (autoScaleWeaponImage && weaponImage != null)
-        {
-            weaponImage.rectTransform.localScale = Vector3.one * weaponImageScale;
-        }
-    
         if (switchAnimation != null)
             StopCoroutine(switchAnimation);
         switchAnimation = StartCoroutine(WeaponSwitchCoroutine(newWeaponSet));
@@ -451,15 +479,12 @@ public class WeaponDisplay : MonoBehaviour
     {
         isSwitching = true;
         
-        // 第一阶段：当前武器下降
         if (!isEmptyHands)
         {
             yield return StartCoroutine(WeaponSlideDown());
         }
         
         yield return new WaitForSeconds(switchHoldTime);
-        
-        // 第二阶段：新武器滑入
         yield return StartCoroutine(WeaponSlideUp(newWeaponSet));
         
         isSwitching = false;
@@ -471,7 +496,7 @@ public class WeaponDisplay : MonoBehaviour
         if (weaponRect == null) yield break;
         
         Vector2 startPos = weaponRect.anchoredPosition;
-        Vector2 endPos = startPos + Vector2.down * 200f;
+        Vector2 endPos = startPos + Vector2.down * 300f; // 增大滑动距离
         
         float elapsed = 0f;
         while (elapsed < 0.2f)
@@ -487,12 +512,11 @@ public class WeaponDisplay : MonoBehaviour
     {
         if (weaponRect == null || weaponImage == null) yield break;
         
-        Vector2 endPos = originalPosition;
-        Vector2 startPos = endPos + Vector2.down * 200f;
+        Vector2 endPos = adjustedOriginalPosition; // 使用调整后的位置
+        Vector2 startPos = endPos + Vector2.down * 300f;
         
         weaponRect.anchoredPosition = startPos;
         
-        // 设置新武器图片
         if (weaponSet.idleFrames.Length > 0)
         {
             weaponImage.sprite = weaponSet.idleFrames[0];
@@ -515,7 +539,6 @@ public class WeaponDisplay : MonoBehaviour
     {
         isSwitching = true;
         
-        // 收起当前武器
         if (!isEmptyHands)
         {
             WeaponSpriteSet currentSet = GetCurrentSpriteSet();
@@ -527,7 +550,6 @@ public class WeaponDisplay : MonoBehaviour
         
         yield return new WaitForSeconds(switchHoldTime);
         
-        // 抬起空手
         if (handSprites.emptyHandsRaise.Length > 0)
         {
             yield return StartCoroutine(PlayAnimationCoroutine(handSprites.emptyHandsRaise, switchFrameRate, false));
@@ -579,7 +601,6 @@ public class WeaponDisplay : MonoBehaviour
                 StopCoroutine(currentAnimation);
             currentAnimation = StartCoroutine(PlayAnimationCoroutine(spriteSet.fireFrames, fireFrameRate, false));
             
-            // 添加后坐力效果
             StartCoroutine(RecoilEffect());
         }
         else
@@ -657,7 +678,6 @@ public class WeaponDisplay : MonoBehaviour
     
     public void SetAiming(bool aiming)
     {
-        // 修复：避免重复设置相同状态
         if (lastAimingState == aiming) return;
         
         lastAimingState = aiming;
@@ -706,7 +726,6 @@ public class WeaponDisplay : MonoBehaviour
             }
         } while (loop && isAnimating);
         
-        // 动画结束处理
         if (!loop)
         {
             LogDebug("Animation finished, returning to idle");
@@ -765,7 +784,6 @@ public class WeaponDisplay : MonoBehaviour
         Vector2 startPos = weaponRect.anchoredPosition;
         Vector2 swingPos = startPos + Vector2.right * meleeSwingAmount;
         
-        // 快速挥舞
         float elapsed = 0f;
         while (elapsed < 0.15f)
         {
@@ -774,7 +792,6 @@ public class WeaponDisplay : MonoBehaviour
             yield return null;
         }
         
-        // 回归原位
         elapsed = 0f;
         while (elapsed < 0.1f)
         {
@@ -797,7 +814,6 @@ public class WeaponDisplay : MonoBehaviour
         Vector2 startPos = weaponRect.anchoredPosition;
         Vector2 recoilPos = startPos + Vector2.down * recoilKickback;
         
-        // 快速后退
         float elapsed = 0f;
         while (elapsed < 0.08f)
         {
@@ -806,7 +822,6 @@ public class WeaponDisplay : MonoBehaviour
             yield return null;
         }
         
-        // 缓慢恢复
         elapsed = 0f;
         while (elapsed < 0.15f)
         {
@@ -837,7 +852,6 @@ public class WeaponDisplay : MonoBehaviour
         return GetSpriteSet(currentWeapon.weaponType);
     }
     
-    // ==== 日志方法 ====
     void LogDebug(string message)
     {
         if (enableDebugLog)
@@ -888,7 +902,6 @@ public class WeaponDisplay : MonoBehaviour
         PlayMeleeAttack();
     }
     
-    // 调试信息显示
     void OnGUI()
     {
         if (!enableDebugLog || !Debug.isDebugBuild) return;
@@ -899,6 +912,8 @@ public class WeaponDisplay : MonoBehaviour
         GUILayout.Label($"Empty Hands: {isEmptyHands}");
         GUILayout.Label($"Is Animating: {isAnimating}");
         GUILayout.Label($"Weapon Type: {currentWeaponType}");
+        GUILayout.Label($"Scale: {weaponImageScale}");
+        GUILayout.Label($"Position Offset: {weaponPositionOffset}");
         
         if (currentWeapon != null)
         {
@@ -911,7 +926,6 @@ public class WeaponDisplay : MonoBehaviour
     
     void OnDestroy()
     {
-        // 清理协程
         if (weaponMonitorCoroutine != null)
         {
             StopCoroutine(weaponMonitorCoroutine);

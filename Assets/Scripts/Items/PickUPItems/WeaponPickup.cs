@@ -18,45 +18,38 @@ public class WeaponPickup : BaseInteractable
     
     private Vector3 originalPosition;
     private bool isInitialized = false;
+    private bool isBeingPickedUp = false; // 防止重复拾取
     
     protected override void Start()
     {
-        // 先调用基类的Start
         base.Start();
-        
-        // 确保碰撞体设置正确
         SetupCollider();
         
-        // 如果有weaponData就立即初始化
         if (weaponData != null)
         {
             Initialize();
         }
         else
         {
-            // 如果没有weaponData，尝试自动查找
             AutoFindWeaponData();
         }
     }
     
     void AutoFindWeaponData()
     {
-        // 尝试从游戏配置中找到weaponData
         if (GameManager.Instance?.gameConfig?.WeaponConfig?.pistol != null)
         {
-            // 默认给一个手枪数据作为测试
             SetupWeapon(GameManager.Instance.gameConfig.WeaponConfig.pistol, 15);
             Debug.Log("[WeaponPickup] Auto-assigned pistol data for testing");
         }
         else
         {
-            Debug.LogError("[WeaponPickup] No weapon data found! Please assign weaponData in inspector.");
+            Debug.LogError("[WeaponPickup] No weapon data found!");
         }
     }
     
     void SetupCollider()
     {
-        // 确保有正确的碰撞体
         SphereCollider col = GetComponent<SphereCollider>();
         if (col == null)
         {
@@ -66,7 +59,7 @@ public class WeaponPickup : BaseInteractable
         col.isTrigger = true;
         col.radius = Mathf.Max(1.5f, interactionRange * 0.5f);
         
-        Debug.Log($"[WeaponPickup] {gameObject.name} - Collider setup: radius={col.radius}, isTrigger={col.isTrigger}");
+        Debug.Log($"[WeaponPickup] {gameObject.name} - Collider setup: radius={col.radius}");
     }
     
     public void SetupWeapon(WeaponData data, int ammo)
@@ -76,7 +69,7 @@ public class WeaponPickup : BaseInteractable
         Initialize();
     }
     
-   public  void Initialize()
+    public void Initialize()
     {
         if (weaponData == null)
         {
@@ -85,14 +78,10 @@ public class WeaponPickup : BaseInteractable
         }
         
         isInitialized = true;
-        
-        // 设置名称
         gameObject.name = $"Pickup_{weaponData.weaponName}";
         
-        // 创建武器显示
         CreateWeaponDisplay();
         
-        // 开始动画
         if (enableFloatAnimation)
         {
             originalPosition = transform.position;
@@ -104,7 +93,6 @@ public class WeaponPickup : BaseInteractable
     
     void CreateWeaponDisplay()
     {
-        // 如果已经有精灵渲染器，使用它
         if (weaponSprite == null)
         {
             weaponSprite = GetComponent<SpriteRenderer>();
@@ -112,24 +100,20 @@ public class WeaponPickup : BaseInteractable
         
         if (weaponSprite == null)
         {
-            // 创建新的精灵显示
             GameObject spriteObj = new GameObject("WeaponSprite");
             spriteObj.transform.SetParent(transform);
             spriteObj.transform.localPosition = Vector3.zero;
-            
             weaponSprite = spriteObj.AddComponent<SpriteRenderer>();
         }
         
-        // 设置精灵
         if (weaponData.weaponIcon != null)
         {
             weaponSprite.sprite = weaponData.weaponIcon;
-            weaponSprite.color = Color.cyan; // 武器用青色标识
+            weaponSprite.color = Color.cyan;
             weaponSprite.transform.localScale = Vector3.one * 0.1f;
             weaponSprite.sortingOrder = 10;
         }
         
-        // 面向相机
         StartCoroutine(FaceCamera());
     }
     
@@ -141,7 +125,7 @@ public class WeaponPickup : BaseInteractable
             if (mainCam != null)
             {
                 Vector3 directionToCamera = mainCam.transform.position - weaponSprite.transform.position;
-                directionToCamera.y = 0; // 只在水平面旋转
+                directionToCamera.y = 0;
                 
                 if (directionToCamera != Vector3.zero)
                 {
@@ -154,22 +138,16 @@ public class WeaponPickup : BaseInteractable
     
     System.Collections.IEnumerator FloatAnimation()
     {
-        while (this != null && isInitialized)
+        while (this != null && isInitialized && !isBeingPickedUp)
         {
             float time = Time.time * floatSpeed;
-            
-            // 上下浮动
             Vector3 newPos = originalPosition + Vector3.up * Mathf.Sin(time) * floatHeight;
             transform.position = newPos;
-            
-            // 旋转
             transform.Rotate(0, rotationSpeed * Time.deltaTime, 0);
-            
             yield return null;
         }
     }
     
-    // 重写交互文本
     public override string GetInteractionText()
     {
         if (weaponData != null)
@@ -181,12 +159,22 @@ public class WeaponPickup : BaseInteractable
     
     public override void OnInteract()
     {
+        // 防止重复拾取
+        if (isBeingPickedUp)
+        {
+            Debug.Log("[WeaponPickup] Already being picked up, ignoring");
+            return;
+        }
+        
+        isBeingPickedUp = true;
+        
         Debug.Log($"[WeaponPickup] {gameObject.name} - OnInteract called!");
     
         if (!isInitialized || weaponData == null)
         {
             Debug.LogError("[WeaponPickup] 武器未正确初始化!");
             ShowMessage("武器数据错误!");
+            isBeingPickedUp = false;
             return;
         }
 
@@ -194,54 +182,50 @@ public class WeaponPickup : BaseInteractable
         if (weaponManager == null)
         {
             ShowMessage("未找到武器管理器!");
+            isBeingPickedUp = false;
             return;
         }
 
-        // 检查是否已有相同类型武器
         WeaponType weaponType = GetWeaponType();
-    
         bool pickupSuccessful = false;
     
         if (weaponManager.HasWeaponType(weaponType))
         {
             // 已有武器，补充弹药
-            pickupSuccessful = HandleAmmoPickupImproved();
+            pickupSuccessful = HandleAmmoPickup();
         }
         else
         {
             // 添加新武器
             pickupSuccessful = TryAddWeapon(weaponManager);
-            if (pickupSuccessful)
-            {
-                ShowMessage($"获得了 {weaponData.weaponName}!");
-            }
-            else
-            {
-                ShowMessage("无法拾取武器!");
-            }
         }
     
-        // 只有拾取成功才销毁
+        Debug.Log($"[WeaponPickup] Pickup result: {pickupSuccessful}");
+    
+        // 重要修复：确保拾取成功才销毁
         if (pickupSuccessful)
         {
+            Debug.Log("[WeaponPickup] Starting destroy sequence");
             StartCoroutine(DestroyAfterPickup());
+        }
+        else
+        {
+            Debug.Log("[WeaponPickup] Pickup failed, not destroying");
+            isBeingPickedUp = false;
         }
     }
     
-    
-    
-    
-    bool HandleAmmoPickupImproved()
+    bool HandleAmmoPickup()
     {
         if (InventoryManager.Instance && currentAmmo > 0)
         {
-            // 查找对应弹药
             ItemData ammoItem = FindAmmoItem(weaponData.ammoType);
             if (ammoItem != null)
             {
                 if (InventoryManager.Instance.AddItem(ammoItem, currentAmmo))
                 {
                     ShowMessage($"获得了 {currentAmmo} 发 {ammoItem.itemName}");
+                    Debug.Log($"[WeaponPickup] Successfully added {currentAmmo} ammo to inventory");
                     return true;
                 }
                 else
@@ -263,19 +247,15 @@ public class WeaponPickup : BaseInteractable
         }
     }
     
-    
-    
     bool TryAddWeapon(WeaponManager weaponManager)
     {
         try
         {
-            // 在weaponHolder下创建武器
             GameObject weaponObj = new GameObject(weaponData.weaponName);
             weaponObj.transform.SetParent(weaponManager.weaponHolder);
             weaponObj.transform.localPosition = Vector3.zero;
             weaponObj.transform.localRotation = Quaternion.identity;
 
-            // 根据武器类型添加控制器
             WeaponController controller = null;
             WeaponType weaponType = GetWeaponType();
 
@@ -288,20 +268,18 @@ public class WeaponPickup : BaseInteractable
                     controller = weaponObj.AddComponent<AutoRifleController>();
                     break;
                 default:
-                    Debug.LogWarning($"未知武器类型: {weaponType}，使用通用控制器");
                     controller = weaponObj.AddComponent<WeaponController>();
                     break;
             }
 
             if (controller != null)
             {
-                // 设置武器数据
                 controller.weaponData = weaponData;
                 controller.currentAmmo = currentAmmo;
                 controller.weaponType = weaponType;
 
-                // 添加到武器管理器
                 weaponManager.AddWeapon(controller);
+                ShowMessage($"获得了 {weaponData.weaponName}!");
                 
                 Debug.Log($"[WeaponPickup] 成功添加武器: {weaponData.weaponName}");
                 return true;
@@ -312,6 +290,7 @@ public class WeaponPickup : BaseInteractable
             Debug.LogError($"[WeaponPickup] 添加武器失败: {e.Message}");
         }
 
+        ShowMessage("无法拾取武器!");
         return false;
     }
     
@@ -328,41 +307,11 @@ public class WeaponPickup : BaseInteractable
         if (name.Contains("knife") || name.Contains("刀"))
             return WeaponType.Knife;
             
-        return WeaponType.Pistol; // 默认
-    }
-    
-    void HandleAmmoPickup()
-    {
-        if (InventoryManager.Instance && currentAmmo > 0)
-        {
-            // 查找对应弹药
-            ItemData ammoItem = FindAmmoItem(weaponData.ammoType);
-            if (ammoItem != null)
-            {
-                if (InventoryManager.Instance.AddItem(ammoItem, currentAmmo))
-                {
-                    ShowMessage($"获得了 {currentAmmo} 发 {ammoItem.itemName}");
-                    StartCoroutine(DestroyAfterPickup());
-                }
-                else
-                {
-                    ShowMessage("背包已满!");
-                }
-            }
-            else
-            {
-                ShowMessage($"未找到对应弹药: {weaponData.ammoType}");
-            }
-        }
-        else
-        {
-            ShowMessage("已拥有该武器，且没有额外弹药");
-        }
+        return WeaponType.Pistol;
     }
     
     ItemData FindAmmoItem(string ammoType)
     {
-        // 从GameConfig查找弹药
         if (GameManager.Instance?.gameConfig?.ItemConfig?.allItems != null)
         {
             foreach (var item in GameManager.Instance.gameConfig.ItemConfig.allItems)
@@ -378,25 +327,6 @@ public class WeaponPickup : BaseInteractable
         return null;
     }
     
-    
-    public void SetupFromDroppedWeapon(WeaponController droppedWeapon)
-    {
-        if (droppedWeapon == null || droppedWeapon.weaponData == null)
-        {
-            Debug.LogError("[WeaponPickup] Invalid dropped weapon data!");
-            return;
-        }
-        
-        // 设置武器数据和当前弹药
-        weaponData = droppedWeapon.weaponData;
-        currentAmmo = droppedWeapon.CurrentAmmo; // 保留丢弃时的弹药数量
-        
-        Debug.Log($"[WeaponPickup] Setup from dropped weapon: {weaponData.weaponName} with {currentAmmo} ammo");
-        
-        // 初始化显示
-        Initialize();
-    }
-    
     bool IsMatchingAmmoType(string itemAmmoType, string weaponAmmoType)
     {
         if (string.IsNullOrEmpty(itemAmmoType) || string.IsNullOrEmpty(weaponAmmoType))
@@ -405,6 +335,23 @@ public class WeaponPickup : BaseInteractable
         return itemAmmoType.Equals(weaponAmmoType, System.StringComparison.OrdinalIgnoreCase) ||
                itemAmmoType.Contains(weaponAmmoType) ||
                weaponAmmoType.Contains(itemAmmoType);
+    }
+    
+    // 重要修复：从丢弃武器设置数据
+    public void SetupFromDroppedWeapon(WeaponController droppedWeapon)
+    {
+        if (droppedWeapon == null || droppedWeapon.weaponData == null)
+        {
+            Debug.LogError("[WeaponPickup] Invalid dropped weapon data!");
+            return;
+        }
+        
+        weaponData = droppedWeapon.weaponData;
+        currentAmmo = droppedWeapon.CurrentAmmo; // 保留丢弃时的弹药数量
+        
+        Debug.Log($"[WeaponPickup] Setup from dropped weapon: {weaponData.weaponName} with {currentAmmo} ammo");
+        
+        Initialize();
     }
     
     void ShowMessage(string message)
@@ -417,6 +364,8 @@ public class WeaponPickup : BaseInteractable
     
     System.Collections.IEnumerator DestroyAfterPickup()
     {
+        Debug.Log("[WeaponPickup] DestroyAfterPickup started");
+        
         // 停止所有动画
         StopAllCoroutines();
         
@@ -430,13 +379,16 @@ public class WeaponPickup : BaseInteractable
             float duration = 0.3f;
             float elapsed = 0f;
             
-            while (elapsed < duration)
+            while (elapsed < duration && this != null)
             {
                 elapsed += Time.deltaTime;
                 float t = elapsed / duration;
                 
-                transform.position = Vector3.Lerp(startPos, targetPos, t);
-                transform.localScale = Vector3.Lerp(startScale, Vector3.zero, t);
+                if (transform != null)
+                {
+                    transform.position = Vector3.Lerp(startPos, targetPos, t);
+                    transform.localScale = Vector3.Lerp(startScale, Vector3.zero, t);
+                }
                 
                 if (weaponSprite != null)
                 {
@@ -449,10 +401,15 @@ public class WeaponPickup : BaseInteractable
             }
         }
         
-        Destroy(gameObject);
+        Debug.Log("[WeaponPickup] Destroying pickup object");
+        
+        // 确保对象被销毁
+        if (this != null && gameObject != null)
+        {
+            Destroy(gameObject);
+        }
     }
     
-    // 调试信息
     void OnGUI()
     {
         if (!Debug.isDebugBuild) return;
@@ -469,5 +426,4 @@ public class WeaponPickup : BaseInteractable
             }
         }
     }
-    
 }

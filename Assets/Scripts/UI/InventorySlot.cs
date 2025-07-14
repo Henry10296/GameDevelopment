@@ -147,3 +147,7 @@ public class InventorySlot : MonoBehaviour, IPointerClickHandler, IPointerEnterH
     public bool HasItem() => currentItem != null;
     public int GetSlotIndex() => slotIndex;
 }
+
+
+
+
