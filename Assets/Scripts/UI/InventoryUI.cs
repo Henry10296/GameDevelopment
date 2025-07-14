@@ -33,17 +33,35 @@ public class InventoryUI : UIPanel
     
     public override void Initialize()
     {
-        if (isInitialized) return;
-        
+        if (isInitialized) 
+        {
+            Debug.LogWarning("[InventoryUI] Already initialized, skipping...");
+            return;
+        }
+    
         base.Initialize();
+    
+        // 确保InventoryManager存在
+        if (!InventoryManager.Instance)
+        {
+            Debug.LogError("[InventoryUI] InventoryManager not found! Cannot initialize inventory UI.");
+            return;
+        }
+    
         CreateInventorySlots();
         SetupEventListeners();
         SetupButtons();
-        
-        // 初始隐藏
+    
+        // 初始隐藏，但确保面板对象存在
+        if (inventoryPanel == null)
+        {
+            Debug.LogError("[InventoryUI] inventoryPanel is null! Please assign it in inspector.");
+            return;
+        }
+    
         Hide();
         isInitialized = true;
-        
+    
         Debug.Log("[InventoryUI] 初始化完成");
     }
     
@@ -282,36 +300,59 @@ public class InventoryUI : UIPanel
     
     public override void Show()
     {
+        if (!isInitialized)
+        {
+            Debug.LogWarning("[InventoryUI] Not initialized, calling Initialize()");
+            Initialize();
+        }
+    
         base.Show();
-        
-        // 通知UIManager暂停游戏
+    
+        // 确保面板激活
+        if (inventoryPanel != null)
+        {
+            inventoryPanel.SetActive(true);
+        }
+    
+        // 暂停游戏
         if (UIManager.Instance)
         {
             UIManager.Instance.PauseGame();
         }
-        
-        // 刷新背包数据
+    
+        // 强制刷新背包数据
         if (InventoryManager.Instance)
         {
-            OnInventoryChanged(InventoryManager.Instance.GetItems());
+            var items = InventoryManager.Instance.GetItems();
+            OnInventoryChanged(items);
+            Debug.Log($"[InventoryUI] Refreshed inventory with {items.Count} items");
         }
-        
+    
+        // 显示鼠标光标
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+    
         Debug.Log("[InventoryUI] 背包界面已显示");
     }
+
     
     public override void Hide()
     {
         base.Hide();
-        
+    
         // 隐藏物品信息
         HideItemInfo();
-        
-        // 通知UIManager恢复游戏
+    
+        // 恢复游戏
         if (UIManager.Instance)
         {
             UIManager.Instance.ResumeGame();
         }
-        
+    
+        // 隐藏鼠标光标
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+    
         Debug.Log("[InventoryUI] 背包界面已隐藏");
     }
     

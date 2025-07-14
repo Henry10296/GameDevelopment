@@ -153,7 +153,7 @@ public class PickupItem : BaseInteractable
             spriteObj.transform.localPosition = Vector3.zero;
             spriteRenderer = spriteObj.AddComponent<SpriteRenderer>();
         }
-        
+    
         // 设置精灵
         if (itemData.worldSprite != null)
         {
@@ -163,17 +163,21 @@ public class PickupItem : BaseInteractable
         {
             spriteRenderer.sprite = itemData.icon;
         }
-        
-        // 设置大小 - 为了解决"人物素材感觉有点小"的问题
-        spriteRenderer.transform.localScale = Vector3.one * GetItemScale();
-        
+    
+        // 设置大小 - 使用改进的缩放系统
+        float scale = GetItemScale();
+        spriteRenderer.transform.localScale = Vector3.one * scale;
+    
         // 让精灵面向相机
         spriteRenderer.transform.LookAt(Camera.main.transform);
         spriteRenderer.transform.Rotate(0, 180, 0);
-        
+    
         // 隐藏mesh
         if (meshRenderer) meshRenderer.enabled = false;
+    
+        Debug.Log($"[PickupItem] Set scale for {itemData.itemName}: {scale}");
     }
+
     
     void SetupMeshDisplay()
     {
@@ -215,15 +219,15 @@ public class PickupItem : BaseInteractable
     }
     float GetItemScale()
     {
-        // 根据物品类型调整大小
+        // 根据物品类型调整大小 - 减小整体尺寸
         return itemData.itemType switch
         {
-            ItemType.Weapon => 1.5f,    // 武器稍大
-            ItemType.Ammo => 1.2f,      // 弹药中等
-            ItemType.Food => 1.0f,      // 食物正常
-            ItemType.Water => 1.0f,     // 水正常
-            ItemType.Medicine => 1.1f,  // 药品稍大
-            _ => 1.0f
+            ItemType.Weapon => 1.0f,    // 武器正常大小
+            ItemType.Ammo => 0.5f,      // 弹药稍小
+            ItemType.Food => 0.5f,      // 食物小一些
+            ItemType.Water => 0.5f,     // 水小一些
+            ItemType.Medicine => 0.5f,  // 药品稍小
+            _ => 0.8f                   // 默认稍小
         };
     }
     void SetupGlow()

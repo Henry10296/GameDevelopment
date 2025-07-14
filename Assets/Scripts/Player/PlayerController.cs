@@ -556,9 +556,24 @@ public class PlayerController : MonoBehaviour
     
     void ToggleInventory()
     {
+        Debug.Log("[PlayerController] ToggleInventory called");
+    
         if (UIManager.Instance != null)
         {
-            UIManager.Instance.ToggleInventory();
+            var inventoryUI = UIManager.Instance.inventoryUI;
+            if (inventoryUI != null)
+            {
+                Debug.Log($"[PlayerController] InventoryUI found, current visibility: {inventoryUI.IsVisible()}");
+                UIManager.Instance.ToggleInventory();
+            }
+            else
+            {
+                Debug.LogError("[PlayerController] InventoryUI is null in UIManager!");
+            }
+        }
+        else
+        {
+            Debug.LogError("[PlayerController] UIManager.Instance is null!");
         }
     }
     

@@ -108,6 +108,11 @@ public class WeaponDisplay : MonoBehaviour
     
     
     
+    [Header("武器显示缩放")]
+    public float weaponImageScale = 1.5f; // 武器图片缩放倍数
+    public bool autoScaleWeaponImage = true; // 自动缩放武器图片
+    
+    
     private bool lastAimingState = false;
     void Start()
     {
@@ -409,14 +414,20 @@ public class WeaponDisplay : MonoBehaviour
     public void SwitchToWeapon(WeaponType weaponType)
     {
         if (isSwitching) return;
-        
+    
         WeaponSpriteSet newWeaponSet = GetSpriteSet(weaponType);
         if (newWeaponSet == null) return;
-        
+    
         isMeleeWeapon = newWeaponSet.isMeleeWeapon;
         currentWeaponType = weaponType;
         isEmptyHands = false;
-        
+    
+        // 设置武器图片缩放
+        if (autoScaleWeaponImage && weaponImage != null)
+        {
+            weaponImage.rectTransform.localScale = Vector3.one * weaponImageScale;
+        }
+    
         if (switchAnimation != null)
             StopCoroutine(switchAnimation);
         switchAnimation = StartCoroutine(WeaponSwitchCoroutine(newWeaponSet));

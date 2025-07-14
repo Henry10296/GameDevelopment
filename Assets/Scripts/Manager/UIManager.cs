@@ -418,33 +418,42 @@ public class UIManager : Singleton<UIManager>
     }
     
     // UI切换方法
-    public new void ToggleInventory()
+    public void ToggleInventory()
     {
         if (inventoryUI == null)
         {
-            Debug.LogWarning("[UIManager] InventoryUI 未设置");
+            Debug.LogError("[UIManager] InventoryUI is null! Please assign it in inspector.");
             return;
         }
-        
-        try
+    
+        Debug.Log($"[UIManager] ToggleInventory called, current state: {inventoryUI.IsVisible()}");
+    
+        if (inventoryUI.IsVisible())
         {
-            if (inventoryUI.IsVisible())
+            inventoryUI.Hide();
+        }
+        else
+        {
+            // 确保背包UI已初始化
+            if (!inventoryUI.IsVisible())
             {
-                inventoryUI.Hide();
-            }
-            else
-            {
-                // 关闭其他可能打开的UI
-                CloseOtherPanels();
                 inventoryUI.Show();
             }
         }
-        catch (System.Exception e)
-        {
-            Debug.LogError($"[UIManager] ToggleInventory 错误: {e.Message}");
-        }
     }
     
+    
+    public void ShowInventory()
+    {
+        if (inventoryUI != null)
+        {
+            inventoryUI.Show();
+        }
+        else
+        {
+            Debug.LogError("[UIManager] InventoryUI is null!");
+        }
+    }
     public void TogglePauseMenu()
     {
         try

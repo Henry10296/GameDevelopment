@@ -76,7 +76,7 @@ public class WeaponPickup : BaseInteractable
         Initialize();
     }
     
-    void Initialize()
+   public  void Initialize()
     {
         if (weaponData == null)
         {
@@ -125,7 +125,7 @@ public class WeaponPickup : BaseInteractable
         {
             weaponSprite.sprite = weaponData.weaponIcon;
             weaponSprite.color = Color.cyan; // 武器用青色标识
-            weaponSprite.transform.localScale = Vector3.one * 1.5f;
+            weaponSprite.transform.localScale = Vector3.one * 0.1f;
             weaponSprite.sortingOrder = 10;
         }
         
@@ -182,7 +182,7 @@ public class WeaponPickup : BaseInteractable
     public override void OnInteract()
     {
         Debug.Log($"[WeaponPickup] {gameObject.name} - OnInteract called!");
-        
+    
         if (!isInitialized || weaponData == null)
         {
             Debug.LogError("[WeaponPickup] 武器未正确初始化!");
@@ -199,26 +199,71 @@ public class WeaponPickup : BaseInteractable
 
         // 检查是否已有相同类型武器
         WeaponType weaponType = GetWeaponType();
-        
+    
+        bool pickupSuccessful = false;
+    
         if (weaponManager.HasWeaponType(weaponType))
         {
             // 已有武器，补充弹药
-            HandleAmmoPickup();
+            pickupSuccessful = HandleAmmoPickupImproved();
         }
         else
         {
             // 添加新武器
-            if (TryAddWeapon(weaponManager))
+            pickupSuccessful = TryAddWeapon(weaponManager);
+            if (pickupSuccessful)
             {
                 ShowMessage($"获得了 {weaponData.weaponName}!");
-                StartCoroutine(DestroyAfterPickup());
             }
             else
             {
                 ShowMessage("无法拾取武器!");
             }
         }
+    
+        // 只有拾取成功才销毁
+        if (pickupSuccessful)
+        {
+            StartCoroutine(DestroyAfterPickup());
+        }
     }
+    
+    
+    
+    
+    bool HandleAmmoPickupImproved()
+    {
+        if (InventoryManager.Instance && currentAmmo > 0)
+        {
+            // 查找对应弹药
+            ItemData ammoItem = FindAmmoItem(weaponData.ammoType);
+            if (ammoItem != null)
+            {
+                if (InventoryManager.Instance.AddItem(ammoItem, currentAmmo))
+                {
+                    ShowMessage($"获得了 {currentAmmo} 发 {ammoItem.itemName}");
+                    return true;
+                }
+                else
+                {
+                    ShowMessage("背包已满!");
+                    return false;
+                }
+            }
+            else
+            {
+                ShowMessage($"未找到对应弹药: {weaponData.ammoType}");
+                return false;
+            }
+        }
+        else
+        {
+            ShowMessage("已拥有该武器，且没有额外弹药");
+            return false;
+        }
+    }
+    
+    
     
     bool TryAddWeapon(WeaponManager weaponManager)
     {

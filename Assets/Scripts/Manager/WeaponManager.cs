@@ -454,14 +454,20 @@ public class WeaponManager : MonoBehaviour
         // 添加WeaponPickup组件
         WeaponPickup pickup = droppedWeapon.AddComponent<WeaponPickup>();
     
-        // 修复：使用新方法设置掉落武器数据，保留弹药数量
-        pickup.SetupFromDroppedWeapon(weapon);
+        // 重要：直接设置武器数据和弹药数量
+        pickup.weaponData = weapon.weaponData;
+        pickup.currentAmmo = weapon.CurrentAmmo; // 保留当前弹药数量
+    
+        // 立即初始化
+        pickup.Initialize();
 
         // 添加视觉显示
         WorldItemDisplay display = droppedWeapon.AddComponent<WorldItemDisplay>();
         if (display != null)
         {
             display.SetWeaponData(weapon.weaponData);
+            // 设置适当的缩放
+            display.transform.localScale = Vector3.one * 0.8f;
         }
 
         // 添加物理效果

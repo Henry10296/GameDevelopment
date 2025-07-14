@@ -105,7 +105,7 @@ MonoBehaviour:
   floatAmplitude: 0.1
   floatSpeed: 2
   rotateSpeed: 45
-  pickupScaleMultiplier: 1.2
+  pickupScaleMultiplier: 0.2
   pickupAnimDuration: 0.3
   useWeaponOrientation: 1
   weaponRotation: {x: 0, y: 0, z: 0}
