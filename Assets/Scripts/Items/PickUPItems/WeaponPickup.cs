@@ -240,6 +240,11 @@ public class WeaponPickup : BaseInteractable
                 return false;
             }
         }
+        else if (currentAmmo == 0)
+        {
+            ShowMessage("已拥有该武器，但丢弃的武器没有子弹");
+            return true; // 修复：即使没有子弹也允许拾取销毁，避免重复拾取
+        }
         else
         {
             ShowMessage("已拥有该武器，且没有额外弹药");

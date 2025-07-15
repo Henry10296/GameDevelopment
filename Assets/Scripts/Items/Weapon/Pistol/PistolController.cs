@@ -99,21 +99,84 @@ public class PistolController : WeaponController
     
     protected virtual void PerformPistolShot()
     {
-        Camera cam = Camera.main;
-        if (cam == null) return;
+        Camera cam = GetShootingCamera();
+        if (cam == null) 
+        {
+            Debug.LogError("[PistolController] No camera found for shooting!");
+            return;
+        }
 
         Vector3 shootOrigin = cam.transform.position;
         Vector3 direction = GetPistolShootDirection(cam);
 
-        // 修复：使用正确的摄像机变换
-        Debug.Log($"[DEBUG] Camera position: {cam.transform.position}");
-        Debug.Log($"[DEBUG] Camera rotation: {cam.transform.eulerAngles}");
-        Debug.Log($"[DEBUG] Camera forward: {cam.transform.forward}");
-        Debug.Log($"[DEBUG] Final shoot direction: {direction}");
+        Debug.Log($"[PistolController] ===== SHOOTING DEBUG START =====");
+        Debug.Log($"[PistolController] Shooting from {shootOrigin} in direction {direction}");
 
-        // 射线检测
-        if (Physics.Raycast(shootOrigin, direction, out RaycastHit hit, range))
+        // 查找场景中的所有敌人
+        EnemyHealth[] enemies = FindObjectsOfType<EnemyHealth>();
+        Debug.Log($"[PistolController] Found {enemies.Length} enemies in scene");
+        foreach (var enemy in enemies)
         {
+            float distance = Vector3.Distance(shootOrigin, enemy.transform.position);
+            Debug.Log($"[PistolController] Enemy {enemy.name} at position {enemy.transform.position}, distance: {distance}");
+            
+            // 检查敌人的Collider设置
+            Collider enemyCollider = enemy.GetComponent<Collider>();
+            if (enemyCollider != null)
+            {
+                Debug.Log($"[PistolController] Enemy {enemy.name} has Collider: {enemyCollider.GetType().Name}, isTrigger: {enemyCollider.isTrigger}");
+            }
+            else
+            {
+                Debug.LogWarning($"[PistolController] Enemy {enemy.name} has NO Collider!");
+            }
+            
+            // 检查IDamageable接口
+            IDamageable damageable = enemy.GetComponent<IDamageable>();
+            Debug.Log($"[PistolController] Enemy {enemy.name} has IDamageable: {damageable != null}");
+        }
+
+        // 添加射线可视化调试
+        Debug.DrawRay(shootOrigin, direction * range, Color.red, 2f);
+        
+        // 执行射线检测 - 使用RaycastAll来过滤不需要的物体
+        RaycastHit[] hits = Physics.RaycastAll(shootOrigin, direction, range);
+        RaycastHit? validHit = null;
+        
+        Debug.Log($"[PistolController] Total objects in ray path: {hits.Length}");
+        
+        foreach (var hit in hits)
+        {
+            Debug.Log($"[PistolController] Object in path: {hit.collider.name} at distance {hit.distance}");
+            
+            // 跳过子弹壳、弹药和拾取物品
+            if (hit.collider.name.Contains("9mm") || 
+                hit.collider.name.Contains("Ammo") || 
+                hit.collider.name.Contains("Pickup") ||
+                hit.collider.tag == "Pickup" ||
+                hit.collider.tag == "Item")
+            {
+                Debug.Log($"[PistolController] Skipping {hit.collider.name} (tag: {hit.collider.tag})");
+                continue;
+            }
+            
+            // 找到第一个有效目标
+            if (!validHit.HasValue || hit.distance < validHit.Value.distance)
+            {
+                validHit = hit;
+            }
+        }
+        
+        if (validHit.HasValue)
+        {
+            RaycastHit hit = validHit.Value;
+            Debug.Log($"[PistolController] Hit {hit.collider.name} at {hit.point}, tag: {hit.collider.tag}");
+            Debug.Log($"[PistolController] Hit distance: {hit.distance}");
+            
+            // 检查是否有IDamageable组件
+            IDamageable damageable = hit.collider.GetComponent<IDamageable>();
+            Debug.Log($"[PistolController] IDamageable component found: {damageable != null}");
+            
             ProcessHit(hit);
             CreateBulletTrail(GetMuzzlePosition(), hit.point);
         }
@@ -121,6 +184,8 @@ public class PistolController : WeaponController
         {
             Vector3 endPoint = shootOrigin + direction * range;
             CreateBulletTrail(GetMuzzlePosition(), endPoint);
+            Debug.Log($"[PistolController] Shot missed, end point: {endPoint}");
+            Debug.Log($"[PistolController] Raycast range: {range}");
         }
 
         // 枪口火焰
@@ -129,18 +194,18 @@ public class PistolController : WeaponController
     
     protected virtual Vector3 GetPistolShootDirection(Camera cam)
     {
-        // 修复：确保使用正确的摄像机朝向
-        Vector3 direction;
-        
-        // 如果摄像机旋转有问题，直接使用屏幕中心射线
+        // 使用屏幕中心射线确保正确的射击方向
         Ray centerRay = cam.ScreenPointToRay(new Vector3(Screen.width * 0.5f, Screen.height * 0.5f, 0));
-        direction = centerRay.direction;
+        Vector3 direction = centerRay.direction;
+        
+        Debug.Log($"[PistolController] Camera forward: {cam.transform.forward}");
+        Debug.Log($"[PistolController] Screen center ray direction: {direction}");
         
         // 应用散布
         float currentAccuracy = GetCurrentAccuracy();
         if (currentAccuracy > 0)
         {
-            // 修复：使用摄像机的局部坐标系计算散布
+            // 使用摄像机的局部坐标系计算散布
             Vector3 right = cam.transform.right;
             Vector3 up = cam.transform.up;
             

@@ -98,6 +98,8 @@ public abstract class WeaponController : MonoBehaviour
     
     public virtual void TryShoot()
     {
+        Debug.Log($"[WeaponController] TryShoot called - Time check: {Time.time >= nextFireTime}, isReloading: {isReloading}, currentAmmo: {currentAmmo}");
+        
         if (Time.time < nextFireTime || isReloading)
             return;
         
@@ -113,6 +115,7 @@ public abstract class WeaponController : MonoBehaviour
         {
             if (Input.GetMouseButton(0))
             {
+                Debug.Log("[WeaponController] Automatic fire - mouse button held");
                 ExecuteShot();
                 isShooting = true;
             }
@@ -126,6 +129,7 @@ public abstract class WeaponController : MonoBehaviour
             // 半自动 - 只响应按键按下
             if (Input.GetMouseButtonDown(0))
             {
+                Debug.Log("[WeaponController] Semi-automatic fire - mouse button pressed");
                 ExecuteShot();
             }
         }
@@ -134,6 +138,8 @@ public abstract class WeaponController : MonoBehaviour
     // 统一的射击执行方法
     protected virtual void ExecuteShot()
     {
+        Debug.Log($"[WeaponController] ExecuteShot called - usePhysicalBullets: {usePhysicalBullets}, bulletPrefab: {bulletPrefab != null}");
+        
         nextFireTime = Time.time + fireRate;
         
         if (!infiniteAmmo)
@@ -148,10 +154,12 @@ public abstract class WeaponController : MonoBehaviour
         // 选择射击方式
         if (usePhysicalBullets && bulletPrefab != null)
         {
+            Debug.Log("[WeaponController] Using physical bullets");
             CreatePhysicalBullet();
         }
         else
         {
+            Debug.Log("[WeaponController] Using raycast shooting");
             PerformShot(); // 原有的射线检测
         }
         
@@ -197,10 +205,10 @@ public abstract class WeaponController : MonoBehaviour
 
     protected virtual void PerformShot()
     {
-        Camera cam = Camera.main;
+        Camera cam = GetShootingCamera();
         if (cam == null) 
         {
-            Debug.LogError("[WeaponController] No main camera found!");
+            Debug.LogError("[WeaponController] No camera found for shooting!");
             return;
         }
         
@@ -210,10 +218,39 @@ public abstract class WeaponController : MonoBehaviour
         
         Debug.Log($"[WeaponController] Shooting from {shootOrigin} in direction {shootDirection}");
         
-        // 执行射线检测
-        if (Physics.Raycast(shootOrigin, shootDirection, out RaycastHit hit, range))
+        // 执行射线检测 - 使用RaycastAll来过滤不需要的物体
+        RaycastHit[] hits = Physics.RaycastAll(shootOrigin, shootDirection, range);
+        RaycastHit? validHit = null;
+        
+        foreach (var hit in hits)
         {
-            Debug.Log($"[WeaponController] Hit {hit.collider.name} at {hit.point}");
+            // 跳过子弹壳、弹药和拾取物品
+            if (hit.collider.name.Contains("9mm") || 
+                hit.collider.name.Contains("Ammo") || 
+                hit.collider.name.Contains("Pickup") ||
+                hit.collider.tag == "Pickup" ||
+                hit.collider.tag == "Item")
+            {
+                Debug.Log($"[WeaponController] Skipping {hit.collider.name} (tag: {hit.collider.tag})");
+                continue;
+            }
+            
+            // 找到第一个有效目标
+            if (!validHit.HasValue || hit.distance < validHit.Value.distance)
+            {
+                validHit = hit;
+            }
+        }
+        
+        if (validHit.HasValue)
+        {
+            RaycastHit hit = validHit.Value;
+            Debug.Log($"[WeaponController] Hit {hit.collider.name} at {hit.point}, tag: {hit.collider.tag}");
+            
+            // 检查是否有IDamageable组件
+            IDamageable damageable = hit.collider.GetComponent<IDamageable>();
+            Debug.Log($"[WeaponController] IDamageable component found: {damageable != null}");
+            
             ProcessHit(hit);
             CreateBulletTrail(shootOrigin, hit.point);
         }
@@ -249,13 +286,29 @@ public abstract class WeaponController : MonoBehaviour
     
         return direction.normalized;
     }
+    protected virtual Camera GetShootingCamera()
+    {
+        Camera cam = Camera.main;
+        if (cam == null)
+        {
+            // 尝试通过PlayerController获取摄像机
+            PlayerController player = FindObjectOfType<PlayerController>();
+            if (player != null)
+            {
+                cam = player.GetComponentInChildren<Camera>();
+                Debug.Log($"[WeaponController] Found camera via PlayerController: {cam?.name}");
+            }
+        }
+        return cam;
+    }
+    
     protected virtual Vector3 GetMuzzlePosition()
     {
         if (muzzlePoint != null)
             return muzzlePoint.position;
         
         // 如果没有枪口点，使用摄像机位置稍微向前
-        Camera cam = Camera.main;
+        Camera cam = GetShootingCamera();
         if (cam != null)
             return cam.transform.position + cam.transform.forward * 0.5f;
             
@@ -264,17 +317,33 @@ public abstract class WeaponController : MonoBehaviour
     
     protected virtual void ProcessHit(RaycastHit hit)
     {
+        Debug.Log($"[WeaponController] ===== ProcessHit called for {hit.collider.name} =====");
+        Debug.Log($"[WeaponController] Hit object tag: {hit.collider.tag}");
+        Debug.Log($"[WeaponController] Hit point: {hit.point}");
+        Debug.Log($"[WeaponController] Hit distance: {hit.distance}");
+        
+        // 检查所有组件
+        Component[] components = hit.collider.GetComponents<Component>();
+        Debug.Log($"[WeaponController] Hit object has {components.Length} components:");
+        foreach (var comp in components)
+        {
+            Debug.Log($"[WeaponController] - Component: {comp.GetType().Name}");
+        }
+        
         // 伤害处理
         IDamageable damageable = hit.collider.GetComponent<IDamageable>();
         if (damageable != null)
         {
             float finalDamage = CalculateDamage(hit);
+            Debug.Log($"[WeaponController] Found IDamageable, dealing {finalDamage} damage to {hit.collider.name}");
             damageable.TakeDamage(finalDamage);
-            
-            Debug.Log($"[WeaponController] Hit {hit.collider.name} for {finalDamage} damage");
             
             // 通知准星击中
             NotifyCrosshairHit();
+        }
+        else
+        {
+            Debug.LogWarning($"[WeaponController] No IDamageable component found on {hit.collider.name}");
         }
         
         // 击中效果

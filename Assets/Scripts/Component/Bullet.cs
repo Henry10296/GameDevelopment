@@ -110,18 +110,22 @@ public class Bullet : MonoBehaviour
     
     void ProcessHit(RaycastHit hit)
     {
-        Debug.Log($"子弹击中: {hit.collider.name} 在位置 {hit.point}");
+        Debug.Log($"[Bullet] 子弹击中: {hit.collider.name} 在位置 {hit.point}, tag: {hit.collider.tag}");
         
         // 伤害处理
         IDamageable damageable = hit.collider.GetComponent<IDamageable>();
         if (damageable != null)
         {
+            Debug.Log($"[Bullet] 找到IDamageable组件，对 {hit.collider.name} 造成 {damage} 伤害");
             damageable.TakeDamage(damage);
-            Debug.Log($"对 {hit.collider.name} 造成 {damage} 伤害");
             
             // 通知准星击中
             SimpleMouseCrosshair crosshair = FindObjectOfType<SimpleMouseCrosshair>();
             if (crosshair) crosshair.OnTargetHit();
+        }
+        else
+        {
+            Debug.LogWarning($"[Bullet] 未找到IDamageable组件在 {hit.collider.name}");
         }
         
         // 通知音响系统

@@ -126,7 +126,7 @@ public enum DoomEnemyState
     Death
 }
 
-public class Enemy : MonoBehaviour
+public class Enemy : MonoBehaviour, IDamageable
 {
     [Header("配置")]
     public EnemyData enemyData;
@@ -536,6 +536,8 @@ public class Enemy : MonoBehaviour
         health -= damage;
         OnTakeDamage?.Invoke(this, damage);
         
+        Debug.Log($"[Enemy] {gameObject.name} took {damage} damage, health: {health}");
+        
         if (health <= 0)
         {
             Die();
@@ -552,6 +554,21 @@ public class Enemy : MonoBehaviour
                 SetState(DoomEnemyState.Alert);
             }
         }
+    }
+    
+    public float GetCurrentHealth()
+    {
+        return health;
+    }
+    
+    public float GetMaxHealth()
+    {
+        return enemyData != null ? enemyData.health : 100f;
+    }
+    
+    public bool IsAlive()
+    {
+        return !isDead;
     }
     
     void Die()

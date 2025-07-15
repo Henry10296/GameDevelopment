@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-public class EnemyHealth : MonoBehaviour
+public class EnemyHealth : MonoBehaviour, IDamageable
 {
     [Header("当前状态")]
     [SerializeField] private float maxHealth = 100f;
@@ -16,15 +16,19 @@ public class EnemyHealth : MonoBehaviour
     public float MaxHealth => maxHealth;
     public float CurrentHealth => currentHealth;
     public bool IsDead() => isDead;
+    public bool IsAlive() => !isDead;
     public float GetHealthPercentage() => maxHealth > 0 ? currentHealth / maxHealth : 0f;
     
     void Start()
     {
+        Debug.Log($"[EnemyHealth] Start called for {gameObject.name}");
+        
         if (config == null)
         {
             // 尝试从EnemyAI获取配置
             if (TryGetComponent<EnemyAI>(out var ai) && ai.enemyConfig != null)
             {
+                Debug.Log($"[EnemyHealth] Found EnemyAI config for {gameObject.name}");
                 Initialize(ai.enemyConfig);
             }
             else
@@ -37,6 +41,8 @@ public class EnemyHealth : MonoBehaviour
         
         animator = GetComponent<Animator>();
         audioSource = GetComponent<AudioSource>();
+        
+        Debug.Log($"[EnemyHealth] {gameObject.name} initialized - Health: {currentHealth}/{maxHealth}, IsDead: {isDead}");
     }
     
     public void Initialize(EnemyConfig enemyConfig)
@@ -50,21 +56,39 @@ public class EnemyHealth : MonoBehaviour
     
     public void TakeDamage(float damage)
     {
-        if (isDead) return;
+        Debug.Log($"[EnemyHealth] TakeDamage called on {gameObject.name} with {damage} damage");
         
+        if (isDead) 
+        {
+            Debug.Log($"[EnemyHealth] {gameObject.name} is already dead, ignoring damage");
+            return;
+        }
+        
+        float oldHealth = currentHealth;
         currentHealth -= damage;
         currentHealth = Mathf.Max(0f, currentHealth);
+        
+        Debug.Log($"[EnemyHealth] {gameObject.name} health changed from {oldHealth} to {currentHealth} (max: {maxHealth})");
         
         // 播放受伤动画和音效
         if (animator) animator.SetTrigger("TakeDamage");
         PlayHurtSound();
         
-        Debug.Log($"[EnemyHealth] {gameObject.name} took {damage} damage, health: {currentHealth}/{maxHealth}");
-        
         if (currentHealth <= 0)
         {
+            Debug.Log($"[EnemyHealth] {gameObject.name} health depleted, calling Die()");
             Die();
         }
+    }
+    
+    public float GetCurrentHealth()
+    {
+        return currentHealth;
+    }
+    
+    public float GetMaxHealth()
+    {
+        return maxHealth;
     }
     
     public void Heal(float amount)
